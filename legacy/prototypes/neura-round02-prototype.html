@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEURA — Round 02</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#05060b;
+  --panel:rgba(255,255,255,0.03);
+  --border:rgba(255,255,255,0.09);
+  --violet:#8b5cf6;
+  --cyan:#22d3ee;
+  --green:#34d399;
+  --red:#f2607a;
+  --ink:#f5f6fa;
+  --muted:#868fa3;
+  --mono:'JetBrains Mono', monospace;
+  --sans:'Inter', sans-serif;
+  --disp:'Space Grotesk', sans-serif;
+}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--sans);
+  overflow-x:hidden; -webkit-font-smoothing:antialiased;
+}
+::selection{ background:var(--violet); color:#fff; }
+
+.wrap{ max-width:920px; margin:0 auto; padding:0 32px; }
+section{ position:relative; padding:150px 0; }
+.label{
+  font-family:var(--mono); font-size:12px; letter-spacing:0.14em; color:var(--muted);
+  margin-bottom:20px;
+}
+h2{
+  font-family:var(--disp); font-weight:700; font-size:clamp(30px,4.4vw,46px);
+  line-height:1.1; letter-spacing:-0.01em; max-width:640px;
+}
+.sub{
+  font-family:var(--sans); font-size:16px; color:var(--muted); max-width:520px;
+  margin-top:18px; line-height:1.65;
+}
+
+.reveal{ opacity:0; transform:translateY(22px); transition:opacity 0.8s ease, transform 0.8s ease; }
+.reveal.visible{ opacity:1; transform:none; }
+
+/* ---------- moving graphics: scroll progress ---------- */
+.progress-bar{
+  position:fixed; top:0; left:0; height:2px; width:0%; z-index:100;
+  background:linear-gradient(90deg, var(--cyan), var(--violet));
+}
+
+/* ---------- soft ambient background ---------- */
+.bg-glow{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(600px 460px at 78% 6%, rgba(139,92,246,0.14), transparent 62%),
+    radial-gradient(520px 420px at 8% 46%, rgba(34,211,238,0.07), transparent 62%);
+}
+.bg-orb{
+  position:fixed; width:520px; height:520px; border-radius:50%; z-index:0; pointer-events:none;
+  top:-140px; right:-140px;
+  background:radial-gradient(circle, rgba(139,92,246,0.16), transparent 68%);
+  filter:blur(10px);
+  animation:drift 22s ease-in-out infinite;
+}
+@keyframes drift{
+  0%,100%{ transform:translate(0,0) scale(1); }
+  50%{ transform:translate(-40px,60px) scale(1.08); }
+}
+
+main{ position:relative; z-index:2; }
+
+/* ---------- topbar ---------- */
+.topbar{
+  position:sticky; top:0; z-index:50; display:flex; align-items:center; justify-content:space-between;
+  padding:22px 32px; backdrop-filter:blur(14px); background:rgba(5,6,11,0.55);
+  border-bottom:1px solid var(--border);
+}
+.brand{ display:flex; align-items:center; gap:9px; font-family:var(--disp); font-weight:700; font-size:16px; letter-spacing:0.1em; }
+.brand-dot{ width:7px; height:7px; border-radius:50%; background:var(--cyan); box-shadow:0 0 8px 2px rgba(34,211,238,0.7); animation:pulse 1.8s ease-in-out infinite; }
+@keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.35; } }
+.topbar-meta{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+
+/* ---------- hero ---------- */
+.hero{ min-height:90vh; display:flex; flex-direction:column; justify-content:center; padding:80px 0; }
+.hero-ring{
+  position:absolute; top:8%; right:6%; width:340px; height:340px; z-index:-1;
+  border:1px solid rgba(139,92,246,0.18); border-radius:50%;
+  animation:spin 50s linear infinite;
+}
+.hero-ring::before{
+  content:''; position:absolute; top:-2px; left:50%; width:5px; height:5px; margin-left:-2.5px;
+  border-radius:50%; background:var(--cyan); box-shadow:0 0 10px 3px rgba(34,211,238,0.8);
+}
+.hero-ring.r2{ width:460px; height:460px; top:0%; right:-2%; border-color:rgba(34,211,238,0.1); animation-duration:70s; animation-direction:reverse; }
+@keyframes spin{ from{ transform:rotate(0); } to{ transform:rotate(360deg); } }
+
+.hero-tag{
+  font-family:var(--mono); font-size:12px; letter-spacing:0.1em; color:var(--muted); margin-bottom:28px;
+}
+.hero-num{
+  font-family:var(--disp); font-weight:700; font-size:clamp(80px,13vw,160px); line-height:0.88; letter-spacing:-0.02em;
+  background:linear-gradient(100deg,#fff 40%, var(--cyan) 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.hero-title{ font-family:var(--disp); font-weight:600; font-size:clamp(20px,2.6vw,28px); margin-top:10px; color:var(--muted); }
+.hero-line{ font-family:var(--sans); font-weight:600; font-size:19px; margin-top:30px; max-width:520px; }
+.hero-desc{ font-family:var(--sans); font-size:15px; color:var(--muted); margin-top:14px; max-width:480px; line-height:1.7; }
+.hero-status{ margin-top:40px; font-family:var(--mono); font-size:12px; color:var(--muted); display:flex; align-items:center; gap:8px; }
+.hero-status .lit{ width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px 2px rgba(52,211,153,0.6); animation:pulse 1.6s ease-in-out infinite; }
+
+/* ---------- flow ---------- */
+.flow{ margin-top:56px; position:relative; }
+.flow-line{ position:relative; height:2px; background:var(--border); margin:0 0 34px 0; overflow:hidden; border-radius:2px; }
+.flow-pulse{
+  position:absolute; top:-2px; width:22px; height:6px; border-radius:3px;
+  background:linear-gradient(90deg, transparent, var(--cyan), var(--violet), transparent);
+  animation:travel 4s linear infinite;
+}
+@keyframes travel{ 0%{ left:-5%; } 100%{ left:100%; } }
+.flow-steps{ display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+.flow-step{ font-family:var(--mono); font-size:12px; color:var(--muted); letter-spacing:0.05em; transition:color 0.3s ease, transform 0.3s ease; }
+.flow-step b{ display:block; font-family:var(--disp); font-size:17px; color:var(--ink); font-weight:600; margin-top:6px; letter-spacing:0; }
+.flow-step:hover{ transform:translateY(-3px); color:var(--cyan); }
+
+/* ---------- constraint list ---------- */
+.c-list{ margin-top:56px; display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.c-item{ background:var(--bg); padding:30px; transition:background 0.3s ease; position:relative; }
+.c-item:hover{ background:rgba(255,255,255,0.025); }
+.c-item-num{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+.c-item-title{ font-family:var(--disp); font-weight:700; font-size:20px; margin-top:10px; }
+.c-item-desc{ font-family:var(--sans); font-size:13.5px; color:var(--muted); margin-top:10px; line-height:1.6; }
+.c-item-metric{ margin-top:18px; font-family:var(--mono); font-size:13px; color:var(--cyan); }
+.c-item-metric .off{ color:var(--red); }
+.bar-track{ height:3px; border-radius:2px; background:rgba(255,255,255,0.08); margin-top:8px; overflow:hidden; }
+.bar-fill{ height:100%; background:linear-gradient(90deg, var(--cyan), var(--violet)); width:0%; transition:width 0.4s ease; }
+.json-mini{ font-family:var(--mono); font-size:11.5px; color:var(--muted); line-height:1.6; margin-top:6px; }
+.json-mini .k{ color:var(--cyan); }
+.lock-row{ display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; }
+.lock-chip{ font-family:var(--mono); font-size:11px; color:var(--muted); border:1px solid var(--border); padding:4px 9px; border-radius:3px; }
+
+/* ---------- skill tags ---------- */
+.skill-row{ margin-top:46px; display:flex; flex-wrap:wrap; gap:12px; }
+.skill-tag{
+  font-family:var(--mono); font-size:12.5px; color:var(--ink); border:1px solid var(--border);
+  padding:10px 18px; border-radius:20px; background:var(--panel);
+}
+
+/* ---------- tasks ---------- */
+.task-list{ margin-top:56px; display:flex; flex-direction:column; }
+.task-row{
+  display:grid; grid-template-columns:40px 1fr auto; gap:24px; align-items:center;
+  padding:26px 0; border-top:1px solid var(--border);
+}
+.task-list .task-row:last-child{ border-bottom:1px solid var(--border); }
+.task-num{ font-family:var(--mono); font-size:12px; color:var(--muted); }
+.task-title{ font-family:var(--disp); font-weight:700; font-size:17px; }
+.task-desc{ font-family:var(--sans); font-size:13.5px; color:var(--muted); margin-top:4px; }
+.task-visual{ font-family:var(--mono); font-size:12px; color:var(--muted); text-align:right; white-space:nowrap; }
+.task-visual .out{ color:var(--cyan); }
+@media (max-width:640px){ .task-row{ grid-template-columns:1fr; gap:8px; } .task-visual{ text-align:left; } }
+
+/* ---------- timeline ---------- */
+.timeline{ margin-top:56px; }
+.t-track{ position:relative; height:2px; background:var(--border); margin-bottom:44px; overflow:hidden; border-radius:2px; }
+.t-pulse{ position:absolute; top:-2px; width:20px; height:6px; border-radius:3px; background:linear-gradient(90deg, transparent, var(--violet), var(--cyan), transparent); animation:travel 5.5s linear infinite; }
+.t-steps{ display:grid; grid-template-columns:repeat(6,1fr); gap:14px; }
+.t-step{ border-top:2px solid rgba(255,255,255,0.18); padding-top:14px; }
+.t-num{ font-family:var(--mono); font-size:10.5px; color:var(--muted); }
+.t-title{ font-family:var(--disp); font-weight:700; font-size:14px; margin-top:5px; }
+.t-desc{ font-family:var(--sans); font-size:11.5px; color:var(--muted); margin-top:6px; line-height:1.5; }
+.no-iter{ margin-top:36px; padding:22px 26px; border:1px solid rgba(242,96,122,0.25); border-radius:8px; }
+.no-iter b{ font-family:var(--disp); font-size:17px; color:var(--red); }
+.no-iter span{ display:block; font-family:var(--sans); font-size:13px; color:var(--muted); margin-top:6px; }
+@media (max-width:820px){ .t-steps{ grid-template-columns:repeat(2,1fr); row-gap:26px; } }
+
+/* ---------- run-off ---------- */
+.runoff-frame{ margin-top:56px; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:rgba(255,255,255,0.015); }
+.runoff-head{ display:flex; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border); }
+.runoff-head-title{ font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:0.06em; }
+.runoff-grid{ display:grid; grid-template-columns:110px repeat(3,1fr); }
+.runoff-corner{ padding:14px 16px; font-family:var(--mono); font-size:10.5px; color:var(--muted); border-bottom:1px solid var(--border); }
+.runoff-col-head{ padding:14px 16px; font-family:var(--mono); font-size:11px; color:var(--muted); border-bottom:1px solid var(--border); border-left:1px solid var(--border); }
+.runoff-row-label{ padding:16px; font-family:var(--disp); font-weight:600; font-size:14px; border-bottom:1px solid var(--border); display:flex; align-items:center; }
+.runoff-cell{ padding:16px; border-bottom:1px solid var(--border); border-left:1px solid var(--border); font-family:var(--mono); font-size:11.5px; display:flex; align-items:center; gap:8px; }
+.status-dot{ width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.status-dot.running{ background:var(--muted); animation:pulse 1s ease-in-out infinite; }
+.status-dot.pass{ background:var(--green); }
+.status-dot.fail{ background:var(--red); }
+.status-text.pass{ color:var(--green); }
+.status-text.fail{ color:var(--red); }
+.status-text.running, .status-text.idle{ color:var(--muted); }
+@media (max-width:640px){ .runoff-grid{ grid-template-columns:70px repeat(3,minmax(90px,1fr)); overflow-x:auto; } }
+
+/* ---------- scoring ---------- */
+.score-list{ margin-top:56px; display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.score-item{ background:var(--bg); padding:30px; }
+.score-num{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+.score-title{ font-family:var(--disp); font-weight:700; font-size:20px; margin-top:8px; }
+.score-sub{ font-family:var(--sans); font-size:13px; color:var(--muted); margin-top:8px; line-height:1.55; }
+.pass-rate{ font-family:var(--mono); font-size:12.5px; color:var(--cyan); margin-top:20px; }
+.warn-list{ margin-top:20px; display:flex; flex-direction:column; gap:6px; }
+.warn-item{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+.strat-flow{ margin-top:20px; font-family:var(--mono); font-size:12px; color:var(--muted); }
+@media (max-width:820px){ .score-list{ grid-template-columns:1fr; } }
+
+/* ---------- core rule ---------- */
+.core-rule{ text-align:center; padding:190px 0; }
+.core-rule-text{ font-family:var(--disp); font-weight:700; letter-spacing:-0.01em; font-size:clamp(34px,6.6vw,74px); line-height:1.04; }
+.core-rule-text .dim{ color:rgba(255,255,255,0.28); }
+.core-rule-text .lit{ background:linear-gradient(100deg, var(--cyan), var(--violet)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.core-rule-sub{ margin-top:24px; font-family:var(--sans); font-size:15px; color:var(--muted); max-width:480px; margin-inline:auto; }
+
+/* ---------- logistics ---------- */
+.log-panel{ margin-top:52px; display:flex; align-items:center; justify-content:center; gap:50px; flex-wrap:wrap; }
+.log-num{ font-family:var(--disp); font-weight:700; font-size:32px; }
+.log-num.accent{ color:var(--cyan); }
+.log-label{ font-family:var(--mono); font-size:11.5px; color:var(--muted); margin-top:8px; }
+.log-arrow{ font-family:var(--mono); font-size:22px; color:var(--muted); }
+@media (max-width:600px){ .log-arrow{ transform:rotate(90deg); } }
+
+/* ---------- spectator ---------- */
+.spec-row{ margin-top:36px; display:flex; gap:12px; flex-wrap:wrap; }
+.spec-tag{ font-family:var(--mono); font-size:12px; border:1px solid var(--border); padding:9px 16px; border-radius:4px; color:var(--muted); }
+
+/* ---------- footer ---------- */
+footer{ border-top:1px solid var(--border); padding:50px 0 36px; }
+.footer-row{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:14px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+.footer-brand{ font-family:var(--disp); font-weight:700; font-size:16px; color:var(--ink); letter-spacing:0.08em; }
+
+@media (max-width:640px){
+  .wrap{ padding:0 22px; }
+  section{ padding:90px 0; }
+  .flow-steps{ grid-template-columns:1fr 1fr; row-gap:24px; }
+  .c-list{ grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<div class="bg-glow"></div>
+<div class="bg-orb"></div>
+
+<div class="topbar">
+  <div class="brand"><div class="brand-dot"></div>NEURA</div>
+  <div class="topbar-meta">ROUND 02</div>
+</div>
+
+<main>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-ring"></div>
+    <div class="hero-ring r2"></div>
+    <div class="wrap">
+      <div class="hero-tag reveal">PROMPT ENGINEERING HACKATHON</div>
+      <div class="hero-num reveal">ROUND 02</div>
+      <div class="hero-title reveal">Constraint&#8209;Based Challenge</div>
+      <div class="hero-line reveal">Same task. One constraint. Zero room for brute force.</div>
+      <div class="hero-desc reveal">Teams solve the same fixed task under an artificial constraint designed to test precision, generalization and real prompt engineering skill.</div>
+      <div class="hero-status reveal"><span class="lit"></span> System ready</div>
+    </div>
+  </section>
+
+  <!-- THE CHALLENGE -->
+  <section>
+    <div class="wrap">
+      <div class="label reveal">The Challenge</div>
+      <h2 class="reveal">One task. One constraint. No brute force.</h2>
+      <p class="sub reveal">Teams solve the same fixed task, but under an artificial constraint that forces them to rely on specific prompting techniques instead of writing longer and longer prompts.</p>
+
+      <div class="flow reveal">
+        <div class="flow-line"><div class="flow-pulse"></div></div>
+        <div class="flow-steps">
+          <div class="flow-step">SAME<b>Task</b></div>
+          <div class="flow-step">FIXED<b>Constraint</b></div>
+          <div class="flow-step">SMART<b>Prompt</b></div>
+          <div class="flow-step">HIDDEN<b>Tests</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONSTRAINTS -->
+  <section>
+    <div class="wrap">
+      <div class="label reveal">Constraint System</div>
+      <h2 class="reveal">Choose your limit. Master the prompt.</h2>
+
+      <div class="c-list reveal">
+        <div class="c-item">
+          <div class="c-item-num">01</div>
+          <div class="c-item-title">Under 50 tokens</div>
+          <div class="c-item-desc">Prompt only. Precision, cutting filler, prioritizing instructions.</div>
+          <div class="c-item-metric" id="tokenCounter">TOKENS: 00 / 50</div>
+          <div class="bar-track"><div class="bar-fill" id="tokenFill"></div></div>
+        </div>
+
+        <div class="c-item">
+          <div class="c-item-num">02</div>
+          <div class="c-item-title">Zero&#8209;shot only</div>
+          <div class="c-item-desc">No examples allowed. Tests clear instruction&#8209;writing, role prompting and output formatting.</div>
+          <div class="c-item-metric">EXAMPLES: 0</div>
+        </div>
+
+        <div class="c-item">
+          <div class="c-item-num">03</div>
+          <div class="c-item-title">One&#8209;shot only</div>
+          <div class="c-item-desc">Exactly one example. Tests the ability to select the most representative case.</div>
+          <div class="c-item-metric">EXAMPLES: 1</div>
+        </div>
+
+        <div class="c-item">
+          <div class="c-item-num">04</div>
+          <div class="c-item-title">No system prompt</div>
+          <div class="c-item-desc">Everything must be packed into the user turn.</div>
+          <div class="c-item-metric">SYSTEM PROMPT: <span class="off">DISABLED</span></div>
+        </div>
+
+        <div class="c-item">
+          <div class="c-item-num">05</div>
+          <div class="c-item-title">3 unseen test inputs</div>
+          <div class="c-item-desc">Your prompt must work across 3 unseen test inputs without modification.</div>
+          <div class="lock-row">
+            <span class="lock-chip">INPUT_01</span>
+            <span class="lock-chip">INPUT_02</span>
+            <span class="lock-chip">INPUT_03</span>
+          </div>
+        </div>
+
+        <div class="c-item">
+          <div class="c-item-num">06</div>
+          <div class="c-item-title">Valid JSON output</div>
+          <div class="c-item-desc">Output must be valid JSON every time. Tests structured output and format enforcement.</div>
+          <div class="json-mini">{ "result": "...", "confidence": <span class="k" id="confVal">0.94</span> }</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHAT IT TESTS -->
+  <section>
+    <div class="wrap">
+      <div class="label reveal">What The Constraints Test</div>
+      <h2 class="reveal">Skill, not length.</h2>
+      <div class="skill-row reveal">
+        <div class="skill-tag">Precision</div>
+        <div class="skill-tag">Clear instruction&#8209;writing</div>
+        <div class="skill-tag">Role prompting</div>
+        <div class="skill-tag">Output formatting</div>
+        <div class="skill-tag">Generalization</div>
+        <div class="skill-tag">Structured output</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SAMPLE TASKS -->
+  <section>
+    <div class="wrap">
+      <div class="label reveal">Sample Tasks</div>
+      <h2 class="reveal">Pick the problem. Beat the constraint.</h2>
+
+      <div class="task-list reveal">
+        <div class="task-row">
+          <div class="task-num">01</div>
+          <div><div class="task-title">Sentiment classification</div><div class="task-desc">Classify tricky or sarcastic reviews.</div></div>
+          <div class="task-visual">"Amazing. Another update that broke everything." &rarr; <span class="out">NEGATIVE</span></div>
+        </div>
+        <div class="task-row">
+          <div class="task-num">02</div>
+          <div><div class="task-title">Structured data extraction</div><div class="task-desc">Extract name, date and amount from messy text.</div></div>
+          <div class="task-visual">RAW TEXT &rarr; <span class="out">NAME &middot; DATE &middot; AMOUNT</span></div>
+        </div>
+        <div class="task-row">
+          <div class="task-num">03</div>
+          <div><div class="task-title">One&#8209;sentence summary</div><div class="task-desc">Summarize a paragraph in exactly one sentence.</div></div>
+          <div class="task-visual">INPUT &rarr; AI &rarr; <span class="out">1 / 1 SENTENCE</span></div>
+        </div>
+        <div class="task-row">
+          <div class="task-num">04</div>
+          <div><div class="task-title">Natural language &rarr; SQL&#8209;like query</div><div class="task-desc">Convert natural language into a SQL&#8209;like query.</div></div>
+          <div class="task-visual">SHOW STUDENTS WITH SCORE &gt; 80 &rarr; <span class="out">SELECT students WHERE score &gt; 80</span></div>
+        </div>
+        <div class="task-row">
+          <div class="task-num">05</div>
+          <div><div class="task-title">Multi&#8209;step logic</div><div class="task-desc">Answer a multi&#8209;step math or logic word problem.</div></div>
+          <div class="task-visual">INPUT &rarr; STEP 01 &rarr; STEP 02 &rarr; <span class="out">FINAL ANSWER</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RUN THE ROUND -->
+  <section>
+    <div class="wrap">
+      <div class="label reveal">Process</div>
+      <h2 class="reveal">Run the round.</h2>
+
+      <div class="timeline reveal">
+        <div class="t-track"><div class="t-pulse"></div></div>
+        <div class="t-steps">
+          <div class="t-step"><div class="t-num">01</div><div class="t-title">Same task</div><div class="t-desc">All teams receive the same task.</div></div>
+          <div class="t-step"><div class="t-num">02</div><div class="t-title">Same constraint</div><div class="t-desc">Every team works under the same constraint.</div></div>
+          <div class="t-step"><div class="t-num">03</div><div class="t-title">Hidden tests</div><div class="t-desc">Teams receive the same 3&ndash;5 hidden test inputs.</div></div>
+          <div class="t-step"><div class="t-num">04</div><div class="t-title">One final prompt</div><div class="t-desc">Teams submit one final prompt.</div></div>
+          <div class="t-step"><div class="t-num">05</div><div class="t-title">Live run&#8209;off</div><div class="t-desc">Each prompt is run against hidden inputs live.</div></div>
+          <div class="t-step"><div class="t-num">06</div><div class="t-title">Transparent results</div><div class="t-desc">Results are shown live for full comparison.</div></div>
+        </div>
+      </div>
+
+      <div class="no-iter reveal">
+        <b>No iteration during scoring</b>
+        <span>Scoring rewards getting the prompt right rather than spamming variations.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RUN-OFF -->
+  <section>
+    <div class="wrap">
+      <div class="label reveal">Live Testing</div>
+      <h2 class="reveal">The run&#8209;off.</h2>
+      <p class="sub reveal">Prompts go live. Results don't lie.</p>
+
+      <div class="runoff-frame reveal">
+        <div class="runoff-head">
+          <div class="runoff-head-title">Simulated preview</div>
+          <div class="runoff-head-title" id="clock">00:00:00</div>
+        </div>
+        <div class="runoff-grid" id="runoffGrid">
+          <div class="runoff-corner">TEAM</div>
+          <div class="runoff-col-head">INPUT 01</div>
+          <div class="runoff-col-head">INPUT 02</div>
+          <div class="runoff-col-head">INPUT 03</div>
+
+          <div class="runoff-row-label">Team A</div>
+          <div class="runoff-cell" data-row="0" data-col="0"></div>
+          <div class="runoff-cell" data-row="0" data-col="1"></div>
+          <div class="runoff-cell" data-row="0" data-col="2"></div>
+
+          <div class="runoff-row-label">Team B</div>
+          <div class="runoff-cell" data-row="1" data-col="0"></div>
+          <div class="runoff-cell" data-row="1" data-col="1"></div>
+          <div class="runoff-cell" data-row="1" data-col="2"></div>
+
+          <div class="runoff-row-label">Team C</div>
+          <div class="runoff-cell" data-row="2" data-col="0"></div>
+          <div class="runoff-cell" data-row="2" data-col="1"></div>
+          <div class="runoff-cell" data-row="2" data-col="2"></div>
+
+          <div class="runoff-row-label">Team D</div>
+          <div class="runoff-cell" data-row="3" data-col="0"></div>
+          <div class="runoff-cell" data-row="3" data-col="1"></div>
+          <div class="runoff-cell" data-row="3" data-col="2"></div>
+        </div>
+      </div>
+      <p class="sub reveal" style="margin-top:20px;">Designed to be displayed on a projector so the whole room can watch, live.</p>
+    </div>
+  </section>
+
+  <!-- SCORING -->
+  <section>
+    <div class="wrap">
+      <div class="label reveal">Scoring</div>
+      <h2 class="reveal">How you win.</h2>
+
+      <div class="score-list reveal">
+        <div class="score-item">
+          <div class="score-num">01</div>
+          <div class="score-title">Accuracy</div>
+          <div class="score-sub">Percentage of test cases passed.</div>
+          <div class="pass-rate">PASS RATE // <span id="passRateNum">87%</span></div>
+          <div class="bar-track"><div class="bar-fill" id="passRateBar" data-target="87"></div></div>
+        </div>
+        <div class="score-item">
+          <div class="score-num">02</div>
+          <div class="score-title">Constraint compliance</div>
+          <div class="score-sub">Did the team actually follow the constraint?</div>
+          <div class="warn-list">
+            <div class="warn-item">No cheating</div>
+            <div class="warn-item">No token limit bypass</div>
+            <div class="warn-item">No sneaked examples</div>
+          </div>
+        </div>
+        <div class="score-item">
+          <div class="score-num">03</div>
+          <div class="score-title">Technique</div>
+          <div class="score-sub">How intelligently the prompt was designed. Teams briefly explain their approach.</div>
+          <div class="strat-flow">Strategy &rarr; Prompt &rarr; Result</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CORE RULE -->
+  <section class="core-rule">
+    <div class="wrap">
+      <div class="core-rule-text reveal">
+        DON'T WRITE <span class="dim">MORE.</span><br>
+        WRITE <span class="lit">BETTER.</span>
+      </div>
+      <div class="core-rule-sub reveal">Round 2 rewards precision, generalization and elegant prompt design — not brute&#8209;force prompting.</div>
+    </div>
+  </section>
+
+  <!-- LOGISTICS -->
+  <section>
+    <div class="wrap">
+      <div class="label reveal">Logistics</div>
+      <h2 class="reveal">Time.</h2>
+      <div class="log-panel reveal">
+        <div><div class="log-num">20&ndash;30 min</div><div class="log-label">Prompt creation</div></div>
+        <div class="log-arrow">&rarr;</div>
+        <div><div class="log-num accent">Live run&#8209;off</div><div class="log-label">Prompts tested against hidden inputs</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SPECTATOR -->
+  <section>
+    <div class="wrap">
+      <div class="label reveal">Spectator Experience</div>
+      <h2 class="reveal">Built for the room.</h2>
+      <p class="sub reveal">The run&#8209;off is designed to be the most fun and spectator&#8209;friendly part of the challenge.</p>
+      <div class="spec-row reveal">
+        <div class="spec-tag">Live prompt testing</div>
+        <div class="spec-tag">Projector display</div>
+        <div class="spec-tag">Transparent results</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="footer-row">
+        <span class="footer-brand">NEURA</span>
+        <span>Round 02 &middot; Constraint&#8209;Based Challenge</span>
+      </div>
+    </div>
+  </footer>
+
+</main>
+
+<script>
+// scroll progress
+const progressBar = document.getElementById('progressBar');
+window.addEventListener('scroll', ()=>{
+  const h = document.documentElement;
+  const pct = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+  progressBar.style.width = pct + '%';
+});
+
+// scroll reveal
+const revealEls = document.querySelectorAll('.reveal');
+const io = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target); }
+  });
+}, { threshold:0.14 });
+revealEls.forEach(el=>io.observe(el));
+
+// token counter
+const tokenCounter = document.getElementById('tokenCounter');
+const tokenFill = document.getElementById('tokenFill');
+let tVal = 0;
+setInterval(()=>{
+  tVal = tVal >= 37 ? 12 : tVal + 1;
+  tokenCounter.textContent = 'TOKENS: ' + String(tVal).padStart(2,'0') + ' / 50';
+  tokenFill.style.width = (tVal/50*100) + '%';
+}, 220);
+
+// confidence flicker
+const confVal = document.getElementById('confVal');
+setInterval(()=>{
+  if(confVal) confVal.textContent = (0.90 + Math.random()*0.08).toFixed(2);
+}, 1400);
+
+// pass rate bar
+const passBar = document.getElementById('passRateBar');
+const passIo = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){ passBar.style.width = passBar.dataset.target + '%'; passIo.unobserve(e.target); }
+  });
+}, { threshold:0.5 });
+if(passBar) passIo.observe(passBar);
+
+// runoff simulation
+const cells = document.querySelectorAll('.runoff-cell');
+function randomOutcome(){ return Math.random() < 0.72 ? 'pass' : 'fail'; }
+function renderCell(cell, state){
+  if(state === 'idle'){
+    cell.innerHTML = '<span class="status-dot" style="background:rgba(255,255,255,0.2);"></span><span class="status-text idle">IDLE</span>';
+  } else if(state === 'running'){
+    cell.innerHTML = '<span class="status-dot running"></span><span class="status-text running">TESTING&hellip;</span>';
+  } else {
+    const label = state === 'pass' ? 'PASSED' : 'FAILED';
+    cell.innerHTML = '<span class="status-dot '+state+'"></span><span class="status-text '+state+'">'+label+'</span>';
+  }
+}
+cells.forEach(c=>renderCell(c,'idle'));
+function runCycle(){
+  cells.forEach(c=>renderCell(c,'idle'));
+  let delay = 0;
+  cells.forEach((cell)=>{
+    setTimeout(()=>renderCell(cell,'running'), delay);
+    setTimeout(()=>renderCell(cell, randomOutcome()), delay + 700);
+    delay += 160;
+  });
+}
+runCycle();
+setInterval(runCycle, cells.length*160 + 3600);
+
+// clock
+const clockEl = document.getElementById('clock');
+let secs = 0;
+setInterval(()=>{
+  secs++;
+  const h = String(Math.floor(secs/3600)).padStart(2,'0');
+  const m = String(Math.floor((secs%3600)/60)).padStart(2,'0');
+  const s = String(secs%60).padStart(2,'0');
+  if(clockEl) clockEl.textContent = h+':'+m+':'+s;
+}, 1000);
+</script>
+
+</body>
+</html>

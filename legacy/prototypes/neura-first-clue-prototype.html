@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEURA — The First Clue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #05070b;
+    --bg-alt: #080b12;
+    --panel: #0c1119;
+    --panel-2: #0f1522;
+    --line: rgba(140,180,220,0.14);
+    --line-strong: rgba(140,180,220,0.28);
+    --cyan: #47e0ff;
+    --cyan-dim: #1c7a94;
+    --violet: #9a7bff;
+    --amber: #ffb648;
+    --red: #ff6a6a;
+    --green: #4ee6a8;
+    --text: #e7eef6;
+    --muted: #6f8296;
+    --muted-2: #4a5a6c;
+    --disp: 'Space Grotesk', sans-serif;
+    --body: 'Inter', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    overflow-x:hidden;
+    position:relative;
+  }
+  body::before{
+    content:'';
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 42px 42px;
+    opacity:0.35;
+    pointer-events:none;
+    z-index:0;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, black 20%, transparent 85%);
+  }
+  #particles{position:fixed; inset:0; pointer-events:none; z-index:0;}
+  .particle{
+    position:absolute; width:2px; height:2px; border-radius:50%;
+    background: var(--cyan); opacity:0.5;
+    animation: drift linear infinite;
+  }
+  @keyframes drift{
+    from{ transform: translateY(0); opacity:0;}
+    10%{opacity:0.6;}
+    90%{opacity:0.4;}
+    to{ transform: translateY(-100vh); opacity:0;}
+  }
+  .view{ position:relative; z-index:1; min-height:100vh; display:none; }
+  .view.active{ display:block; animation: fadein .5s ease; }
+  @keyframes fadein{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+  a, button{ font-family: inherit; cursor:pointer; }
+
+  /* ---------- shared bits ---------- */
+  .eyebrow{
+    font-family: var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color: var(--cyan); display:flex; align-items:center; gap:8px;
+  }
+  .eyebrow::before{ content:''; width:6px; height:6px; background:var(--cyan); border-radius:50%; box-shadow:0 0 8px var(--cyan); }
+  .glass{
+    background: linear-gradient(180deg, rgba(20,28,40,0.55), rgba(10,14,20,0.55));
+    border:1px solid var(--line);
+    backdrop-filter: blur(10px);
+  }
+  .btn{
+    border:1px solid var(--line-strong);
+    background: rgba(255,255,255,0.02);
+    color: var(--text);
+    padding:12px 20px;
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    border-radius:3px;
+    transition: all .2s ease;
+    position:relative;
+    overflow:hidden;
+  }
+  .btn:hover{ border-color: var(--cyan); box-shadow:0 0 22px -4px rgba(71,224,255,0.5); color:var(--cyan); }
+  .btn:disabled{ opacity:.35; cursor:not-allowed; }
+  .btn:disabled:hover{ box-shadow:none; border-color:var(--line-strong); color:var(--text); }
+  .btn-primary{
+    background: linear-gradient(120deg, var(--cyan), #2ab4d6);
+    color:#04121a; border:none; font-weight:600;
+  }
+  .btn-primary:hover{ box-shadow:0 0 30px -4px rgba(71,224,255,0.75); color:#04121a; filter:brightness(1.08); }
+  .btn-primary:disabled{ background:#2a3644; color:#5c6b7c; opacity:1; box-shadow:none; }
+
+  /* corner-bracket frame, the signature motif */
+  .bracket-frame{ position:relative; }
+  .bracket-frame::before, .bracket-frame::after,
+  .bracket-frame .bl, .bracket-frame .br{
+    content:''; position:absolute; width:18px; height:18px;
+    border-color: var(--cyan); opacity:.8;
+  }
+  .bracket-frame::before{ top:-1px; left:-1px; border-top:2px solid; border-left:2px solid; }
+  .bracket-frame::after{ top:-1px; right:-1px; border-top:2px solid; border-right:2px solid; }
+  .bracket-frame .bl{ bottom:-1px; left:-1px; border-bottom:2px solid var(--cyan); border-left:2px solid var(--cyan); }
+  .bracket-frame .br{ bottom:-1px; right:-1px; border-bottom:2px solid var(--cyan); border-right:2px solid var(--cyan); }
+
+  ::selection{ background: rgba(71,224,255,0.3); }
+  :focus-visible{ outline:2px solid var(--cyan); outline-offset:2px; }
+
+  /* ================= LOGIN ================= */
+  #view-login{ display:flex; align-items:center; justify-content:center; padding:32px; }
+  .login-wrap{ width:100%; max-width:460px; text-align:center; }
+  .login-logo{
+    font-family:var(--disp); font-weight:700; font-size:15px; letter-spacing:.4em;
+    color:var(--muted); margin-bottom:6px;
+  }
+  .login-logo b{ color:var(--cyan); }
+  .login-event{
+    font-family:var(--mono); font-size:11px; letter-spacing:.25em; color:var(--violet);
+    text-transform:uppercase; margin-bottom:38px;
+  }
+  .login-card{
+    padding:40px 36px 34px;
+    border-radius:6px;
+    position:relative;
+  }
+  .scanline{
+    position:absolute; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    box-shadow:0 0 16px 2px rgba(71,224,255,0.6);
+    animation: scan 3.2s linear infinite;
+    opacity:.75;
+  }
+  @keyframes scan{ 0%{ top:6%; } 100%{ top:94%; } }
+  .login-title{ font-family:var(--disp); font-size:26px; font-weight:700; letter-spacing:.02em; margin-bottom:8px; }
+  .login-sub{ color:var(--muted); font-size:13.5px; line-height:1.6; margin-bottom:30px; }
+  .field{ text-align:left; margin-bottom:18px; }
+  .field label{
+    display:block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:7px;
+  }
+  .field input{
+    width:100%; background:rgba(255,255,255,0.03); border:1px solid var(--line-strong);
+    color:var(--text); padding:13px 14px; border-radius:3px; font-family:var(--mono); font-size:14px;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .field input:focus{ border-color:var(--cyan); box-shadow:0 0 0 3px rgba(71,224,255,0.12); outline:none; }
+  .login-submit{ width:100%; padding:15px; font-size:13px; margin-top:8px; }
+  .login-meta{
+    margin-top:26px; display:flex; justify-content:center; gap:18px; flex-wrap:wrap;
+    font-family:var(--mono); font-size:10.5px; color:var(--muted-2); letter-spacing:.04em;
+  }
+  .login-meta span{ display:flex; align-items:center; gap:6px; }
+  .login-meta span::before{ content:'—'; color:var(--muted-2); }
+
+  /* ================= NAV ================= */
+  .topnav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 36px; border-bottom:1px solid var(--line);
+    position:sticky; top:0; background:rgba(5,7,11,0.85); backdrop-filter:blur(12px); z-index:10;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-mark{
+    width:30px; height:30px; border:1px solid var(--cyan); border-radius:4px; display:flex; align-items:center; justify-content:center;
+    color:var(--cyan); font-family:var(--disp); font-weight:700; font-size:13px; box-shadow:0 0 14px -2px rgba(71,224,255,0.5);
+  }
+  .brand-text b{ font-family:var(--disp); font-size:14px; letter-spacing:.06em; }
+  .brand-text small{ display:block; font-family:var(--mono); font-size:9.5px; color:var(--violet); letter-spacing:.16em; }
+  .navlinks{ display:flex; gap:6px; }
+  .navlinks button{
+    background:none; border:none; color:var(--muted); font-family:var(--mono); font-size:11.5px;
+    letter-spacing:.08em; text-transform:uppercase; padding:9px 14px; border-radius:3px; transition:.2s;
+  }
+  .navlinks button:hover{ color:var(--text); }
+  .navlinks button.on{ color:var(--cyan); background:rgba(71,224,255,0.08); }
+  .nav-right{ display:flex; align-items:center; gap:18px; font-family:var(--mono); font-size:11.5px; }
+  .nav-right .team-tag{ color:var(--muted); }
+  .nav-right .team-tag b{ color:var(--text); }
+  .nav-right .pts{ color:var(--cyan); border:1px solid var(--cyan-dim); padding:6px 12px; border-radius:3px; }
+
+  .page{ padding:38px 36px 80px; max-width:1240px; margin:0 auto; }
+
+  /* ================= DASHBOARD ================= */
+  .dash-head{ margin-bottom:30px; }
+  .dash-title{ font-family:var(--disp); font-size:30px; font-weight:700; margin-top:8px; }
+  .dash-sub{ color:var(--muted); font-size:13.5px; margin-top:6px; max-width:520px; }
+
+  .case-path{
+    padding:34px 26px; border-radius:6px; margin-bottom:26px; overflow-x:auto;
+  }
+  .case-path-inner{ display:flex; align-items:center; min-width:640px; }
+  .node{ display:flex; flex-direction:column; align-items:center; flex:1; position:relative; }
+  .node-dot{
+    width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-weight:700; font-size:13px; border:2px solid var(--line-strong); color:var(--muted-2);
+    background:var(--panel-2); z-index:2;
+  }
+  .node.done .node-dot{ border-color:var(--green); color:var(--green); box-shadow:0 0 14px -3px rgba(78,230,168,0.6); }
+  .node.current .node-dot{ border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 0 5px rgba(71,224,255,0.12), 0 0 20px -2px rgba(71,224,255,0.7); animation:pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ box-shadow:0 0 0 5px rgba(71,224,255,0.12), 0 0 20px -2px rgba(71,224,255,0.7);} 50%{ box-shadow:0 0 0 9px rgba(71,224,255,0.04), 0 0 26px 0px rgba(71,224,255,0.9);} }
+  .node-label{ font-family:var(--mono); font-size:10px; letter-spacing:.1em; color:var(--muted); margin-top:10px; text-transform:uppercase; }
+  .node.current .node-label{ color:var(--cyan); }
+  .node-line{ position:absolute; top:23px; left:50%; width:100%; height:2px; background:var(--line-strong); z-index:1; }
+  .node.done .node-line{ background:linear-gradient(90deg, var(--green), var(--line-strong)); }
+  .node:last-child .node-line{ display:none; }
+
+  .stat-row{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .stat-card{ padding:22px 22px 20px; border-radius:6px; }
+  .stat-card .eyebrow{ margin-bottom:14px; }
+  .stat-num{ font-family:var(--disp); font-size:36px; font-weight:700; color:var(--text); }
+  .stat-num span{ font-size:16px; color:var(--muted); font-family:var(--mono); font-weight:400; }
+
+  .dash-cta{ margin-top:28px; display:flex; justify-content:flex-end; }
+
+  /* ================= GAME SCREEN ================= */
+  .game-topbar{
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:14px;
+  }
+  .poster-tag{ font-family:var(--disp); font-size:22px; font-weight:700; }
+  .poster-tag small{ display:block; font-family:var(--mono); font-size:10.5px; color:var(--violet); letter-spacing:.18em; margin-top:4px; }
+
+  .timer-wrap{ display:flex; align-items:center; gap:12px; }
+  .timer-ring{ position:relative; width:64px; height:64px; }
+  .timer-ring svg{ transform:rotate(-90deg); }
+  .timer-ring circle{ fill:none; stroke-width:5; }
+  .timer-track{ stroke: var(--line-strong); }
+  .timer-prog{ stroke: var(--cyan); stroke-linecap:round; transition: stroke-dashoffset 1s linear, stroke .3s; }
+  .timer-num{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:12.5px; font-weight:700; }
+  .timer-label{ font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; color:var(--muted); text-transform:uppercase; }
+  .timer-wrap.warn .timer-prog{ stroke: var(--amber); }
+  .timer-wrap.crit .timer-prog{ stroke: var(--red); animation: blink 0.9s ease-in-out infinite; }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+  .game-grid{ display:grid; grid-template-columns: 1.35fr 0.9fr; gap:22px; align-items:start; }
+  @media (max-width: 980px){ .game-grid{ grid-template-columns:1fr; } }
+
+  .investigation-panel{ border-radius:6px; overflow:hidden; }
+  .ip-head{ padding:14px 18px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; }
+  .ip-head .eyebrow{ margin:0; }
+  .status-chip{ font-family:var(--mono); font-size:10px; letter-spacing:.1em; padding:4px 10px; border:1px solid var(--line-strong); border-radius:20px; color:var(--muted); text-transform:uppercase; }
+  .status-chip.on{ color:var(--violet); border-color:var(--violet); }
+
+  .poster-stage{
+    position:relative; height:440px; background:#020407; overflow:hidden; cursor:grab;
+    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  }
+  .poster-stage:active{ cursor:grabbing; }
+  .poster-canvas{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; transition: filter .25s ease; }
+  #posterSVG{ width:78%; height:auto; transition: transform .15s ease; transform-origin:center center; filter:drop-shadow(0 20px 60px rgba(0,0,0,0.6)); }
+
+  .stage-frame{ position:absolute; inset:14px; pointer-events:none; }
+
+  .watermark{
+    position:absolute; font-family:var(--mono); font-size:10.5px; color:rgba(200,220,240,0.16);
+    letter-spacing:.08em; pointer-events:none; white-space:nowrap; transition: top 4s linear, left 4s linear;
+  }
+  .live-chip{
+    position:absolute; top:12px; left:12px; display:flex; align-items:center; gap:6px;
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; color:var(--red); text-transform:uppercase;
+  }
+  .live-chip::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--red); box-shadow:0 0 8px var(--red); animation:blink 1.4s ease-in-out infinite; }
+
+  .spotlight{
+    position:absolute; width:130px; height:130px; border-radius:50%; pointer-events:none;
+    box-shadow: 0 0 0 2000px rgba(0,0,0,0.82); border:1px solid rgba(71,224,255,0.5);
+    display:none; transform:translate(-50%,-50%);
+  }
+  .mag-badge{
+    position:absolute; bottom:12px; right:14px; font-family:var(--mono); font-size:10px; letter-spacing:.08em;
+    color:var(--cyan); background:rgba(4,10,16,0.7); border:1px solid var(--cyan-dim); padding:5px 10px; border-radius:3px; display:none;
+  }
+
+  .zoom-bar{ display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--line); }
+  .zoom-bar button{ background:none; border:1px solid var(--line-strong); color:var(--muted); width:30px; height:30px; border-radius:3px; font-family:var(--mono); }
+  .zoom-bar button:hover{ border-color:var(--cyan); color:var(--cyan); }
+  .zoom-readout{ font-family:var(--mono); font-size:11px; color:var(--muted); min-width:44px; text-align:center; }
+  .zoom-bar .spacer{ flex:1; }
+  .zoom-bar .txtbtn{ width:auto; padding:0 10px; font-size:10px; letter-spacing:.06em; text-transform:uppercase; }
+
+  .toolbar{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; padding:14px 16px 16px; }
+  .tool{
+    display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 6px;
+    border:1px solid var(--line-strong); border-radius:5px; background:rgba(255,255,255,0.015);
+    font-family:var(--mono); font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted);
+    transition:.15s;
+  }
+  .tool span.ic{ font-size:16px; }
+  .tool:hover{ border-color:var(--cyan); color:var(--cyan); }
+  .tool.active{ border-color:var(--violet); color:var(--violet); background:rgba(154,123,255,0.1); box-shadow:0 0 14px -4px rgba(154,123,255,0.6); }
+
+  /* question panel */
+  .qa-panel{ border-radius:6px; padding:20px 20px 22px; display:flex; flex-direction:column; gap:16px; }
+  .qa-panel .eyebrow{ margin-bottom:2px; }
+  .qa-heading{ font-family:var(--disp); font-size:16.5px; font-weight:600; }
+
+  .qcard{
+    border:1px solid var(--line-strong); border-radius:5px; padding:14px 14px 14px 44px; position:relative;
+    cursor:pointer; transition:.15s; background:rgba(255,255,255,0.015);
+  }
+  .qcard:hover{ border-color: var(--cyan-dim); }
+  .qcard .qnum{
+    position:absolute; left:12px; top:14px; width:22px; height:22px; border-radius:50%; border:1px solid var(--line-strong);
+    display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:11px; color:var(--muted);
+  }
+  .qcard p{ font-size:13px; line-height:1.5; color:var(--text); }
+  .qcard.selected{ border-color:var(--cyan); background:rgba(71,224,255,0.06); box-shadow:0 0 0 1px var(--cyan) inset; }
+  .qcard.selected .qnum{ border-color:var(--cyan); color:var(--cyan); background:rgba(71,224,255,0.15); }
+
+  .ans-block label{ display:block; font-family:var(--mono); font-size:10px; letter-spacing:.12em; color:var(--muted); text-transform:uppercase; margin-bottom:8px; }
+  .ans-block input{
+    width:100%; background:rgba(255,255,255,0.03); border:1px solid var(--line-strong); color:var(--text);
+    padding:12px 14px; border-radius:3px; font-family:var(--mono); font-size:14px;
+  }
+  .ans-block input:focus{ border-color:var(--cyan); outline:none; box-shadow:0 0 0 3px rgba(71,224,255,0.12); }
+  .sel-q-note{ font-family:var(--mono); font-size:10.5px; color:var(--muted); margin-top:8px; }
+  .sel-q-note b{ color:var(--cyan); }
+
+  .attempts-row{ display:flex; align-items:center; justify-content:space-between; }
+  .dots{ display:flex; gap:7px; }
+  .dot{ width:11px; height:11px; border-radius:50%; border:1px solid var(--line-strong); }
+  .dot.full{ background:var(--cyan); border-color:var(--cyan); box-shadow:0 0 8px rgba(71,224,255,0.6); }
+  .dot.spent{ background:transparent; border-color:var(--red); }
+
+  .feedback{ border-radius:4px; padding:12px 14px; font-size:12.5px; display:none; }
+  .feedback.show{ display:block; animation: fadein .3s ease; }
+  .feedback.bad{ border:1px solid rgba(255,106,106,0.4); background:rgba(255,106,106,0.08); color:#ffb3b3; }
+  .feedback.bad b{ display:block; font-family:var(--disp); font-size:13px; margin-bottom:3px; color:var(--red); letter-spacing:.03em; }
+  .feedback.locked{ border:1px solid rgba(255,106,106,0.5); background:rgba(255,106,106,0.12); color:#ffb3b3; text-align:center; }
+
+  .submit-btn{ width:100%; padding:15px; font-size:13px; }
+
+  /* success overlay */
+  .success-overlay{
+    position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center;
+    background:rgba(2,4,8,0.86); backdrop-filter:blur(6px);
+  }
+  .success-overlay.show{ display:flex; animation:fadein .3s ease; }
+  .success-card{
+    text-align:center; padding:48px 46px; border-radius:8px; max-width:420px; position:relative;
+  }
+  .success-check{
+    width:70px; height:70px; border-radius:50%; border:2px solid var(--green); display:flex; align-items:center; justify-content:center;
+    margin:0 auto 22px; color:var(--green); font-size:30px; box-shadow:0 0 40px -6px rgba(78,230,168,0.7);
+    animation:pop .5s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes pop{ 0%{ transform:scale(0); } 70%{ transform:scale(1.15); } 100%{ transform:scale(1); } }
+  .success-title{ font-family:var(--disp); font-size:24px; font-weight:700; color:var(--green); letter-spacing:.02em; }
+  .success-sub{ font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:8px; letter-spacing:.06em; }
+  .success-points{ font-family:var(--disp); font-size:38px; font-weight:700; color:var(--cyan); margin:20px 0 6px; }
+  .success-next{ font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--violet); text-transform:uppercase; margin-bottom:26px; }
+
+  /* ================= PROGRESS PAGE ================= */
+  .prog-list{ display:flex; flex-direction:column; gap:10px; margin-top:22px; }
+  .prog-item{
+    display:flex; align-items:center; gap:18px; padding:16px 18px; border-radius:5px;
+  }
+  .prog-num{ font-family:var(--mono); font-size:11px; color:var(--muted); width:70px; }
+  .prog-status{ font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; width:110px; }
+  .prog-status.done{ color:var(--green); }
+  .prog-status.current{ color:var(--cyan); }
+  .prog-status.locked{ color:var(--muted-2); }
+  .prog-fill{ flex:1; }
+  .prog-title{ font-family:var(--disp); font-size:14.5px; font-weight:600; }
+  .prog-meta{ font-family:var(--mono); font-size:10.5px; color:var(--muted); margin-top:2px; }
+  .prog-score{ font-family:var(--mono); font-size:12px; color:var(--cyan); width:64px; text-align:right; }
+
+  /* ================= LEADERBOARD ================= */
+  .lb-table{ width:100%; border-collapse:collapse; margin-top:8px; }
+  .lb-table th{ text-align:left; font-family:var(--mono); font-size:10px; letter-spacing:.1em; color:var(--muted); text-transform:uppercase; padding:12px 14px; border-bottom:1px solid var(--line-strong); }
+  .lb-table td{ padding:14px; font-size:13px; border-bottom:1px solid var(--line); }
+  .lb-table tr.me{ background:rgba(71,224,255,0.05); }
+  .lb-rank{ font-family:var(--disp); font-weight:700; color:var(--muted); }
+  .lb-rank.gold{ color:var(--amber); }
+  .lb-team{ font-family:var(--disp); font-weight:600; }
+  .lb-mono{ font-family:var(--mono); color:var(--muted); }
+
+  /* ================= RULES ================= */
+  .rules-list{ margin-top:22px; display:flex; flex-direction:column; gap:2px; }
+  .rule-row{ display:flex; gap:16px; padding:16px 4px; border-bottom:1px solid var(--line); }
+  .rule-num{ font-family:var(--mono); color:var(--cyan); font-size:12px; width:26px; flex-shrink:0; }
+  .rule-text{ font-size:13.5px; color:var(--text); line-height:1.6; }
+  .equation{
+    margin-top:32px; display:flex; align-items:center; justify-content:center; gap:22px; flex-wrap:wrap;
+    padding:30px; border-radius:6px; text-align:center;
+  }
+  .eq-item{ font-family:var(--disp); }
+  .eq-item b{ display:block; font-size:22px; }
+  .eq-item span{ font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.1em; }
+  .eq-op{ font-family:var(--disp); font-size:22px; color:var(--cyan); }
+
+  /* ================= COMPLETION ================= */
+  #view-complete{ display:none; align-items:center; justify-content:center; min-height:100vh; padding:40px; text-align:center; }
+  #view-complete.active{ display:flex; }
+  .complete-card{ max-width:520px; }
+  .complete-tag{ font-family:var(--mono); font-size:11px; letter-spacing:.3em; color:var(--violet); text-transform:uppercase; }
+  .complete-title{ font-family:var(--disp); font-weight:700; font-size:44px; margin:14px 0 6px; letter-spacing:.01em; }
+  .complete-sub{ font-family:var(--disp); font-size:17px; color:var(--green); margin-bottom:30px; }
+  .complete-stats{ display:flex; justify-content:center; gap:34px; margin-bottom:34px; }
+  .complete-stats div b{ display:block; font-family:var(--disp); font-size:28px; }
+  .complete-stats div span{ font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; }
+  .complete-msg{ color:var(--muted); font-size:14px; margin-bottom:8px; }
+  .complete-final{ font-family:var(--disp); font-size:20px; font-weight:700; margin:22px 0 4px; }
+  .complete-date{ font-family:var(--mono); color:var(--cyan); letter-spacing:.1em; margin-bottom:30px; }
+
+  .footer-hint{ text-align:center; color:var(--muted-2); font-family:var(--mono); font-size:10px; letter-spacing:.08em; margin-top:40px; }
+</style>
+</head>
+<body>
+
+<div id="particles"></div>
+
+<!-- ============ LOGIN ============ -->
+<div class="view active" id="view-login">
+  <div class="login-wrap">
+    <div class="login-logo">N&nbsp;E&nbsp;<b>U</b>&nbsp;R&nbsp;A</div>
+    <div class="login-event">Engineer's Day 2026 · Pre-Event</div>
+    <div class="login-card glass bracket-frame">
+      <span class="bl"></span><span class="br"></span>
+      <div class="scanline"></div>
+      <div class="login-title">WELCOME, DETECTIVE</div>
+      <p class="login-sub">Your team has entered the hunt.<br>Every clue is hidden in plain sight.</p>
+      <div class="field">
+        <label>Team ID / Registration ID</label>
+        <input type="text" id="teamIdInput" placeholder="e.g. NR-4827" value="NR-4827">
+      </div>
+      <div class="field">
+        <label>Password / Access Code</label>
+        <input type="password" id="passInput" placeholder="••••••••" value="••••••••">
+      </div>
+      <button class="btn btn-primary login-submit" onclick="goTo('app')">ENTER THE HUNT →</button>
+      <div class="login-meta">
+        <span>3 attempts / question</span>
+        <span>3 minutes / poster</span>
+        <span>1 point / unlock</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP SHELL (dashboard / game / progress / leaderboard / rules / team) ============ -->
+<div class="view" id="view-app">
+  <div class="topnav">
+    <div class="brand">
+      <div class="brand-mark">N</div>
+      <div class="brand-text"><b>NEURA</b><small>THE FIRST CLUE</small></div>
+    </div>
+    <div class="navlinks">
+      <button data-page="hunt" onclick="showPage('hunt')" class="on">Hunt</button>
+      <button data-page="progress" onclick="showPage('progress')">Progress</button>
+      <button data-page="leaderboard" onclick="showPage('leaderboard')">Leaderboard</button>
+      <button data-page="rules" onclick="showPage('rules')">Rules</button>
+      <button data-page="team" onclick="showPage('team')">Team</button>
+    </div>
+    <div class="nav-right">
+      <span class="team-tag">TEAM: <b>NEURAL NINJAS</b></span>
+      <span class="pts">POINTS: <span id="navPoints">03</span></span>
+    </div>
+  </div>
+
+  <!-- ---- PAGE: HUNT (dashboard -> game) ---- -->
+  <div class="page pagec" id="page-hunt">
+
+    <div id="dashSection">
+      <div class="dash-head">
+        <div class="eyebrow">Case File // NR-4827</div>
+        <div class="dash-title">CASE PROGRESS</div>
+        <p class="dash-sub">Five posters are hidden across campus. Each hides a truth — and two decoys. Investigate carefully before you commit an answer.</p>
+      </div>
+
+      <div class="case-path glass">
+        <div class="case-path-inner" id="caseNodes"></div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card glass">
+          <div class="eyebrow">Current Score</div>
+          <div class="stat-num" id="statScore">03 <span>points</span></div>
+        </div>
+        <div class="stat-card glass">
+          <div class="eyebrow">Posters Solved</div>
+          <div class="stat-num" id="statSolved">3 <span>/ 5</span></div>
+        </div>
+        <div class="stat-card glass">
+          <div class="eyebrow">Current Streak</div>
+          <div class="stat-num" id="statStreak">2 <span>in a row</span></div>
+        </div>
+      </div>
+
+      <div class="dash-cta">
+        <button class="btn btn-primary" onclick="openGame()">RESUME INVESTIGATION →</button>
+      </div>
+    </div>
+
+    <!-- ---- GAME SCREEN ---- -->
+    <div id="gameSection" style="display:none;">
+      <div class="game-topbar">
+        <div class="poster-tag">POSTER #03 <small>INVESTIGATION MODE</small></div>
+        <div class="timer-wrap" id="timerWrap">
+          <div>
+            <div class="timer-label">Time remaining</div>
+          </div>
+          <div class="timer-ring">
+            <svg width="64" height="64">
+              <circle class="timer-track" cx="32" cy="32" r="27"></circle>
+              <circle class="timer-prog" id="timerCircle" cx="32" cy="32" r="27" stroke-dasharray="169.6" stroke-dashoffset="0"></circle>
+            </svg>
+            <div class="timer-num" id="timerNum">03:00</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-grid">
+        <!-- LEFT: investigation panel -->
+        <div class="investigation-panel glass">
+          <div class="ip-head">
+            <div class="eyebrow">Evidence Viewer</div>
+            <div class="status-chip" id="toolStatus">NO TOOL ACTIVE</div>
+          </div>
+
+          <div class="zoom-bar">
+            <button onclick="zoomBy(-15)">−</button>
+            <div class="zoom-readout" id="zoomReadout">100%</div>
+            <button onclick="zoomBy(15)">+</button>
+            <button class="txtbtn" onclick="setZoom(100)">100%</button>
+            <button class="txtbtn" onclick="setZoom(60)">Fit</button>
+            <div class="spacer"></div>
+            <button class="txtbtn" onclick="resetStage()">⟳ Reset</button>
+          </div>
+
+          <div class="poster-stage" id="posterStage" onmousemove="handleStageMove(event)" onmouseleave="hideSpotlight()">
+            <div class="live-chip">Live Investigation</div>
+            <div class="watermark" id="watermark1">TEAM: NEURAL NINJAS · CASE: NR-4827</div>
+            <div class="poster-canvas" id="posterCanvas">
+              <svg id="posterSVG" viewBox="0 0 400 520" xmlns="http://www.w3.org/2000/svg">
+                <rect width="400" height="520" fill="#0b1622"/>
+                <rect x="0" y="0" width="400" height="520" fill="url(#grid)"/>
+                <defs>
+                  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <path d="M20 0H0V20" fill="none" stroke="#16253400" stroke-width="1"/>
+                  </pattern>
+                </defs>
+                <!-- decorative circuit lines -->
+                <g stroke="#1c3446" stroke-width="1.4" fill="none" opacity="0.8">
+                  <path d="M20 40 H150 V90 H260"/>
+                  <path d="M380 60 H300 V150"/>
+                  <path d="M40 480 H180 V430"/>
+                  <path d="M360 460 H240 V400 H320"/>
+                </g>
+                <circle cx="150" cy="90" r="3" fill="#2a4a5e"/>
+                <circle cx="300" cy="150" r="3" fill="#2a4a5e"/>
+                <circle cx="180" cy="430" r="3" fill="#2a4a5e"/>
+
+                <!-- title block -->
+                <text x="200" y="70" text-anchor="middle" font-family="monospace" font-size="20" fill="#5fa9c4" letter-spacing="4">SIGNAL // ARCHIVE</text>
+                <text x="200" y="92" text-anchor="middle" font-family="monospace" font-size="9" fill="#3b5464" letter-spacing="3">RESTRICTED — NEURA DIVISION</text>
+
+                <!-- central emblem -->
+                <circle cx="200" cy="230" r="86" fill="none" stroke="#25445a" stroke-width="1.5"/>
+                <circle cx="200" cy="230" r="60" fill="none" stroke="#1a3346" stroke-width="1"/>
+                <path d="M200 170 L232 220 L200 270 L168 220 Z" fill="none" stroke="#3f7690" stroke-width="1.4"/>
+                <text x="200" y="236" text-anchor="middle" font-family="monospace" font-size="30" fill="#2c5468" opacity="0.55">λ</text>
+
+                <!-- QR-like block (decoy) -->
+                <g transform="translate(50,330)" opacity="0.9">
+                  <rect width="70" height="70" fill="#0d1a26" stroke="#284a5f"/>
+                  <rect x="6" y="6" width="14" height="14" fill="#2c5468"/>
+                  <rect x="50" y="6" width="14" height="14" fill="#2c5468"/>
+                  <rect x="6" y="50" width="14" height="14" fill="#2c5468"/>
+                  <rect x="26" y="26" width="8" height="8" fill="#3f7690"/>
+                  <rect x="40" y="40" width="6" height="6" fill="#3f7690"/>
+                </g>
+
+                <!-- tiny scattered symbols, decoys -->
+                <text x="330" y="345" font-family="monospace" font-size="11" fill="#284a5f">Δ</text>
+                <text x="345" y="365" font-family="monospace" font-size="9" fill="#25445a">ψ</text>
+                <text x="60" y="120" font-family="monospace" font-size="8" fill="#22405480">01</text>
+
+                <!-- HIDDEN SEQUENCE — very low contrast digits, needs contrast/UV/pixel-zoom tool to notice -->
+                <g id="hiddenSeq" font-family="monospace" font-size="13" letter-spacing="6" fill="#132330">
+                  <text x="150" y="410">4</text>
+                  <text x="175" y="415">7</text>
+                  <text x="200" y="405">2</text>
+                </g>
+                <!-- another decoy sequence, plausible but wrong, also faint -->
+                <g font-family="monospace" font-size="10" letter-spacing="3" fill="#152838">
+                  <text x="260" y="120">9</text>
+                  <text x="272" y="118">1</text>
+                  <text x="284" y="122">6</text>
+                </g>
+
+                <!-- footer stamp -->
+                <text x="200" y="500" text-anchor="middle" font-family="monospace" font-size="8" fill="#284a5f" letter-spacing="2">FILE NR-4827 · POSTER 03 OF 05</text>
+              </svg>
+            </div>
+            <div class="stage-frame bracket-frame"><span class="bl"></span><span class="br"></span></div>
+            <div class="spotlight" id="spotlight"></div>
+            <div class="mag-badge" id="magBadge">MAGNIFICATION ×4</div>
+          </div>
+
+          <div class="toolbar" id="toolbar">
+            <button class="tool" data-tool="magnify" onclick="toggleTool('magnify')"><span class="ic">🔍</span>Magnifier</button>
+            <button class="tool" data-tool="pixel" onclick="toggleTool('pixel')"><span class="ic">🔬</span>Pixel Zoom</button>
+            <button class="tool" data-tool="uv" onclick="toggleTool('uv')"><span class="ic">🟣</span>UV Filter</button>
+            <button class="tool" data-tool="contrast" onclick="toggleTool('contrast')"><span class="ic">◐</span>Contrast</button>
+            <button class="tool" data-tool="bright" onclick="toggleTool('bright')"><span class="ic">☀</span>Brightness</button>
+            <button class="tool" data-tool="invert" onclick="toggleTool('invert')"><span class="ic">🎨</span>Invert</button>
+            <button class="tool" data-tool="spotlight" onclick="toggleTool('spotlight')"><span class="ic">🔦</span>Spotlight</button>
+            <button class="tool" data-tool="pan" onclick="toggleTool('pan')"><span class="ic">↔</span>Pan</button>
+            <button class="tool" onclick="resetStage()"><span class="ic">⟳</span>Reset</button>
+          </div>
+        </div>
+
+        <!-- RIGHT: question / answer panel -->
+        <div class="qa-panel glass">
+          <div>
+            <div class="eyebrow">Deduction Required</div>
+            <div class="qa-heading">Which question can you answer from this poster?</div>
+          </div>
+
+          <div class="qcard" data-q="1" onclick="selectQuestion(1)">
+            <div class="qnum">1</div>
+            <p>What programming language is referenced by the hidden symbol?</p>
+          </div>
+          <div class="qcard" data-q="2" onclick="selectQuestion(2)">
+            <div class="qnum">2</div>
+            <p>What number is encoded in the poster's hidden sequence?</p>
+          </div>
+          <div class="qcard" data-q="3" onclick="selectQuestion(3)">
+            <div class="qnum">3</div>
+            <p>What is the name of the event organizer?</p>
+          </div>
+
+          <div class="ans-block">
+            <label>Your Answer</label>
+            <input type="text" id="answerInput" placeholder="Enter your answer...">
+            <div class="sel-q-note">Selected Question: <b id="selQNote">—</b></div>
+          </div>
+
+          <div class="attempts-row">
+            <div class="eyebrow" style="margin:0;">Attempts Remaining</div>
+            <div class="dots" id="attemptDots">
+              <div class="dot full"></div><div class="dot full"></div><div class="dot full"></div>
+            </div>
+          </div>
+
+          <div class="feedback bad" id="feedbackBad">
+            <b>NOT QUITE.</b>
+            Your deduction does not match the evidence. <span id="attemptsLeftText"></span>
+          </div>
+          <div class="feedback locked" id="feedbackLocked">🔒 CLUE LOCKED — no attempts remaining.</div>
+
+          <button class="btn btn-primary submit-btn" id="submitBtn" onclick="submitAnswer()">SUBMIT ANSWER</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---- PAGE: PROGRESS ---- -->
+  <div class="page pagec" id="page-progress" style="display:none;">
+    <div class="eyebrow">Mission Log</div>
+    <div class="dash-title" style="margin-top:8px;">PROGRESS</div>
+    <div class="prog-list" id="progList"></div>
+  </div>
+
+  <!-- ---- PAGE: LEADERBOARD ---- -->
+  <div class="page pagec" id="page-leaderboard" style="display:none;">
+    <div class="eyebrow">Live Standings</div>
+    <div class="dash-title" style="margin-top:8px;">HUNT LEADERBOARD</div>
+    <div class="glass" style="border-radius:6px; margin-top:22px; padding:6px 16px;">
+      <table class="lb-table">
+        <thead><tr><th>Rank</th><th>Team</th><th>Solved</th><th>Score</th><th>Time</th></tr></thead>
+        <tbody id="lbBody"></tbody>
+      </table>
+    </div>
+    <p class="footer-hint">The leaderboard reflects unlocks and score only — it never reveals clues or answers.</p>
+  </div>
+
+  <!-- ---- PAGE: RULES ---- -->
+  <div class="page pagec" id="page-rules" style="display:none;">
+    <div class="eyebrow">Briefing</div>
+    <div class="dash-title" style="margin-top:8px;">THE RULES</div>
+    <div class="rules-list" id="rulesList"></div>
+    <div class="equation glass">
+      <div class="eq-item"><b>3</b><span>MINUTES</span></div>
+      <div class="eq-op">+</div>
+      <div class="eq-item"><b>3</b><span>ATTEMPTS</span></div>
+      <div class="eq-op">=</div>
+      <div class="eq-item"><b style="color:var(--cyan);">1</b><span>CHANCE TO UNLOCK</span></div>
+    </div>
+  </div>
+
+  <!-- ---- PAGE: TEAM ---- -->
+  <div class="page pagec" id="page-team" style="display:none;">
+    <div class="eyebrow">Detective File</div>
+    <div class="dash-title" style="margin-top:8px;">MY TEAM</div>
+    <div class="glass" style="border-radius:6px; padding:30px 34px; margin-top:24px; max-width:520px;">
+      <div style="font-family:var(--mono); font-size:11px; color:var(--green); letter-spacing:.1em; margin-bottom:18px;">● MISSION STATUS: ACTIVE</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px 30px;">
+        <div><div class="eyebrow" style="margin-bottom:6px;">Team</div><div style="font-family:var(--disp); font-size:18px; font-weight:700;">Neural Ninjas</div></div>
+        <div><div class="eyebrow" style="margin-bottom:6px;">Team ID</div><div style="font-family:var(--mono); font-size:15px;">NR-4827</div></div>
+        <div><div class="eyebrow" style="margin-bottom:6px;">Members</div><div style="font-family:var(--mono); font-size:15px;">4 members</div></div>
+        <div><div class="eyebrow" style="margin-bottom:6px;">Score</div><div style="font-family:var(--mono); font-size:15px; color:var(--cyan);">03</div></div>
+        <div><div class="eyebrow" style="margin-bottom:6px;">Progress</div><div style="font-family:var(--mono); font-size:15px;">3 / 5</div></div>
+        <div><div class="eyebrow" style="margin-bottom:6px;">Rank</div><div style="font-family:var(--mono); font-size:15px;">#2</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ COMPLETION ============ -->
+<div class="view" id="view-complete">
+  <div class="complete-card">
+    <div class="complete-tag">Case File NR-4827 — Closed</div>
+    <div class="complete-title">CASE COMPLETE</div>
+    <div class="complete-sub">🎉 TREASURE FOUND</div>
+    <div class="complete-stats">
+      <div><b>NEURAL NINJAS</b><span>Team</span></div>
+      <div><b>05</b><span>Points</span></div>
+      <div><b>5/5</b><span>Solved</span></div>
+    </div>
+    <p class="complete-msg">You found every clue.</p>
+    <div class="complete-final">THE REAL ENGINEER'S DAY BEGINS</div>
+    <div class="complete-date">15 SEPTEMBER 2026</div>
+    <button class="btn btn-primary" onclick="showPage('team'); goTo('app');">VIEW QUALIFICATION STATUS</button>
+  </div>
+</div>
+
+<!-- ============ SUCCESS OVERLAY ============ -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-card glass bracket-frame">
+    <span class="bl"></span><span class="br"></span>
+    <div class="success-check">✓</div>
+    <div class="success-title">CLUE SOLVED</div>
+    <div class="success-sub">POSTER #03 DECODED</div>
+    <div class="success-points">+1 POINT</div>
+    <div class="success-next">NEXT CLUE UNLOCKED</div>
+    <button class="btn btn-primary" onclick="continueAfterSuccess()">CONTINUE →</button>
+  </div>
+</div>
+
+<script>
+/* ---------------- particles ---------------- */
+const pf = document.getElementById('particles');
+for(let i=0;i<40;i++){
+  const p = document.createElement('div');
+  p.className='particle';
+  p.style.left = Math.random()*100+'vw';
+  p.style.top = (60+Math.random()*40)+'vh';
+  p.style.animationDuration = (10+Math.random()*14)+'s';
+  p.style.animationDelay = (Math.random()*10)+'s';
+  pf.appendChild(p);
+}
+
+/* ---------------- view routing ---------------- */
+function goTo(view){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+view).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function showPage(name){
+  document.querySelectorAll('.pagec').forEach(p=>p.style.display='none');
+  document.getElementById('page-'+name).style.display='block';
+  document.querySelectorAll('.navlinks button').forEach(b=>b.classList.remove('on'));
+  document.querySelector(`.navlinks button[data-page="${name}"]`)?.classList.add('on');
+  if(name==='hunt'){ dashSection.style.display = gameOpen ? 'none':'block'; gameSection.style.display = gameOpen?'block':'none'; }
+  window.scrollTo(0,0);
+}
+
+/* ---------------- dashboard nodes ---------------- */
+const posterStates = ['done','done','current','locked','locked'];
+const caseNodes = document.getElementById('caseNodes');
+posterStates.forEach((s,i)=>{
+  const n = document.createElement('div');
+  n.className = 'node '+s;
+  n.innerHTML = `<div class="node-line"></div><div class="node-dot">${s==='done'?'✓':s==='current'?'🔓':'🔒'}</div><div class="node-label">Poster ${String(i+1).padStart(2,'0')}</div>`;
+  caseNodes.appendChild(n);
+});
+
+/* ---------------- progress page ---------------- */
+const progressData = [
+  {n:'01', status:'done', title:'The Archive Signal', meta:'+1 Point · 01:47'},
+  {n:'02', status:'done', title:'Shattered Circuit', meta:'+1 Point · 02:21'},
+  {n:'03', status:'current', title:'Signal // Archive', meta:'In progress'},
+  {n:'04', status:'locked', title:'Classified', meta:'Locked'},
+  {n:'05', status:'locked', title:'Classified', meta:'Locked'},
+];
+const progList = document.getElementById('progList');
+progressData.forEach(p=>{
+  const row = document.createElement('div');
+  row.className='prog-item glass';
+  row.innerHTML = `<div class="prog-num">POSTER ${p.n}</div>
+    <div class="prog-status ${p.status}">${p.status==='done'?'✓ Solved':p.status==='current'?'🔓 Current':'🔒 Locked'}</div>
+    <div class="prog-fill"><div class="prog-title">${p.title}</div><div class="prog-meta">${p.meta}</div></div>
+    <div class="prog-score">${p.status==='done'?'+1':''}</div>`;
+  progList.appendChild(row);
+});
+
+/* ---------------- leaderboard ---------------- */
+const lbData = [
+  ['01','CODE WARRIORS','5/5','5 pts','12:34',false],
+  ['02','NEURAL NINJAS','3/5','3 pts','—',true],
+  ['03','BYTE FORCE','2/5','2 pts','14:27',false],
+  ['04','GHOST PROTOCOL','2/5','2 pts','15:02',false],
+  ['05','ZERO DAY','1/5','1 pt','—',false],
+];
+const lbBody = document.getElementById('lbBody');
+lbData.forEach(r=>{
+  const tr = document.createElement('tr');
+  if(r[5]) tr.className='me';
+  tr.innerHTML = `<td class="lb-rank ${r[0]==='01'?'gold':''}">${r[0]}</td><td class="lb-team">${r[1]}</td><td class="lb-mono">${r[2]}</td><td class="lb-mono">${r[3]}</td><td class="lb-mono">${r[4]}</td>`;
+  lbBody.appendChild(tr);
+});
+
+/* ---------------- rules ---------------- */
+const rules = [
+  'Each poster contains hidden information.',
+  'Each poster has 3 possible questions.',
+  'Only ONE question can be answered from that poster.',
+  'Select the correct question and enter your answer.',
+  'You get only 3 attempts.',
+  'You get only 3 minutes per poster.',
+  'Correct answer = +1 point.',
+  'Correct answer unlocks the next poster.',
+  'Do not damage, share or redistribute event material.',
+  'Organizer / backend timestamps are final.'
+];
+const rulesList = document.getElementById('rulesList');
+rules.forEach((r,i)=>{
+  const row = document.createElement('div');
+  row.className='rule-row';
+  row.innerHTML = `<div class="rule-num">${String(i+1).padStart(2,'0')}</div><div class="rule-text">${r}</div>`;
+  rulesList.appendChild(row);
+});
+
+/* ---------------- game state ---------------- */
+let gameOpen = false;
+let selectedQ = null;
+let attempts = 3;
+let zoom = 100;
+let panX=0, panY=0, isPanning=false, panStart={x:0,y:0};
+let activeTool = null;
+let timeLeft = 180;
+let timerInterval = null;
+const CORRECT = { q: 2, answer: '472' };
+
+function openGame(){
+  gameOpen = true;
+  dashSection.style.display='none';
+  gameSection.style.display='block';
+  startTimer();
+}
+
+function startTimer(){
+  clearInterval(timerInterval);
+  timeLeft = 180;
+  updateTimerUI();
+  timerInterval = setInterval(()=>{
+    timeLeft--;
+    updateTimerUI();
+    if(timeLeft<=0){
+      clearInterval(timerInterval);
+      expireTimer();
+    }
+  },1000);
+}
+function updateTimerUI(){
+  const m = Math.floor(timeLeft/60).toString().padStart(2,'0');
+  const s = (timeLeft%60).toString().padStart(2,'0');
+  timerNum.textContent = `${m}:${s}`;
+  const circ = 169.6;
+  const frac = Math.max(timeLeft/180,0);
+  timerCircle.style.strokeDashoffset = circ*(1-frac);
+  timerWrap.classList.remove('warn','crit');
+  if(timeLeft<=30) timerWrap.classList.add('crit');
+  else if(timeLeft<=60) timerWrap.classList.add('warn');
+}
+function expireTimer(){
+  timerNum.textContent = '00:00';
+  submitBtn.disabled = true;
+  feedbackBad.classList.add('show');
+  feedbackBad.querySelector('b').textContent = '⏱ TIME EXPIRED';
+  feedbackBad.querySelector('#attemptsLeftText') ? null : null;
+  feedbackBad.lastChild.textContent = ' This clue has expired.';
+}
+
+/* zoom / pan */
+function setZoom(v){ zoom = Math.min(300, Math.max(50, v)); applyTransform(); zoomReadout.textContent = zoom+'%'; }
+function zoomBy(d){ setZoom(zoom+d); }
+function applyTransform(){
+  posterSVG.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom/100})`;
+}
+posterStage.addEventListener('wheel', e=>{
+  e.preventDefault();
+  zoomBy(e.deltaY<0?10:-10);
+},{passive:false});
+posterStage.addEventListener('mousedown', e=>{
+  isPanning = true; panStart = {x:e.clientX-panX, y:e.clientY-panY};
+});
+window.addEventListener('mouseup', ()=> isPanning=false);
+window.addEventListener('mousemove', e=>{
+  if(isPanning){ panX = e.clientX-panStart.x; panY = e.clientY-panStart.y; applyTransform(); }
+});
+function resetStage(){
+  zoom=100; panX=0; panY=0; applyTransform(); zoomReadout.textContent='100%';
+  document.querySelectorAll('.tool').forEach(t=>t.classList.remove('active'));
+  activeTool=null;
+  posterCanvas.style.filter='none';
+  toolStatus.textContent='NO TOOL ACTIVE'; toolStatus.classList.remove('on');
+  spotlight.style.display='none'; magBadge.style.display='none';
+}
+
+/* tools */
+function toggleTool(name){
+  const btn = document.querySelector(`.tool[data-tool="${name}"]`);
+  const isOn = btn.classList.contains('active');
+  document.querySelectorAll('.tool').forEach(t=>t.classList.remove('active'));
+  spotlight.style.display='none'; magBadge.style.display='none';
+  posterCanvas.style.filter='none';
+
+  if(isOn){ activeTool=null; toolStatus.textContent='NO TOOL ACTIVE'; toolStatus.classList.remove('on'); return; }
+
+  btn.classList.add('active');
+  activeTool = name;
+  toolStatus.classList.add('on');
+
+  switch(name){
+    case 'magnify': toolStatus.textContent='MAGNIFIER ENABLED'; magBadge.style.display='block'; magBadge.textContent='MAGNIFICATION ×4'; setZoom(180); break;
+    case 'pixel': toolStatus.textContent='PIXEL ANALYSIS MODE'; magBadge.style.display='block'; magBadge.textContent='PIXEL ANALYSIS ×8'; setZoom(280); posterCanvas.style.filter='contrast(1.3)'; break;
+    case 'uv': toolStatus.textContent='UV SCANNER ENABLED'; posterCanvas.style.filter='saturate(2) hue-rotate(220deg) brightness(1.3)'; break;
+    case 'contrast': toolStatus.textContent='CONTRAST BOOSTED'; posterCanvas.style.filter='contrast(1.9)'; break;
+    case 'bright': toolStatus.textContent='BRIGHTNESS BOOSTED'; posterCanvas.style.filter='brightness(1.8)'; break;
+    case 'invert': toolStatus.textContent='INVERTED VIEW'; posterCanvas.style.filter='invert(1)'; break;
+    case 'spotlight': toolStatus.textContent='SPOTLIGHT ACTIVE'; spotlight.style.display='block'; break;
+    case 'pan': toolStatus.textContent='PAN MODE'; break;
+  }
+}
+function handleStageMove(e){
+  if(activeTool==='spotlight'){
+    const r = posterStage.getBoundingClientRect();
+    spotlight.style.left = (e.clientX-r.left)+'px';
+    spotlight.style.top = (e.clientY-r.top)+'px';
+  }
+}
+function hideSpotlight(){ /* keep last position, no-op */ }
+
+/* watermark drift */
+function driftWatermark(){
+  const el = document.getElementById('watermark1');
+  el.style.top = (10+Math.random()*70)+'%';
+  el.style.left = (5+Math.random()*55)+'%';
+}
+setInterval(driftWatermark, 4200);
+driftWatermark();
+
+/* question selection */
+function selectQuestion(n){
+  selectedQ = n;
+  document.querySelectorAll('.qcard').forEach(c=>c.classList.remove('selected'));
+  document.querySelector(`.qcard[data-q="${n}"]`).classList.add('selected');
+  selQNote.textContent = '0'+n;
+  feedbackBad.classList.remove('show');
+}
+
+/* attempts UI */
+function renderAttempts(){
+  const dots = attemptDots.querySelectorAll('.dot');
+  dots.forEach((d,i)=>{
+    d.classList.remove('full','spent');
+    d.classList.add(i < attempts ? 'full' : 'spent');
+  });
+}
+
+/* submit answer */
+function submitAnswer(){
+  if(!selectedQ){ selQNote.textContent = 'select a question first'; return; }
+  const val = answerInput.value.trim();
+  if(!val) return;
+
+  clearInterval(timerInterval);
+  const isCorrect = (selectedQ === CORRECT.q) && (val.toLowerCase() === CORRECT.answer.toLowerCase());
+
+  if(isCorrect){
+    successOverlay.classList.add('show');
+    navPoints.textContent = '04';
+    statScore.textContent = '04 ';
+    statScore.innerHTML = '04 <span>points</span>';
+  } else {
+    attempts--;
+    renderAttempts();
+    feedbackBad.classList.add('show');
+    if(attempts<=0){
+      feedbackLocked.classList.add('show');
+      feedbackBad.classList.remove('show');
+      submitBtn.disabled = true;
+    } else {
+      attemptsLeftText.textContent = `Attempts remaining: ${attempts}`;
+      startTimer();
+    }
+  }
+}
+function continueAfterSuccess(){
+  successOverlay.classList.remove('show');
+  goTo('complete');
+}
+
+renderAttempts();
+</script>
+</body>
+</html>

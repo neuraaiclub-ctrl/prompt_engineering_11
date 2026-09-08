@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEURA — Prompt Engineering Hackathon Platform</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="./styles/neura-core.css">
+  <link rel="stylesheet" href="./styles/neura-components.css">
+</head>
+<body>
+
+  <!-- Ambient Soft Background Glow & Floating Orbs -->
+  <div class="bg-glow"></div>
+  <div class="bg-orb"></div>
+
+  <!-- Live Playing Planet Circles & Orbiting Glowing Dots -->
+  <div class="planet-ring-container">
+    <div class="planet-ring"></div>
+    <div class="planet-ring r2"></div>
+    <div class="planet-ring r3"></div>
+  </div>
+
+  <!-- Floating Particles Background Container -->
+  <div id="particles"></div>
+
+  <!-- Main Sticky Topbar Navigation -->
+  <header class="topnav">
+    <div class="brand" id="brandLogo" style="cursor:pointer;" title="Return to Briefing">
+      <img src="./assets/neura-logo.jpg" alt="NEURA Logo" class="brand-logo-img">
+      <div class="brand-text">
+        <b>NEURA</b>
+        <small>HACKATHON PLATFORM</small>
+      </div>
+    </div>
+
+    <!-- Central Navigation Links -->
+    <nav class="navlinks">
+      <button data-page="arena-workspace" data-role="participant">Prompt Arena</button>
+      <button data-page="r1-workspace" data-role="participant">Fix The Prompt</button>
+      <button data-page="team-lobby" data-role="participant">Team Lobby</button>
+      <button data-page="judge-dashboard" data-role="judge">Judge Dashboard</button>
+      <button data-page="admin-dashboard" data-role="admin">Admin Panel</button>
+      <button data-page="spectator-view" data-role="spectator">Live Spectator</button>
+    </nav>
+
+    <!-- Right Controls: Authenticated Session Info & Live Timer Ring -->
+    <div class="nav-right">
+      <!-- Authenticated User Session Info (Visible when logged in) -->
+      <div class="user-session-wrap" id="userSessionWrap" style="display:none; align-items:center; gap:10px;">
+        <span class="chip chip-cyan" id="navRoleBadge" style="font-size:10px; padding:3px 8px; font-weight:700;">PARTICIPANT</span>
+        <span class="session-user-name mono-text" id="navUserName" style="font-size:11px; color:var(--text); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+        <button class="btn btn-sm" id="btnNavLogout" title="Sign Out of Session" style="padding:4px 10px; font-size:10px; border-color:var(--line-strong);">LOGOUT</button>
+      </div>
+
+      <!-- SVG Server Timer Ring Component -->
+      <div class="timer-wrap" id="navTimerWrap">
+        <div class="timer-ring">
+          <svg width="48" height="48">
+            <circle class="timer-track" cx="24" cy="24" r="20"></circle>
+            <circle class="timer-prog" id="navTimerCircle" cx="24" cy="24" r="20" stroke-dasharray="125.6" stroke-dashoffset="0"></circle>
+          </svg>
+          <div class="timer-num" id="navTimerNum">03:00</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page View Containers -->
+  <main class="page-container">
+    <!-- View: Landing Page (First Screen - Good Prompt vs Bad Prompt) -->
+    <section class="view-section active" id="page-landing"></section>
+
+    <!-- View: Prompt Fixing Arena Workspace (5 Sequential Challenges) -->
+    <section class="view-section" id="page-arena-workspace"></section>
+
+    <!-- View: Fix The Prompt Workspace (Legacy) -->
+    <section class="view-section" id="page-r1-workspace"></section>
+
+    <!-- View: Team Lobby & Auth -->
+    <section class="view-section" id="page-team-lobby"></section>
+
+    <!-- View: Judge Dashboard -->
+    <section class="view-section" id="page-judge-dashboard"></section>
+
+    <!-- View: Admin Control Panel -->
+    <section class="view-section" id="page-admin-dashboard"></section>
+
+    <!-- View: Spectator Live Projector Stream -->
+    <section class="view-section" id="page-spectator-view"></section>
+  </main>
+
+  <!-- Hidden Staff Portal Modal (Unadvertised: triggered via Ctrl+Shift+S / Alt+A or hash #staff) -->
+  <div class="neura-modal-overlay" id="modalStaffLogin" style="display:none;">
+    <div class="neura-modal glass bracket-frame" style="max-width:440px; width:90%; padding:32px;">
+      <span class="bl"></span><span class="br"></span>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div class="chip chip-violet">🔒 STAFF CONSOLE ACCESS</div>
+        <button class="btn-modal-close" id="btnCloseStaffModal" style="background:none; border:none; color:var(--muted); font-size:22px; cursor:pointer; line-height:1;">&times;</button>
+      </div>
+      <h3 class="heading-md" style="margin-bottom:6px;">STAFF AUTHENTICATION</h3>
+      <p class="sub-text" style="margin-bottom:20px; font-size:12px;">Authorized access for Hackathon Directors and Evaluation Judges only.</p>
+      
+      <div class="field" style="margin-bottom:14px;">
+        <label>Staff Email Address</label>
+        <input type="email" id="staffEmailInput" placeholder="admin1@neura.io" autocomplete="username">
+      </div>
+      <div class="field" style="margin-bottom:18px;">
+        <label>Password</label>
+        <input type="password" id="staffPasswordInput" placeholder="••••••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn btn-violet" style="width:100%;" id="btnPerformStaffLogin">
+        AUTHENTICATE & ENTER &rarr;
+      </button>
+      <div id="staffLoginError" class="mono-text" style="color:var(--red); font-size:11.5px; margin-top:12px; display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Global Custom Modals Container (Success / Error / Credential Popup) -->
+  <div id="customModalContainer"></div>
+
+  <!-- ES6 Main Script -->
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
+

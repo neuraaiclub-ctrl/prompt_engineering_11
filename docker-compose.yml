@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # 1. FastAPI Monolithic Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: neura_backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://neura_user:${POSTGRES_PASSWORD:-neura_secure_pass_2026}@postgres:5432/neura_db
+      - SECRET_KEY=${SECRET_KEY:-neura_jwt_production_secret_key_change_in_prod}
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-mock}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-mock}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - neura_network
+
+  # 2. Asynchronous Execution Worker (Queue Processing & Auto-Eval)
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: neura_worker
+    restart: always
+    command: ["python", "-m", "app.workers.execution_worker"]
+    environment:
+      - DATABASE_URL=postgresql://neura_user:${POSTGRES_PASSWORD:-neura_secure_pass_2026}@postgres:5432/neura_db
+      - SECRET_KEY=${SECRET_KEY:-neura_jwt_production_secret_key_change_in_prod}
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-mock}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-mock}
+    depends_on:
+      - backend
+      - redis
+      - postgres
+    networks:
+      - neura_network
+
+  # 3. PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: neura_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=neura_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-neura_secure_pass_2026}
+      - POSTGRES_DB=neura_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U neura_user -d neura_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - neura_network
+
+  # 4. Redis In-Memory Store (Cache & PubSub Timers)
+  redis:
+    image: redis:7-alpine
+    container_name: neura_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - neura_network
+
+  # 5. Frontend Web Server & Reverse Proxy
+  frontend:
+    image: nginx:alpine
+    container_name: neura_frontend
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    networks:
+      - neura_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  neura_network:
+    driver: bridge
