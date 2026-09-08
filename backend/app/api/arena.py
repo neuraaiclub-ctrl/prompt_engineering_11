@@ -1,15 +1,17 @@
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
 from app.core.rbac import get_current_user, require_roles, get_optional_current_user
+from app.core.rate_limiter import enforce_rate_limit
 from app.schemas.arena import (
     StartArenaRequest,
     SubmitChallengeRequest,
     SecurityEventRequest,
     JudgeScoreRequest,
+    EliminateTeamRequest,
     ArenaConfigUpdateRequest
 )
 from app.services.arena_service import ArenaService
@@ -86,6 +88,7 @@ def get_my_arena_challenge(
 
 @router.post("/submit-challenge")
 def submit_arena_challenge(
+    request: Request,
     payload: SubmitChallengeRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -96,6 +99,7 @@ def submit_arena_challenge(
     """
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required.")
+    enforce_rate_limit(request, "arena_submit", limit=30, window_seconds=60, identifier=current_user.id)
     return ArenaService.submit_challenge(db, current_user, payload)
 
 # ---------------------------------------------------------------------------
@@ -103,6 +107,7 @@ def submit_arena_challenge(
 # ---------------------------------------------------------------------------
 @router.post("/security-event")
 def log_security_event(
+    request: Request,
     payload: SecurityEventRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -110,6 +115,7 @@ def log_security_event(
     """
     Logs suspicious browser deterrence events (tab switches, window blur, fullscreen exits).
     """
+    enforce_rate_limit(request, "arena_security_event", limit=60, window_seconds=60, identifier=current_user.id)
     return ArenaService.record_security_event(db, current_user, payload)
 
 # ---------------------------------------------------------------------------
@@ -137,9 +143,34 @@ def score_arena_submission(
     """
     return ArenaService.score_submission(db, current_user, payload)
 
+@router.post("/judge/eliminate")
+def eliminate_team(
+    payload: EliminateTeamRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["admin", "judge"]))
+):
+    """
+    Judge/Admin authoritative control to eliminate a team from the competition.
+    Freezes further submissions, creates an audit record, and excludes the team from podium winners.
+    """
+    return ArenaService.eliminate_team(db, current_user, payload)
+
 # ---------------------------------------------------------------------------
 # Results & Educational Report Endpoints
 # ---------------------------------------------------------------------------
+@router.get("/my-results")
+def get_my_score_dashboard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Participant score dashboard showing overall total, average score,
+    authoritative rank, completion timestamp, and per-challenge 5-characteristic breakdown.
+    """
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    return ArenaService.get_team_score_dashboard(db, current_user)
+
 @router.get("/report")
 def get_team_performance_report(
     db: Session = Depends(get_db),
@@ -158,7 +189,7 @@ def get_arena_leaderboard(
 ):
     """
     Official leaderboard ranking by:
-    1. Total Score DESC (out of 50)
+    1. Average Score DESC (out of 100) / Total Score DESC
     2. Completion Timestamp ASC (tie-breaker: earliest final submission wins!)
     Highlights Top 3 Podium (Winner, Runner-up, 2nd Runner-up).
     """

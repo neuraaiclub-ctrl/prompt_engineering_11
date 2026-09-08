@@ -60,14 +60,16 @@ class ArenaEvaluation(Base):
     submission_id = Column(String, ForeignKey("arena_submissions.id"), nullable=False)
     judge_user_id = Column(String, ForeignKey("users.id"), nullable=False)
     
-    # 5 Official Criteria (0-2 Marks each)
+    # 5 Official Characteristics (Clarity, Specificity, Context, Output Format, Constraints)
     clarity_score = Column(Float, default=0.0, nullable=False)
-    context_score = Column(Float, default=0.0, nullable=False)
     specificity_score = Column(Float, default=0.0, nullable=False)
-    output_structure_score = Column(Float, default=0.0, nullable=False)
-    relevance_score = Column(Float, default=0.0, nullable=False)
+    context_score = Column(Float, default=0.0, nullable=False)
+    output_format_score = Column(Float, default=0.0, nullable=True)
+    output_structure_score = Column(Float, default=0.0, nullable=False) # Legacy alias
+    constraints_score = Column(Float, default=0.0, nullable=True)
+    relevance_score = Column(Float, default=0.0, nullable=False) # Legacy alias
     
-    total_score = Column(Float, default=0.0, nullable=False) # Sum / 10
+    total_score = Column(Float, default=0.0, nullable=False) # Question Total: 0 to 100 (or legacy 0 to 10)
     judge_feedback = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

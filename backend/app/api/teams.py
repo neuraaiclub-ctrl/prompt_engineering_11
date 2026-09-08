@@ -43,12 +43,17 @@ def get_team_detail(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
 
+    is_admin = any(r.name == "admin" for r in current_user.roles)
+    is_judge = any(r.name == "judge" for r in current_user.roles)
+    is_member = any(m.user_id == current_user.id for m in team.members)
+    can_view_private = is_admin or is_judge or is_member
+
     members_data = []
     for m in team.members:
         members_data.append({
             "user_id": m.user_id,
             "name": m.user.name,
-            "email": m.user.email,
+            "email": m.user.email if can_view_private else None,
             "role": m.role
         })
 
@@ -56,7 +61,7 @@ def get_team_detail(
         "id": team.id,
         "name": team.name,
         "college": team.college,
-        "invite_code": team.invite_code,
+        "invite_code": team.invite_code if can_view_private else None,
         "status": team.status,
         "members": members_data
     }

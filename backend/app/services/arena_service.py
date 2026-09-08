@@ -23,6 +23,7 @@ from app.schemas.arena import (
     SubmitChallengeRequest,
     SecurityEventRequest,
     JudgeScoreRequest,
+    EliminateTeamRequest,
     ArenaConfigUpdateRequest
 )
 
@@ -65,12 +66,24 @@ class ArenaService:
         if total < 5:
             return [p.id for p in all_prompts]
 
+        existing_sessions = db.query(TeamArenaSession).all()
+        assigned_sets = {
+            tuple(s.prompt_ids)
+            for s in existing_sessions
+            if s.prompt_ids and s.team_id != team.id
+        }
+
         seed_str = f"{team.id}_{team.name}_{team.invite_code}"
-        seed_val = int(hashlib.sha256(seed_str.encode()).hexdigest()[:8], 16)
-        
-        rng = random.Random(seed_val)
-        sampled = rng.sample(all_prompts, 5)
-        return [p.id for p in sampled]
+        salt_idx = 0
+        while True:
+            cur_seed_str = f"{seed_str}_{salt_idx}" if salt_idx > 0 else seed_str
+            seed_val = int(hashlib.sha256(cur_seed_str.encode()).hexdigest()[:8], 16)
+            rng = random.Random(seed_val)
+            sampled = rng.sample(all_prompts, 5)
+            candidate = [p.id for p in sampled]
+            if tuple(candidate) not in assigned_sets or salt_idx > 1000:
+                return candidate
+            salt_idx += 1
 
     @classmethod
     def get_status(cls, db: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
@@ -205,6 +218,18 @@ class ArenaService:
         conf = cls.get_or_create_config(db)
 
         session = db.query(TeamArenaSession).filter(TeamArenaSession.team_id == team.id).first()
+        is_eliminated = (team.status == "eliminated" or (session and session.status == "eliminated"))
+        if is_eliminated:
+            return {
+                "competition_status": "eliminated",
+                "is_eliminated": True,
+                "is_completed": True,
+                "team_name": team.name,
+                "college": team.college,
+                "message": "Team has been eliminated by the competition adjudicator.",
+                "challenge": None
+            }
+
         if not session:
             assigned_ids = cls.assign_unique_prompts_for_team(db, team)
             session = TeamArenaSession(
@@ -259,7 +284,7 @@ class ArenaService:
                 "difficulty": prompt_item.difficulty,
                 "original_bad_prompt": prompt_item.original_bad_prompt,
                 "bad_output_evidence": prompt_item.bad_output_evidence,
-                "flawed_reasons": prompt_item.flawed_reasons or []
+                "challenge_number": session.current_challenge_index
             }
         }
 
@@ -268,6 +293,13 @@ class ArenaService:
         team = cls.get_user_team(db, current_user)
         if not team:
             raise HTTPException(status_code=403, detail="Unauthorized: User is not linked to an active team.")
+
+        session = db.query(TeamArenaSession).filter(TeamArenaSession.team_id == team.id).first()
+        if team.status == "eliminated" or (session and session.status == "eliminated"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Team has been eliminated from the competition and cannot submit challenges."
+            )
 
         conf = cls.get_or_create_config(db)
         if conf.status == "waiting":
@@ -463,12 +495,15 @@ class ArenaService:
         if not sub:
             raise HTTPException(status_code=404, detail="Submission not found.")
 
+        output_val = payload.output_format_score if payload.output_format_score is not None else (payload.output_structure_score or 0.0)
+        constraints_val = payload.constraints_score if payload.constraints_score is not None else (payload.relevance_score or 0.0)
+
         total = (
             payload.clarity_score +
-            payload.context_score +
             payload.specificity_score +
-            payload.output_structure_score +
-            payload.relevance_score
+            payload.context_score +
+            output_val +
+            constraints_val
         )
 
         evaluation = db.query(ArenaEvaluation).filter(
@@ -486,10 +521,12 @@ class ArenaService:
         db.flush()
 
         evaluation.clarity_score = payload.clarity_score
-        evaluation.context_score = payload.context_score
         evaluation.specificity_score = payload.specificity_score
-        evaluation.output_structure_score = payload.output_structure_score
-        evaluation.relevance_score = payload.relevance_score
+        evaluation.context_score = payload.context_score
+        evaluation.output_format_score = output_val
+        evaluation.output_structure_score = output_val
+        evaluation.constraints_score = constraints_val
+        evaluation.relevance_score = constraints_val
         evaluation.total_score = round(total, 2)
         evaluation.judge_feedback = payload.judge_feedback.strip() if payload.judge_feedback else ""
 
@@ -511,6 +548,42 @@ class ArenaService:
             "success": True,
             "message": "Evaluation scored and recorded.",
             "total_score": round(total, 2)
+        }
+
+    @classmethod
+    def eliminate_team(cls, db: Session, current_user: User, payload: EliminateTeamRequest) -> Dict[str, Any]:
+        team = db.query(Team).filter(Team.id == payload.team_id).first()
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found.")
+
+        prev_status = team.status
+        team.status = "eliminated"
+
+        session = db.query(TeamArenaSession).filter(TeamArenaSession.team_id == team.id).first()
+        if session:
+            session.status = "eliminated"
+
+        db.add(AuditLog(
+            actor_user_id=current_user.id,
+            action="arena.team_eliminated",
+            target_type="Team",
+            target_id=team.id,
+            audit_metadata={
+                "reason": payload.reason,
+                "previous_status": prev_status,
+                "eliminated_by": current_user.email,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        ))
+        db.commit()
+
+        return {
+            "success": True,
+            "message": f"Team '{team.name}' has been eliminated from the competition.",
+            "team_id": team.id,
+            "team_name": team.name,
+            "status": "eliminated",
+            "reason": payload.reason
         }
 
     @classmethod
@@ -621,38 +694,128 @@ class ArenaService:
             }
 
         teams = db.query(Team).all()
-        standings = []
+        eligible_standings = []
+        eliminated_standings = []
 
         for t in teams:
             session = db.query(TeamArenaSession).filter(TeamArenaSession.team_id == t.id).first()
             submissions = db.query(ArenaSubmission).filter(ArenaSubmission.team_id == t.id).all()
             
+            is_eliminated = (t.status == "eliminated" or (session and session.status == "eliminated"))
+
             total_score = 0.0
             for sub in submissions:
                 evals = sub.evaluations
                 if evals:
                     total_score += sum(e.total_score for e in evals) / len(evals)
 
+            avg_score = round(total_score / 5.0, 2)
             completed_time = session.completed_at if session else None
             
-            standings.append({
+            item = {
                 "team_id": t.id,
                 "team_name": t.name,
                 "college": t.college or "N/A",
                 "total_score": round(total_score, 1),
+                "average_score": avg_score,
                 "completed_challenges": len(submissions),
                 "completed_at": completed_time.isoformat() if completed_time else None,
-                "completed_at_sort": completed_time.timestamp() if completed_time else 9999999999
-            })
+                "completed_at_sort": completed_time.timestamp() if completed_time else 9999999999,
+                "is_eliminated": is_eliminated,
+                "status": "eliminated" if is_eliminated else ("completed" if len(submissions) >= 5 else (t.status or "active"))
+            }
 
-        standings.sort(key=lambda x: (-x["total_score"], x["completed_at_sort"]))
+            if is_eliminated:
+                item["rank"] = None
+                item["podium"] = None
+                del item["completed_at_sort"]
+                eliminated_standings.append(item)
+            else:
+                eligible_standings.append(item)
 
-        for idx, entry in enumerate(standings):
+        # Authoritative Sorting: Average Score DESC, then Earliest Completion Timestamp ASC (tie-break)
+        eligible_standings.sort(key=lambda x: (-x["total_score"], x["completed_at_sort"]))
+
+        for idx, entry in enumerate(eligible_standings):
             entry["rank"] = idx + 1
             entry["podium"] = "winner" if idx == 0 else "runner_up" if idx == 1 else "second_runner_up" if idx == 2 else None
             del entry["completed_at_sort"]
 
         return {
             "results_available": conf.status == "results_available",
-            "standings": standings
+            "standings": eligible_standings + eliminated_standings
+        }
+
+    @classmethod
+    def get_team_score_dashboard(cls, db: Session, current_user: User) -> Dict[str, Any]:
+        team = cls.get_user_team(db, current_user)
+        if not team:
+            raise HTTPException(status_code=403, detail="Team membership required.")
+
+        conf = cls.get_or_create_config(db)
+        session = db.query(TeamArenaSession).filter(TeamArenaSession.team_id == team.id).first()
+        is_eliminated = (team.status == "eliminated" or (session and session.status == "eliminated"))
+
+        submissions = db.query(ArenaSubmission).filter(
+            ArenaSubmission.team_id == team.id
+        ).order_by(ArenaSubmission.challenge_index.asc()).all()
+
+        total_score = 0.0
+        challenges_report = []
+
+        for sub in submissions:
+            p = db.query(PromptBankItem).filter(PromptBankItem.id == sub.prompt_bank_item_id).first()
+            evals = sub.evaluations
+            if evals:
+                avg_clarity = sum(e.clarity_score for e in evals) / len(evals)
+                avg_spec = sum(e.specificity_score for e in evals) / len(evals)
+                avg_context = sum(e.context_score for e in evals) / len(evals)
+                avg_format = sum((e.output_format_score if e.output_format_score is not None else e.output_structure_score) for e in evals) / len(evals)
+                avg_constraints = sum((e.constraints_score if e.constraints_score is not None else e.relevance_score) for e in evals) / len(evals)
+                c_total = sum(e.total_score for e in evals) / len(evals)
+                feedback = "; ".join([e.judge_feedback for e in evals if e.judge_feedback])
+            else:
+                avg_clarity = avg_spec = avg_context = avg_format = avg_constraints = c_total = 0.0
+                feedback = "Pending evaluation."
+
+            total_score += c_total
+
+            challenges_report.append({
+                "challenge_index": sub.challenge_index,
+                "code": p.code if p else f"Q0{sub.challenge_index}",
+                "title": p.title if p else f"Question {sub.challenge_index}",
+                "category": p.category if p else "general",
+                "submitted_prompt": sub.submitted_prompt,
+                "score": round(c_total, 1),
+                "characteristics": {
+                    "clarity": round(avg_clarity, 1),
+                    "specificity": round(avg_spec, 1),
+                    "context": round(avg_context, 1),
+                    "output_format": round(avg_format, 1),
+                    "constraints": round(avg_constraints, 1)
+                },
+                "server_timestamp": sub.server_timestamp.isoformat(),
+                "judge_feedback": feedback
+            })
+
+        avg_score = round(total_score / 5.0, 2)
+        
+        # Rank from authoritative leaderboard
+        lb = cls.get_leaderboard(db, current_user=None)
+        standings = lb.get("standings", [])
+        my_standing = next((s for s in standings if s["team_id"] == team.id), None)
+        rank = my_standing["rank"] if my_standing else None
+
+        return {
+            "team_id": team.id,
+            "team_name": team.name,
+            "college": team.college or "N/A",
+            "is_eliminated": is_eliminated,
+            "status": "eliminated" if is_eliminated else (session.status if session else team.status),
+            "total_score": round(total_score, 1),
+            "average_score": avg_score,
+            "rank": rank,
+            "completion_time": session.completed_at.isoformat() if (session and session.completed_at) else None,
+            "challenges": challenges_report,
+            "results_released": conf.status == "results_available"
         }

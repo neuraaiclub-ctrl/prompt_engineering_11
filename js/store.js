@@ -752,12 +752,45 @@ class Store {
         headers: this.getAuthHeaders()
       });
       if (resp.ok) {
-        return await resp.json();
+        const json = await resp.json();
+        return Array.isArray(json) ? json : (json.standings || []);
       }
     } catch (e) {
       console.warn('Backend leaderboard unreachable:', e);
     }
     return [];
+  }
+
+  async eliminateTeam(teamId, reason) {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/arena/judge/eliminate`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ team_id: teamId, reason })
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        return { success: true, ...data };
+      }
+      return { success: false, error: data.detail || 'Failed to eliminate team' };
+    } catch (e) {
+      return { success: false, error: 'Connection error while eliminating team' };
+    }
+  }
+
+  async getMyArenaResults() {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/arena/my-results`, {
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        return { success: true, ...data };
+      }
+      return { success: false, error: data.detail || 'Failed to fetch score dashboard' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
   }
 }
 

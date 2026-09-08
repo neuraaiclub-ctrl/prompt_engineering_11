@@ -88,7 +88,13 @@ async function refreshArenaView(container, isBackgroundPoll = false) {
     const statusData = await store.getArenaStatus();
     const status = statusData.status || 'waiting';
 
-    // If results are released, display educational report
+    // If eliminated by administration
+    if (status === 'eliminated') {
+      renderEliminatedScreen(container, statusData);
+      return;
+    }
+
+    // If results are released, display official score dashboard / report
     if (statusData.is_results_released || status === 'results_available') {
       await renderResultsReport(container);
       return;
@@ -103,6 +109,10 @@ async function refreshArenaView(container, isBackgroundPoll = false) {
     // If status is live or completed
     const challengeRes = await store.getMyArenaChallenge();
     if (!challengeRes.success) {
+      if (challengeRes.status === 'eliminated' || (challengeRes.error && challengeRes.error.toLowerCase().includes('eliminated'))) {
+        renderEliminatedScreen(container, challengeRes);
+        return;
+      }
       if (!isBackgroundPoll) {
         container.innerHTML = `
           <div style="max-width:500px; margin:80px auto; padding:32px; text-align:center;" class="glass bracket-frame">
@@ -113,6 +123,11 @@ async function refreshArenaView(container, isBackgroundPoll = false) {
           </div>
         `;
       }
+      return;
+    }
+
+    if (challengeRes.status === 'eliminated') {
+      renderEliminatedScreen(container, challengeRes);
       return;
     }
 
@@ -130,6 +145,41 @@ async function refreshArenaView(container, isBackgroundPoll = false) {
   } catch (err) {
     console.error('Error refreshing arena view:', err);
   }
+}
+
+/* ==========================================================================
+   STATE 0: ELIMINATED SCREEN (AUTHORITATIVE COMPETITION DISQUALIFICATION)
+   ========================================================================== */
+function renderEliminatedScreen(container, data) {
+  const reason = data.elimination_reason || data.reason || data.error || 'Team has been disqualified by Competition Administration for rule or integrity violation.';
+  container.innerHTML = `
+    <div style="max-width:680px; margin:60px auto; padding:40px; text-align:center;" class="glass bracket-frame">
+      <span class="bl" style="border-color:var(--red);"></span><span class="br" style="border-color:var(--red);"></span>
+      <div style="font-size:54px; margin-bottom:14px;">🛑</div>
+      <div class="chip chip-red" style="margin-bottom:14px; font-weight:800; letter-spacing:1.5px;">COMPETITION STATUS // ELIMINATED</div>
+      <h1 class="heading-lg" style="color:var(--red); margin-bottom:12px;">TEAM DISQUALIFIED FROM ARENA</h1>
+      <p class="sub-text" style="font-size:13.5px; line-height:1.6; max-width:540px; margin:0 auto 20px auto;">
+        Your team has been officially eliminated from live competition by the judging and administration panel. Challenge submission privileges have been permanently frozen.
+      </p>
+
+      <div class="glass-card" style="padding:16px 20px; max-width:500px; margin:0 auto 24px auto; border-left:4px solid var(--red); text-align:left;">
+        <div class="eyebrow" style="color:var(--red); margin-bottom:6px;">OFFICIAL AUDIT NOTICE</div>
+        <div style="font-size:13px; color:var(--text); font-family:var(--mono); line-height:1.5;">
+          ${escapeHtml(reason)}
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:center; gap:16px;">
+        <button class="btn btn-sm btn-red" id="btnEliminatedLogout" style="padding:10px 24px; font-size:12px; font-weight:700;">
+          ⎋ LOGOUT SESSION
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btnEliminatedLogout')?.addEventListener('click', () => {
+    Router.confirmLogout();
+  });
 }
 
 /* ==========================================================================
@@ -190,20 +240,21 @@ function renderWaitingLobby(container, statusData) {
         <div class="glass-card" style="padding:18px;">
           <div class="eyebrow" style="margin-bottom:8px; color:var(--cyan);">ARENA FORMAT</div>
           <ul style="padding-left:18px; font-size:12.5px; color:var(--text); line-height:1.7; margin:0;">
-            <li><strong>5 Challenges:</strong> Each team receives a unique set of 5 challenges from the prompt bank.</li>
+            <li><strong>5 Challenges:</strong> Strictly unique, non-overlapping set of 5 questions per team.</li>
             <li><strong>Sequential Flow:</strong> Challenges must be solved and locked sequentially (1 through 5).</li>
-            <li><strong>Permanent Submissions:</strong> Once submitted, a challenge cannot be reopened or edited.</li>
+            <li><strong>Permanent Submissions:</strong> Single immutable submission per challenge with server timestamp.</li>
           </ul>
         </div>
         <div class="glass-card" style="padding:18px;">
-          <div class="eyebrow" style="margin-bottom:8px; color:var(--violet);">50-MARK EVALUATION RUBRIC</div>
+          <div class="eyebrow" style="margin-bottom:8px; color:var(--violet);">500-MARK EVALUATION RUBRIC</div>
           <ul style="padding-left:18px; font-size:12.5px; color:var(--text); line-height:1.7; margin:0;">
-            <li>10 marks per challenge across 5 criteria (0–2 marks each):</li>
+            <li><strong>Max 100 / question</strong> across 5 criteria (0 / 10 / 20 each):</li>
             <li>1. Clarity & Objective Formulation</li>
-            <li>2. Context & Framing</li>
-            <li>3. Specificity & Constraint Enforcement</li>
+            <li>2. Specificity & Detail Enforcement</li>
+            <li>3. Operational Context & Framing</li>
             <li>4. Output Structuring & Formatting</li>
-            <li>5. Domain Relevance & Tone</li>
+            <li>5. Constraints & Edge Guardrails</li>
+            <li><strong style="color:var(--cyan);">Total: /500 &bull; Average Score: Total / 5</strong></li>
           </ul>
         </div>
       </div>
@@ -212,7 +263,7 @@ function renderWaitingLobby(container, statusData) {
       <div class="glass-card" style="margin-top:20px; padding:14px 18px; display:flex; align-items:center; gap:14px; border-left:3px solid var(--amber);">
         <div style="font-size:22px;">🛡️</div>
         <div style="font-size:12px; line-height:1.5; color:var(--muted);">
-          <strong style="color:var(--amber);">Active Anti-Cheat Telemetry:</strong> Fullscreen exit, tab switches, and window blur events are continuously audited on the server. Please maintain focus within this window during live competition.
+          <strong style="color:var(--amber);">Active Anti-Cheat Telemetry:</strong> Fullscreen enforcement, tab switches, copy/paste, and blur events are continuously audited on the server. Please maintain fullscreen focus during live competition.
         </div>
       </div>
     </div>
@@ -248,8 +299,8 @@ function renderActiveChallenge(container, challengeRes) {
         <h1 class="heading-lg" style="margin-top:4px;">CHALLENGE ${currIndex} OF 5</h1>
       </div>
 
-      <!-- 5 Sequential Progress Step Dots & Logout Action -->
-      <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+      <!-- 5 Sequential Progress Step Dots, Fullscreen & Logout Action -->
+      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
         <div style="display:flex; align-items:center; gap:12px;">
           <span class="mono-text" style="font-size:11.5px; color:var(--muted); margin-right:4px;">SEQUENCE PROGRESS:</span>
           <div class="step-progress-wrap" style="display:flex; gap:8px;">
@@ -264,6 +315,9 @@ function renderActiveChallenge(container, challengeRes) {
             }).join('')}
           </div>
         </div>
+        <button class="btn btn-sm btn-primary" id="btnToggleFullscreen" style="padding:6px 12px; font-size:11px; font-weight:700;">
+          ⛶ FULLSCREEN
+        </button>
         <button class="btn btn-sm btn-red" id="btnChallengeLogout" style="padding:6px 14px; font-size:11px; font-weight:700; cursor:pointer;">
           ⎋ LOGOUT
         </button>
@@ -389,6 +443,26 @@ function renderActiveChallenge(container, challengeRes) {
         autoSave.style.color = 'var(--green)';
       }, 400);
     }
+  });
+
+    // Fullscreen toggle action
+  document.getElementById('btnToggleFullscreen')?.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn('Fullscreen request denied:', err);
+      });
+    } else {
+      document.exitFullscreen().catch((err) => console.warn(err));
+    }
+  });
+
+  // Anti-cheat paste audit on refactored input
+  textarea?.addEventListener('paste', (e) => {
+    const pasteLength = (e.clipboardData || window.clipboardData)?.getData('text')?.length || 0;
+    store.logSecurityEvent('PASTE_EVENT', {
+      challenge_index: currIndex,
+      char_count: pasteLength
+    });
   });
 
   // Anti-cheat restriction on prompt box
@@ -549,9 +623,175 @@ function renderCompletedScreen(container, challengeRes) {
 }
 
 /* ==========================================================================
-   STATE 4: DETAILED EDUCATIONAL PERFORMANCE REPORT (POST-RESULTS RELEASE)
+   STATE 4: DETAILED EDUCATIONAL PERFORMANCE REPORT & SCORE DASHBOARD
    ========================================================================== */
 async function renderResultsReport(container) {
+  // First try the official 5-characteristic score dashboard endpoint
+  const resultsRes = await store.getMyArenaResults();
+
+  if (resultsRes.success && resultsRes.challenges && resultsRes.challenges.length > 0) {
+    const data = resultsRes;
+    const rankDisplay = data.rank ? `#${data.rank}` : 'TBD';
+    const podiumBadge = data.rank === 1 ? '<span class="chip chip-green" style="font-weight:700;">🥇 WINNER (1ST PLACE)</span>'
+                      : data.rank === 2 ? '<span class="chip chip-cyan" style="font-weight:700;">🥈 RUNNER UP (2ND PLACE)</span>'
+                      : data.rank === 3 ? '<span class="chip chip-violet" style="font-weight:700;">🥉 2ND RUNNER UP (3RD PLACE)</span>'
+                      : '';
+    const completionTimeStr = data.completion_time ? new Date(data.completion_time).toLocaleTimeString() : 'Recorded';
+
+    // Calculate characteristic averages across evaluated challenges
+    const chs = data.challenges;
+    const avgClarity = (chs.reduce((acc, c) => acc + (c.characteristics?.clarity || 0), 0) / chs.length).toFixed(1);
+    const avgSpec = (chs.reduce((acc, c) => acc + (c.characteristics?.specificity || 0), 0) / chs.length).toFixed(1);
+    const avgContext = (chs.reduce((acc, c) => acc + (c.characteristics?.context || 0), 0) / chs.length).toFixed(1);
+    const avgFormat = (chs.reduce((acc, c) => acc + (c.characteristics?.output_format || 0), 0) / chs.length).toFixed(1);
+    const avgConstraints = (chs.reduce((acc, c) => acc + (c.characteristics?.constraints || 0), 0) / chs.length).toFixed(1);
+
+    container.innerHTML = `
+      <div style="max-width:960px; margin:20px auto; padding:32px;" class="glass bracket-frame">
+        <span class="bl"></span><span class="br"></span>
+
+        <!-- Report Header -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; flex-wrap:wrap; gap:16px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span class="chip chip-green">OFFICIAL PERFORMANCE REPORT</span>
+              ${podiumBadge}
+            </div>
+            <h1 class="heading-lg" style="margin-bottom:4px;">ARENA SCORE DASHBOARD</h1>
+            <div class="mono-text" style="font-size:12px; color:var(--muted);">
+              TEAM // ${escapeHtml(data.team_name)} &bull; ${escapeHtml(data.college)} &bull; 5 QUESTIONS EVALUATED
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+            <!-- Overall Score Cards -->
+            <div class="glass-card" style="padding:14px 20px; text-align:center; border-color:var(--cyan);">
+              <div class="eyebrow" style="margin-bottom:2px;">TOTAL SCORE</div>
+              <div class="heading-lg" style="color:var(--cyan); font-size:32px; line-height:1;">
+                ${data.total_score} <span style="font-size:16px; color:var(--muted);">/ 500</span>
+              </div>
+              <div class="mono-text" style="font-size:11px; color:var(--green); margin-top:4px;">
+                AVG: ${data.average_score} / 100
+              </div>
+            </div>
+
+            <div class="glass-card" style="padding:14px 20px; text-align:center; border-color:var(--violet);">
+              <div class="eyebrow" style="margin-bottom:2px;">OFFICIAL RANK</div>
+              <div class="heading-lg" style="color:var(--violet); font-size:32px; line-height:1;">
+                ${rankDisplay}
+              </div>
+              <div class="mono-text" style="font-size:10.5px; color:var(--muted); margin-top:4px;">
+                TIME: ${escapeHtml(completionTimeStr)}
+              </div>
+            </div>
+
+            <button class="btn btn-sm btn-red" id="btnReportLogout" style="padding:8px 16px; font-size:11px; font-weight:700; cursor:pointer;">
+              ⎋ LOGOUT
+            </button>
+          </div>
+        </div>
+
+        <!-- 5-Characteristic Mastery Progress Bars (Max 20 per characteristic) -->
+        <div class="glass-card" style="padding:24px; margin-bottom:28px;">
+          <div class="eyebrow" style="margin-bottom:16px; color:var(--cyan);">5-CHARACTERISTIC MASTERY BREAKDOWN (AVERAGE SCORE / 20)</div>
+          
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            ${renderCriterionBar('1. Clarity & Objective Formulation', avgClarity, 20, 'var(--cyan)')}
+            ${renderCriterionBar('2. Specificity & Detail Enforcement', avgSpec, 20, 'var(--green)')}
+            ${renderCriterionBar('3. Operational Context & Framing', avgContext, 20, 'var(--violet)')}
+            ${renderCriterionBar('4. Output Structuring & Formatting', avgFormat, 20, 'var(--amber)')}
+            ${renderCriterionBar('5. Constraints & Edge Guardrails', avgConstraints, 20, 'var(--blue)')}
+          </div>
+        </div>
+
+        <!-- Per-Challenge Evaluation Breakdown Cards -->
+        <div class="eyebrow" style="margin-bottom:16px;">QUESTION-BY-QUESTION EVALUATION BREAKDOWN</div>
+        <div style="display:flex; flex-direction:column; gap:18px;">
+          ${data.challenges.map((ch) => {
+            const timeFormatted = ch.server_timestamp ? new Date(ch.server_timestamp).toLocaleTimeString() : 'Recorded';
+            return `
+              <div class="glass bracket-frame" style="padding:22px;">
+                <span class="bl"></span><span class="br"></span>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                  <div>
+                    <span class="chip chip-cyan" style="margin-right:8px;">QUESTION ${ch.challenge_index}</span>
+                    <span class="mono-text" style="color:var(--muted); font-size:11.5px; margin-right:8px;">[${escapeHtml(ch.code)}]</span>
+                    <strong style="font-size:15px;">${escapeHtml(ch.title)}</strong>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <span class="chip chip-violet">${escapeHtml(ch.category || 'General').toUpperCase()}</span>
+                    <div class="heading-md" style="color:var(--cyan); font-size:20px;">
+                      ${ch.score} <span style="font-size:13px; color:var(--muted);">/ 100</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Submitted Solution -->
+                <div style="margin-bottom:14px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <div class="eyebrow">YOUR SUBMITTED PROMPT FORMULATION</div>
+                    <span class="mono-text" style="font-size:10px; color:var(--muted);">LOCKED AT ${escapeHtml(timeFormatted)}</span>
+                  </div>
+                  <div class="evidence-block" style="font-size:12.5px; max-height:110px; line-height:1.5; font-family:var(--mono);">${escapeHtml(ch.submitted_prompt)}</div>
+                </div>
+
+                <!-- 5 Characteristic Scores Breakdown -->
+                <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin-bottom:12px; text-align:center;">
+                  <div class="glass-card" style="padding:8px 4px;">
+                    <div style="font-size:9.5px; color:var(--muted);">CLARITY</div>
+                    <div style="font-weight:bold; color:var(--cyan); font-size:13px;">${ch.characteristics?.clarity || 0} / 20</div>
+                  </div>
+                  <div class="glass-card" style="padding:8px 4px;">
+                    <div style="font-size:9.5px; color:var(--muted);">SPECIFICITY</div>
+                    <div style="font-weight:bold; color:var(--green); font-size:13px;">${ch.characteristics?.specificity || 0} / 20</div>
+                  </div>
+                  <div class="glass-card" style="padding:8px 4px;">
+                    <div style="font-size:9.5px; color:var(--muted);">CONTEXT</div>
+                    <div style="font-weight:bold; color:var(--violet); font-size:13px;">${ch.characteristics?.context || 0} / 20</div>
+                  </div>
+                  <div class="glass-card" style="padding:8px 4px;">
+                    <div style="font-size:9.5px; color:var(--muted);">OUTPUT FORMAT</div>
+                    <div style="font-weight:bold; color:var(--amber); font-size:13px;">${ch.characteristics?.output_format || 0} / 20</div>
+                  </div>
+                  <div class="glass-card" style="padding:8px 4px;">
+                    <div style="font-size:9.5px; color:var(--muted);">CONSTRAINTS</div>
+                    <div style="font-weight:bold; color:var(--blue); font-size:13px;">${ch.characteristics?.constraints || 0} / 20</div>
+                  </div>
+                </div>
+
+                <!-- Constructive Judge Feedback -->
+                ${ch.judge_feedback ? `
+                  <div class="glass-card" style="padding:10px 14px; border-left:3px solid var(--violet);">
+                    <div class="eyebrow" style="color:var(--violet); margin-bottom:4px;">OFFICIAL EVALUATION FEEDBACK</div>
+                    <div style="font-size:12.5px; font-style:italic; color:var(--text);">"${escapeHtml(ch.judge_feedback)}"</div>
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Action: Navigate to Spectator Leaderboard -->
+        <div style="margin-top:32px; text-align:center;">
+          <button class="btn btn-violet" id="btnViewArenaLeaderboard" style="padding:10px 24px;">
+            VIEW OFFICIAL ARENA LEADERBOARD &rarr;
+          </button>
+        </div>
+
+      </div>
+    `;
+
+    document.getElementById('btnViewArenaLeaderboard')?.addEventListener('click', () => {
+      Router.navigate('spectator-view');
+    });
+
+    document.getElementById('btnReportLogout')?.addEventListener('click', () => {
+      Router.confirmLogout();
+    });
+    return;
+  }
+
+  // Fallback to getArenaReport() if my-results has no evaluated challenges yet
   const reportRes = await store.getArenaReport();
   if (!reportRes.success) {
     container.innerHTML = `
@@ -560,7 +800,7 @@ async function renderResultsReport(container) {
         <div class="chip chip-violet" style="margin-bottom:12px;">RESULTS PENDING</div>
         <h2 class="heading-md" style="margin-bottom:12px;">EVALUATION IN PROGRESS</h2>
         <p class="sub-text" style="font-size:13px; line-height:1.6; margin-bottom:20px;">
-          The judging panel has not finalized scores for this team yet. Please check back shortly.
+          The judging panel is currently finalizing 5-characteristic scores. Please refresh shortly.
         </p>
         <button class="btn btn-primary" onclick="window.location.reload()">REFRESH STATUS ⟳</button>
       </div>
@@ -586,7 +826,6 @@ async function renderResultsReport(container) {
         </div>
 
         <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-          <!-- Overall Score Card -->
           <div class="glass-card" style="padding:16px 24px; text-align:center; border-color:var(--cyan);">
             <div class="eyebrow" style="margin-bottom:4px;">TOTAL ARENA SCORE</div>
             <div class="heading-lg" style="color:var(--cyan); font-size:36px; line-height:1;">
@@ -602,106 +841,11 @@ async function renderResultsReport(container) {
         </div>
       </div>
 
-      <!-- 5-Criteria Aggregate Mastery Progress Bars -->
-      <div class="glass-card" style="padding:24px; margin-bottom:28px;">
-        <div class="eyebrow" style="margin-bottom:16px; color:var(--cyan);">AGGREGATE CRITERION MASTERY (MAX 10 MARKS PER CRITERION)</div>
-        
-        <div style="display:flex; flex-direction:column; gap:14px;">
-          ${renderCriterionBar('Clarity & Objective Formulation', report.criteria_breakdown.clarity, 10, 'var(--cyan)')}
-          ${renderCriterionBar('Context & Framing', report.criteria_breakdown.context, 10, 'var(--violet)')}
-          ${renderCriterionBar('Specificity & Constraint Enforcement', report.criteria_breakdown.specificity, 10, 'var(--green)')}
-          ${renderCriterionBar('Output Structuring & Schema', report.criteria_breakdown.output_structure, 10, 'var(--amber)')}
-          ${renderCriterionBar('Domain Relevance & Tone', report.criteria_breakdown.relevance, 10, 'var(--blue)')}
-        </div>
-      </div>
-
-      <!-- Strengths & Actionable Areas of Improvement Badges -->
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:32px;">
-        <!-- Strengths -->
-        <div class="glass-card" style="padding:20px; border-left:3px solid var(--green);">
-          <div class="eyebrow" style="color:var(--green); margin-bottom:10px;">DEMONSTRATED STRENGTHS</div>
-          <div style="display:flex; flex-wrap:wrap; gap:8px;">
-            ${(report.strengths || []).map(s => `
-              <span class="chip chip-green" style="font-size:11.5px; padding:5px 10px;">✓ ${escapeHtml(s)}</span>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- Areas for Growth -->
-        <div class="glass-card" style="padding:20px; border-left:3px solid var(--amber);">
-          <div class="eyebrow" style="color:var(--amber); margin-bottom:10px;">AREAS FOR OPTIMIZATION</div>
-          <div style="display:flex; flex-wrap:wrap; gap:8px;">
-            ${(report.areas_of_improvement || []).map(a => `
-              <span class="chip chip-amber" style="font-size:11.5px; padding:5px 10px;">▲ ${escapeHtml(a)}</span>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-
-      <!-- Per-Challenge Evaluation Breakdown Accordion -->
-      <div class="eyebrow" style="margin-bottom:16px;">DETAILED CHALLENGE-BY-CHALLENGE BREAKDOWN</div>
-      <div style="display:flex; flex-direction:column; gap:16px;">
-        ${(report.evaluations || []).map((ev, i) => `
-          <div class="glass bracket-frame" style="padding:20px;">
-            <span class="bl"></span><span class="br"></span>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-              <div>
-                <span class="chip chip-cyan" style="margin-right:8px;">CHALLENGE ${ev.challenge_index}</span>
-                <strong style="font-size:14px;">${escapeHtml(ev.challenge_title)}</strong>
-              </div>
-              <div class="heading-md" style="color:var(--cyan); font-size:18px;">
-                ${ev.total_score} <span style="font-size:12px; color:var(--muted);">/ 10</span>
-              </div>
-            </div>
-
-            <!-- Fixed Prompt Snippet -->
-            <div style="margin-bottom:12px;">
-              <div class="eyebrow" style="margin-bottom:4px;">YOUR SUBMITTED SOLUTION</div>
-              <div class="evidence-block" style="font-size:12px; max-height:90px; line-height:1.5;">${escapeHtml(ev.fixed_prompt)}</div>
-            </div>
-
-            <!-- Rubric Scores Breakdown -->
-            <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin-bottom:12px; text-align:center;">
-              <div class="glass-card" style="padding:8px 4px;">
-                <div style="font-size:9.5px; color:var(--muted);">CLARITY</div>
-                <div style="font-weight:bold; color:var(--cyan);">${ev.rubric.clarity}/2</div>
-              </div>
-              <div class="glass-card" style="padding:8px 4px;">
-                <div style="font-size:9.5px; color:var(--muted);">CONTEXT</div>
-                <div style="font-weight:bold; color:var(--violet);">${ev.rubric.context}/2</div>
-              </div>
-              <div class="glass-card" style="padding:8px 4px;">
-                <div style="font-size:9.5px; color:var(--muted);">SPECIFICITY</div>
-                <div style="font-weight:bold; color:var(--green);">${ev.rubric.specificity}/2</div>
-              </div>
-              <div class="glass-card" style="padding:8px 4px;">
-                <div style="font-size:9.5px; color:var(--muted);">STRUCTURE</div>
-                <div style="font-weight:bold; color:var(--amber);">${ev.rubric.output_structure}/2</div>
-              </div>
-              <div class="glass-card" style="padding:8px 4px;">
-                <div style="font-size:9.5px; color:var(--muted);">RELEVANCE</div>
-                <div style="font-weight:bold; color:var(--blue);">${ev.rubric.relevance}/2</div>
-              </div>
-            </div>
-
-            <!-- Constructive Judge Feedback -->
-            ${ev.feedback ? `
-              <div class="glass-card" style="padding:10px 14px; border-left:3px solid var(--violet);">
-                <div class="eyebrow" style="color:var(--violet); margin-bottom:4px;">JUDGE EVALUATION FEEDBACK</div>
-                <div style="font-size:12.5px; font-style:italic; color:var(--text);">"${escapeHtml(ev.feedback)}"</div>
-              </div>
-            ` : ''}
-          </div>
-        `).join('')}
-      </div>
-
-      <!-- Action: Navigate to Spectator Leaderboard -->
       <div style="margin-top:32px; text-align:center;">
         <button class="btn btn-violet" id="btnViewArenaLeaderboard" style="padding:10px 24px;">
           VIEW OFFICIAL ARENA LEADERBOARD &rarr;
         </button>
       </div>
-
     </div>
   `;
 
@@ -756,6 +900,30 @@ function setupAntiCheatListeners() {
         violation_count: securityViolationCount
       });
       triggerSecurityAlert('Application blur detected. All focus transitions are proctored.');
+    }
+  });
+
+  // 3. Fullscreen exit detection
+  document.addEventListener('fullscreenchange', () => {
+    const isArenaActive = document.getElementById('page-arena-workspace')?.classList.contains('active');
+    if (!document.fullscreenElement && isArenaActive && currentChallengeData && !currentChallengeData.is_arena_completed) {
+      securityViolationCount++;
+      store.logSecurityEvent('FULLSCREEN_EXIT', {
+        challenge_index: currentChallengeData.challenge_index,
+        violation_count: securityViolationCount
+      });
+      triggerSecurityAlert('Fullscreen exited. Competition session should remain in fullscreen mode.');
+    }
+  });
+
+  // 4. Prevent external context menu during active challenge
+  document.addEventListener('contextmenu', (e) => {
+    const isArenaActive = document.getElementById('page-arena-workspace')?.classList.contains('active');
+    if (isArenaActive && currentChallengeData && !currentChallengeData.is_arena_completed) {
+      // Allow default only if clicking on buttons or inputs
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+      }
     }
   });
 }

@@ -12,6 +12,16 @@ class Settings:
     # SQLite default database path (upgradeable to PostgreSQL via env)
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./hackathon_platform.db")
 
+    # Security & CORS configuration
+    cors_env = os.getenv("CORS_ORIGINS", "")
+    CORS_ORIGINS: list = [origin.strip() for origin in cors_env.split(",") if origin.strip()] if cors_env else [
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000"
+    ]
+    MAX_REQUEST_SIZE_BYTES: int = int(os.getenv("MAX_REQUEST_SIZE_BYTES", str(2 * 1024 * 1024))) # 2 MB max body size
+
     # Seed Admin Accounts (3 Separate Administrator Credentials)
     ADMIN1_EMAIL: str = os.getenv("ADMIN1_EMAIL", "admin1@neura.io")
     ADMIN1_PASSWORD: str = os.getenv("ADMIN1_PASSWORD", "NeuraAdmin2026!Alpha")

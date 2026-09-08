@@ -10,11 +10,11 @@ import { Router } from '../router.js';
 let activeJudgeTab = 'scoring'; // 'scoring' | 'security' | 'leaderboard'
 let selectedArenaSubId = null;
 let currentRubric = {
-  clarity_score: 2,
-  context_score: 2,
-  specificity_score: 2,
-  output_structure_score: 2,
-  relevance_score: 2,
+  clarity_score: 20,
+  specificity_score: 20,
+  context_score: 20,
+  output_format_score: 20,
+  constraints_score: 20,
   feedback: ''
 };
 let judgeOverviewCache = null;
@@ -47,13 +47,23 @@ export async function renderJudgeDashboard() {
 
   const selectedSub = submissions.find(s => s.id === selectedArenaSubId);
   if (selectedSub && selectedSub.evaluation) {
+    const ev = selectedSub.evaluation;
     currentRubric = {
-      clarity_score: selectedSub.evaluation.clarity_score,
-      context_score: selectedSub.evaluation.context_score,
-      specificity_score: selectedSub.evaluation.specificity_score,
-      output_structure_score: selectedSub.evaluation.output_structure_score,
-      relevance_score: selectedSub.evaluation.relevance_score,
-      feedback: selectedSub.evaluation.feedback || ''
+      clarity_score: ev.clarity_score !== undefined ? ev.clarity_score : 20,
+      specificity_score: ev.specificity_score !== undefined ? ev.specificity_score : 20,
+      context_score: ev.context_score !== undefined ? ev.context_score : 20,
+      output_format_score: (ev.output_format_score !== undefined && ev.output_format_score !== null) ? ev.output_format_score : (ev.output_structure_score !== undefined ? ev.output_structure_score : 20),
+      constraints_score: (ev.constraints_score !== undefined && ev.constraints_score !== null) ? ev.constraints_score : (ev.relevance_score !== undefined ? ev.relevance_score : 20),
+      feedback: ev.feedback || ev.judge_feedback || ''
+    };
+  } else {
+    currentRubric = {
+      clarity_score: 20,
+      specificity_score: 20,
+      context_score: 20,
+      output_format_score: 20,
+      constraints_score: 20,
+      feedback: ''
     };
   }
 
@@ -164,14 +174,14 @@ export async function renderJudgeDashboard() {
                 <div class="judge-queue-card ${isSelected ? 'selected' : ''}" onclick="window.selectArenaSub('${sub.id}')" style="cursor:pointer; padding:14px; border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--line)'}; border-radius:4px; background:${isSelected ? 'rgba(0,243,255,0.06)' : 'rgba(255,255,255,0.02)'};">
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                     <strong style="font-family:var(--disp); font-size:14px; color:var(--text);">${escapeHtml(sub.team_name)}</strong>
-                    <span class="chip chip-cyan" style="font-size:9.5px; padding:2px 6px;">CHALLENGE ${sub.challenge_index}</span>
+                    <span class="chip chip-cyan" style="font-size:9.5px; padding:2px 6px;">QUESTION ${sub.challenge_index}</span>
                   </div>
                   <div class="mono-text" style="font-size:11px; color:var(--muted); margin-bottom:8px;">
                     ${escapeHtml(sub.challenge_title)} &bull; Submitted at ${timeStr}
                   </div>
                   <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span class="chip chip-${isEvaluated ? 'green' : 'amber'}" style="font-size:9px; padding:2px 6px;">
-                      ${isEvaluated ? `✓ SCORED (${sub.evaluation.total_score}/10)` : '⏳ PENDING'}
+                      ${isEvaluated ? `✓ SCORED (${sub.evaluation.total_score}/100)` : '⏳ PENDING'}
                     </span>
                     <span class="mono-text" style="font-size:10.5px; color:var(--cyan);">Inspect &rarr;</span>
                   </div>
@@ -188,14 +198,19 @@ export async function renderJudgeDashboard() {
             <!-- Solution Inspection Panel -->
             <div class="glass bracket-frame" style="padding:24px;">
               <span class="bl"></span><span class="br"></span>
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
                 <div>
                   <div class="eyebrow" style="margin-bottom:2px;">SUBMISSION INSPECTOR // ${escapeHtml(selectedSub.team_name)}</div>
-                  <h3 class="heading-md" style="font-size:16px;">Challenge ${selectedSub.challenge_index}: ${escapeHtml(selectedSub.challenge_title)}</h3>
+                  <h3 class="heading-md" style="font-size:16px;">Question ${selectedSub.challenge_index}: ${escapeHtml(selectedSub.challenge_title)}</h3>
                 </div>
-                <span class="chip chip-${selectedSub.challenge_difficulty === 'hard' ? 'violet' : 'cyan'}">
-                  ${selectedSub.challenge_difficulty ? selectedSub.challenge_difficulty.toUpperCase() : 'MEDIUM'}
-                </span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="chip chip-${selectedSub.challenge_difficulty === 'hard' ? 'violet' : 'cyan'}">
+                    ${selectedSub.challenge_difficulty ? selectedSub.challenge_difficulty.toUpperCase() : 'MEDIUM'}
+                  </span>
+                  <button class="btn btn-sm btn-red" id="btnInspectorEliminateTeam" style="padding:5px 12px; font-size:11px; font-weight:700;">
+                    🛑 ELIMINATE TEAM
+                  </button>
+                </div>
               </div>
 
               <!-- Original Flawed Prompt -->
@@ -225,34 +240,34 @@ export async function renderJudgeDashboard() {
               ` : ''}
             </div>
 
-            <!-- Official 5-Criteria Rubric Scoring Form (0–2 scale per criteria, 10 max) -->
+            <!-- Official 5-Characteristic Rubric Scoring Form (0, 10, 20 scale per characteristic, 100 max) -->
             <div class="glass bracket-frame" style="padding:24px;">
               <span class="bl"></span><span class="br"></span>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <div>
-                  <div class="eyebrow" style="margin-bottom:2px;">OFFICIAL 5-CRITERIA RUBRIC FORM</div>
-                  <div class="heading-md" style="font-size:15px;">EVALUATION SCORE SCALE (0, 1, 2 PER CRITERION)</div>
+                  <div class="eyebrow" style="margin-bottom:2px;">OFFICIAL 5-CHARACTERISTIC EVALUATION RUBRIC</div>
+                  <div class="heading-md" style="font-size:15px;">SCORE SCALE (0, 10, 20 MARKS PER CHARACTERISTIC)</div>
                 </div>
                 <div class="glass-card" style="padding:8px 16px; text-align:center; border-color:var(--cyan);">
-                  <div class="eyebrow" style="margin-bottom:2px;">TOTAL SCORE</div>
+                  <div class="eyebrow" style="margin-bottom:2px;">QUESTION TOTAL</div>
                   <div class="heading-md" style="color:var(--cyan); font-size:22px;" id="rubricTotalReadout">
-                    ${calculateCurrentRubricTotal()} / 10
+                    ${calculateCurrentRubricTotal()} / 100
                   </div>
                 </div>
               </div>
 
               <!-- 5 Rubric Criteria Cards -->
               <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:18px;">
-                ${renderRubricCriterionRow('clarity_score', '1. Clarity & Objective Formulation', 'Did the team provide crystal-clear directives and unambiguous task framing?', currentRubric.clarity_score)}
-                ${renderRubricCriterionRow('context_score', '2. Context & Framing', 'Did they specify realistic persona, relevant constraints, and operational context?', currentRubric.context_score)}
-                ${renderRubricCriterionRow('specificity_score', '3. Specificity & Constraint Enforcement', 'Did they introduce robust guardrails against hallucinations and off-topic outputs?', currentRubric.specificity_score)}
-                ${renderRubricCriterionRow('output_structure_score', '4. Output Structuring & Formatting', 'Is output specified with machine-parseable schema (e.g. JSON, exact bullet count)?', currentRubric.output_structure_score)}
-                ${renderRubricCriterionRow('relevance_score', '5. Domain Relevance & Tone', 'Does the prompt maintain appropriate industry tone, domain terminology, and persona?', currentRubric.relevance_score)}
+                ${renderRubricCriterionRow('clarity_score', '1. Clarity & Objective Formulation', 'Clear directives, unambiguous task framing, and explicit intent.', currentRubric.clarity_score)}
+                ${renderRubricCriterionRow('specificity_score', '2. Specificity & Detail Enforcement', 'Technical depth, domain specificity, and exhaustive parameter constraints.', currentRubric.specificity_score)}
+                ${renderRubricCriterionRow('context_score', '3. Operational Context & Framing', 'Realistic persona, environmental background, and situational context.', currentRubric.context_score)}
+                ${renderRubricCriterionRow('output_format_score', '4. Output Structuring & Formatting', 'Machine-parseable formatting, schema compliance, and structured delimiters.', currentRubric.output_format_score)}
+                ${renderRubricCriterionRow('constraints_score', '5. Constraints & Negative Guardrails', 'Strict guardrails against hallucinations, forbidden content, and drift.', currentRubric.constraints_score)}
               </div>
 
               <!-- Constructive Judge Feedback -->
               <div class="field" style="margin-bottom:20px;">
-                <label>Constructive Judge Feedback <span style="color:var(--muted); font-weight:normal;">(Included in participant's educational performance report)</span></label>
+                <label>Constructive Judge Feedback <span style="color:var(--muted); font-weight:normal;">(Included in participant's official score dashboard)</span></label>
                 <textarea id="judgeFeedbackInput" rows="3" placeholder="Highlight key strengths and specific improvement recommendations...">${escapeHtml(currentRubric.feedback)}</textarea>
               </div>
 
@@ -292,9 +307,12 @@ export async function renderJudgeDashboard() {
                 <strong style="color:var(--red); font-size:14px;">⚠️ ${escapeHtml(ft.team_name)}</strong>
                 <span class="chip chip-red">${ft.violation_count} VIOLATIONS</span>
               </div>
-              <div class="mono-text" style="font-size:11px; color:var(--muted); line-height:1.5;">
+              <div class="mono-text" style="font-size:11px; color:var(--muted); line-height:1.5; margin-bottom:10px;">
                 Flagged for suspicious tab switches or window blur events exceeding the proctoring threshold (&ge;3).
               </div>
+              <button class="btn btn-sm btn-red" onclick="window.openEliminateModal('${ft.team_id}', '${escapeHtml(ft.team_name)}')" style="padding:4px 10px; font-size:10.5px; font-weight:700;">
+                🛑 ELIMINATE TEAM
+              </button>
             </div>
           `).join('')}
 
@@ -375,11 +393,11 @@ export async function renderJudgeDashboard() {
 
 function calculateCurrentRubricTotal() {
   return (
-    (currentRubric.clarity_score || 0) +
-    (currentRubric.context_score || 0) +
-    (currentRubric.specificity_score || 0) +
-    (currentRubric.output_structure_score || 0) +
-    (currentRubric.relevance_score || 0)
+    (Number(currentRubric.clarity_score) || 0) +
+    (Number(currentRubric.specificity_score) || 0) +
+    (Number(currentRubric.context_score) || 0) +
+    (Number(currentRubric.output_format_score) || 0) +
+    (Number(currentRubric.constraints_score) || 0)
   );
 }
 
@@ -387,16 +405,16 @@ function renderRubricCriterionRow(key, title, description, currentVal) {
   return `
     <div class="rubric-card" style="padding:14px; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,0.015);">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <div style="max-width:70%;">
+        <div style="max-width:68%;">
           <div style="font-weight:600; font-size:13px; color:var(--text);">${escapeHtml(title)}</div>
           <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">${escapeHtml(description)}</div>
         </div>
-        <div class="rubric-score-pills" style="display:flex; gap:6px;">
-          ${[0, 1, 2].map(score => `
-            <button class="rubric-pill ${score === currentVal ? 'selected' : ''}" 
+        <div class="rubric-score-pills" style="display:flex; gap:8px;">
+          ${[0, 10, 20].map(score => `
+            <button class="rubric-pill ${score === Number(currentVal) ? 'selected' : ''}" 
                     type="button"
                     onclick="window.selectRubricPill('${key}', ${score})"
-                    style="min-width:42px; padding:6px 12px; font-family:var(--mono); font-size:12px; font-weight:bold; cursor:pointer;">
+                    style="min-width:48px; padding:6px 14px; font-family:var(--mono); font-size:12px; font-weight:bold; cursor:pointer;">
               ${score}
             </button>
           `).join('')}
@@ -419,11 +437,17 @@ function setupRubricScoringHandlers(selectedSub) {
 
     const totalReadout = document.getElementById('rubricTotalReadout');
     if (totalReadout) {
-      totalReadout.textContent = `${calculateCurrentRubricTotal()} / 10`;
+      totalReadout.textContent = `${calculateCurrentRubricTotal()} / 100`;
     }
 
     renderJudgeDashboard();
   };
+
+  // Inspector Elimination action
+  document.getElementById('btnInspectorEliminateTeam')?.addEventListener('click', () => {
+    if (!selectedSub) return;
+    showEliminationConfirmationModal(selectedSub.team_id, selectedSub.team_name);
+  });
 
   document.getElementById('btnSaveRubricScore')?.addEventListener('click', async (e) => {
     if (!selectedSub) return;
@@ -436,17 +460,19 @@ function setupRubricScoringHandlers(selectedSub) {
 
     const payload = {
       submission_id: selectedSub.id,
-      clarity_score: currentRubric.clarity_score,
-      context_score: currentRubric.context_score,
-      specificity_score: currentRubric.specificity_score,
-      output_structure_score: currentRubric.output_structure_score,
-      relevance_score: currentRubric.relevance_score,
+      clarity_score: Number(currentRubric.clarity_score),
+      specificity_score: Number(currentRubric.specificity_score),
+      context_score: Number(currentRubric.context_score),
+      output_format_score: Number(currentRubric.output_format_score),
+      constraints_score: Number(currentRubric.constraints_score),
+      output_structure_score: Number(currentRubric.output_format_score),
+      relevance_score: Number(currentRubric.constraints_score),
       feedback: feedback
     };
 
     const res = await store.scoreArenaSubmission(payload);
     if (res.success) {
-      Router.showToast(`Challenge evaluation saved (${calculateCurrentRubricTotal()}/10)!`, 'green');
+      Router.showToast(`Challenge evaluation saved (${calculateCurrentRubricTotal()}/100)!`, 'green');
       await renderJudgeDashboard();
     } else {
       btn.disabled = false;
@@ -524,22 +550,27 @@ async function loadLeaderboardTab() {
   container.innerHTML = `<div style="padding:20px; text-align:center; color:var(--muted);" class="mono-text">Loading official standings...</div>`;
 
   const rows = await store.getArenaLeaderboard();
-  const top3 = rows.slice(0, 3);
+  const eligibleRows = rows.filter(r => !r.is_eliminated && r.status !== 'eliminated');
+  const top3 = eligibleRows.slice(0, 3);
 
   container.innerHTML = `
-    <!-- Top 3 Podium Cards -->
+    <!-- Top 3 Podium Cards (Eligible Non-Eliminated Teams Only) -->
     ${top3.length > 0 ? `
       <div class="podium-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:20px; margin-bottom:28px;">
         ${top3.map((team, idx) => {
           const podiumClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : 'bronze';
-          const medal = idx === 0 ? '🥇 1ST PLACE' : idx === 1 ? '🥈 2ND PLACE' : '🥉 3RD PLACE';
+          const medal = idx === 0 ? '🥇 WINNER (1ST PLACE)' : idx === 1 ? '🥈 RUNNER UP (2ND PLACE)' : '🥉 2ND RUNNER UP (3RD PLACE)';
+          const avgScore = team.average_score !== undefined ? team.average_score : (team.total_score / 5.0).toFixed(1);
           return `
             <div class="podium-card ${podiumClass}">
               <div class="podium-rank ${podiumClass}">${medal}</div>
               <h3 style="font-family:var(--disp); font-size:18px; margin:8px 0 4px 0; color:var(--text);">${escapeHtml(team.team_name)}</h3>
-              <div class="mono-text" style="font-size:11px; color:var(--muted); margin-bottom:12px;">${escapeHtml(team.college || 'Engineering Institute')}</div>
-              <div style="font-size:26px; font-weight:800; font-family:var(--disp); color:var(--cyan);">
-                ${team.total_score} <span style="font-size:14px; font-weight:normal; color:var(--muted);">/ 50</span>
+              <div class="mono-text" style="font-size:11px; color:var(--muted); margin-bottom:10px;">${escapeHtml(team.college || 'Engineering Institute')}</div>
+              <div style="font-size:24px; font-weight:800; font-family:var(--disp); color:var(--cyan);">
+                ${team.total_score} <span style="font-size:13px; font-weight:normal; color:var(--muted);">/ 500</span>
+              </div>
+              <div class="mono-text" style="font-size:11.5px; color:var(--green); margin-top:2px;">
+                AVG: ${avgScore} / 100
               </div>
               <div class="mono-text" style="font-size:10.5px; color:var(--muted); margin-top:6px;">
                 Solved: ${team.challenges_completed}/5 &bull; Completed: ${team.completed_at ? new Date(team.completed_at).toLocaleTimeString() : 'In Progress'}
@@ -556,7 +587,7 @@ async function loadLeaderboardTab() {
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
         <div>
           <div class="eyebrow">OFFICIAL ARENA STANDINGS</div>
-          <h2 class="heading-md" style="font-size:16px;">TIE-BROKEN LEADERBOARD (SCORE DESC &rarr; SUBMISSION TIME ASC)</h2>
+          <h2 class="heading-md" style="font-size:16px;">TIE-BROKEN LEADERBOARD (AVG SCORE DESC &rarr; COMPLETION TIME ASC)</h2>
         </div>
         <button class="btn btn-sm btn-primary" onclick="window.renderJudgeDashboard()">REFRESH STANDINGS ⟳</button>
       </div>
@@ -568,41 +599,112 @@ async function loadLeaderboardTab() {
             <th>Team Name</th>
             <th>College</th>
             <th>Solved</th>
+            <th>Avg Score</th>
             <th>Total Score</th>
-            <th>Server Tie-Breaker (Completion Time)</th>
-            <th>Security Status</th>
+            <th>Server Tie-Breaker</th>
+            <th>Status</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
           ${rows.map((row, idx) => {
-            const rankMedal = idx === 0 ? '🥇 01' : idx === 1 ? '🥈 02' : idx === 2 ? '🥉 03' : String(idx + 1).padStart(2, '0');
+            const isElim = row.is_eliminated || row.status === 'eliminated';
+            const rankMedal = isElim ? '—' : (idx === 0 ? '🥇 01' : idx === 1 ? '🥈 02' : idx === 2 ? '🥉 03' : String(idx + 1).padStart(2, '0'));
             const timeStr = row.completed_at ? new Date(row.completed_at).toLocaleTimeString() : 'In Progress';
+            const avgScore = row.average_score !== undefined ? row.average_score : (row.total_score / 5.0).toFixed(1);
             return `
-              <tr class="${idx < 3 ? 'highlight-team' : ''}">
-                <td class="lb-rank ${idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : ''}" style="font-weight:bold;">
+              <tr class="${!isElim && idx < 3 ? 'highlight-team' : ''}" style="${isElim ? 'opacity:0.6;' : ''}">
+                <td class="lb-rank ${!isElim && idx === 0 ? 'gold' : !isElim && idx === 1 ? 'silver' : !isElim && idx === 2 ? 'bronze' : ''}" style="font-weight:bold;">
                   ${rankMedal}
                 </td>
-                <td style="font-family:var(--disp); font-weight:700; font-size:15px; color:var(--text);">${escapeHtml(row.team_name)}</td>
+                <td style="font-family:var(--disp); font-weight:700; font-size:14.5px; color:var(--text);">${escapeHtml(row.team_name)}</td>
                 <td class="mono-text" style="font-size:12px; color:var(--muted);">${escapeHtml(row.college || 'Engineering')}</td>
                 <td class="mono-text" style="color:var(--text);">${row.challenges_completed} / 5</td>
-                <td style="font-family:var(--disp); font-size:18px; font-weight:800; color:var(--cyan);">${row.total_score} PTS</td>
+                <td style="font-family:var(--mono); font-size:13px; font-weight:700; color:var(--cyan);">${avgScore}</td>
+                <td style="font-family:var(--disp); font-size:16px; font-weight:800; color:var(--cyan);">${row.total_score} PTS</td>
                 <td class="mono-text" style="font-size:11.5px; color:var(--muted);">${timeStr}</td>
                 <td>
-                  <span class="chip chip-${row.is_flagged ? 'red' : 'green'}" style="font-size:9.5px;">
-                    ${row.is_flagged ? '⚠️ FLAGGED' : '✓ VERIFIED'}
+                  <span class="chip chip-${isElim ? 'red' : row.is_flagged ? 'amber' : 'green'}" style="font-size:9.5px;">
+                    ${isElim ? '🛑 ELIMINATED' : row.is_flagged ? '⚠️ FLAGGED' : '✓ ACTIVE'}
                   </span>
+                </td>
+                <td>
+                  ${!isElim ? `
+                    <button class="btn btn-sm btn-red" onclick="window.openEliminateModal('${row.team_id}', '${escapeHtml(row.team_name)}')" style="padding:3px 8px; font-size:10px; font-weight:700;">
+                      ELIMINATE
+                    </button>
+                  ` : `
+                    <span class="mono-text" style="font-size:10px; color:var(--red);">DISQUALIFIED</span>
+                  `}
                 </td>
               </tr>
             `;
           }).join('')}
           ${rows.length === 0 ? `
-            <tr><td colspan="7" style="text-align:center; color:var(--muted); padding:24px;">No team scores recorded yet.</td></tr>
+            <tr><td colspan="9" style="text-align:center; color:var(--muted); padding:24px;">No team scores recorded yet.</td></tr>
           ` : ''}
         </tbody>
       </table>
     </div>
   `;
 }
+
+function showEliminationConfirmationModal(teamId, teamName) {
+  const modalWrap = document.getElementById('customModalContainer') || document.body;
+  const modalDiv = document.createElement('div');
+  modalDiv.className = 'neura-modal-overlay';
+  modalDiv.style.display = 'flex';
+  modalDiv.innerHTML = `
+    <div class="neura-modal glass bracket-frame" style="max-width:500px; width:92%; padding:28px; border-color:rgba(255,0,85,0.6);">
+      <span class="bl" style="border-color:var(--red);"></span><span class="br" style="border-color:var(--red);"></span>
+      <div class="chip chip-red" style="margin-bottom:12px; font-weight:800;">CRITICAL COMPETITION ACTION</div>
+      <h3 class="heading-md" style="margin-bottom:8px; color:var(--red);">ELIMINATE TEAM: ${escapeHtml(teamName)}</h3>
+      <p class="sub-text" style="font-size:12.5px; line-height:1.5; margin-bottom:16px;">
+        Eliminating this team will <strong>immediately freeze all submissions</strong>, revoke challenge access, and exclude the team from official podium standings. An immutable audit record will be logged.
+      </p>
+
+      <div class="field" style="margin-bottom:14px;">
+        <label>Elimination Reason / Audit Finding <span style="color:var(--red);">*</span></label>
+        <input type="text" id="eliminationReasonInput" placeholder="e.g. Tab switch proctoring threshold breached (3+ violations)" value="Proctoring integrity breach or competition rule violation" style="font-size:12px;">
+      </div>
+
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:18px;">
+        <button type="button" class="btn btn-sm" onclick="document.getElementById('eliminationReasonInput').value='Tab switches exceeded proctoring threshold'" style="padding:2px 8px; font-size:10px;">Tab Switches Exceeded</button>
+        <button type="button" class="btn btn-sm" onclick="document.getElementById('eliminationReasonInput').value='External AI / browser tool assistance detected'" style="padding:2px 8px; font-size:10px;">External Tool Assistance</button>
+        <button type="button" class="btn btn-sm" onclick="document.getElementById('eliminationReasonInput').value='Plagiarism / duplicate prompt formulation detected'" style="padding:2px 8px; font-size:10px;">Duplicate Formulation</button>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:12px;">
+        <button class="btn btn-sm" id="btnCancelEliminateModal" style="padding:6px 14px;">CANCEL</button>
+        <button class="btn btn-sm btn-red" id="btnConfirmEliminateModal" style="padding:6px 18px; font-weight:700;">CONFIRM ELIMINATION 🛑</button>
+      </div>
+    </div>
+  `;
+
+  modalWrap.appendChild(modalDiv);
+
+  modalDiv.querySelector('#btnCancelEliminateModal')?.addEventListener('click', () => {
+    modalDiv.remove();
+  });
+
+  modalDiv.querySelector('#btnConfirmEliminateModal')?.addEventListener('click', async () => {
+    const reason = modalDiv.querySelector('#eliminationReasonInput')?.value.trim() || 'Rule or integrity policy violation';
+    const confirmBtn = modalDiv.querySelector('#btnConfirmEliminateModal');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'TRANSMITTING...';
+
+    const res = await store.eliminateTeam(teamId, reason);
+    modalDiv.remove();
+
+    if (res.success) {
+      Router.showToast(`Team '${teamName}' has been officially eliminated.`, 'red');
+      await renderJudgeDashboard();
+    } else {
+      Router.showToast(res.error || 'Failed to eliminate team.', 'red');
+    }
+  });
+}
+window.openEliminateModal = showEliminationConfirmationModal;
 
 function showSafetyConfirmModal(title, message, confirmBtnText, onConfirm) {
   const modalWrap = document.getElementById('customModalContainer') || document.body;

@@ -205,7 +205,17 @@ export class Router {
     const toast = document.createElement('div');
     toast.className = `glass bracket-frame chip-${type}`;
     toast.style.cssText = 'padding:12px 18px; font-family:var(--mono); font-size:12px; border-radius:4px; box-shadow:0 6px 24px rgba(0,0,0,0.5); pointer-events:auto; animation:fadein 0.3s ease;';
-    toast.innerHTML = `<span class="bl"></span><span class="br"></span>${message}`;
+    
+    const bl = document.createElement('span');
+    bl.className = 'bl';
+    const br = document.createElement('span');
+    br.className = 'br';
+    const textSpan = document.createElement('span');
+    textSpan.textContent = message;
+    
+    toast.appendChild(bl);
+    toast.appendChild(br);
+    toast.appendChild(textSpan);
 
     toastContainer.appendChild(toast);
 

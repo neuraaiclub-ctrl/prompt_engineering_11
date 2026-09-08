@@ -103,12 +103,12 @@ export async function renderAdminDashboard() {
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
         <div>
           <div class="eyebrow" style="color:var(--cyan);">Participant Onboarding & Provisioning</div>
-          <h2 class="heading-md" style="margin-top:4px;">REGISTER NEW PARTICIPATING TEAM</h2>
+          <h2 class="heading-md" style="margin-top:4px;">REGISTER NEW PARTICIPATING TEAM (2-MEMBER TEAMS)</h2>
           <p class="sub-text" style="margin-top:2px;">
-            Provision participating teams prior to the hackathon. The system automatically creates isolated team credentials and enforces strict duplicate member checks.
+            Provision participating teams for live competition. Each team must have exactly 2 student members with unique names.
           </p>
         </div>
-        <span class="chip chip-green">✓ ATOMIC PROVISIONING</span>
+        <span class="chip chip-green">✓ 2-MEMBER MODEL</span>
       </div>
 
       <!-- Registration Form -->
@@ -124,18 +124,14 @@ export async function renderAdminDashboard() {
           </div>
         </div>
 
-        <div style="background:var(--panel-2); padding:18px 20px; border-radius:6px; border:1px solid var(--line); margin-bottom:20px;">
-          <div class="member-add-wrap">
-            <span class="eyebrow" style="color:var(--text); font-size:11px;">Team Members Roster (<span id="memberCountBadge">${newTeamMembers.length}</span>/4)</span>
-            ${newTeamMembers.length < 4 ? `
-              <button type="button" class="btn btn-sm" id="btnAddMemberRow" style="border-color:var(--cyan); color:var(--cyan); padding:4px 12px; font-size:11px;">
-                + ADD MEMBER
-              </button>
-            ` : ''}
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; background:var(--panel-2); padding:18px 20px; border-radius:6px; border:1px solid var(--line); margin-bottom:20px;">
+          <div class="field">
+            <label>Member 1 Full Name (Team Lead) <span style="color:var(--red);">*</span></label>
+            <input type="text" id="regMember1" placeholder="e.g. Alex Mercer" required autocomplete="off">
           </div>
-
-          <div id="memberInputsContainer" style="display:flex; flex-direction:column; gap:10px;">
-            ${renderMemberInputsHtml()}
+          <div class="field">
+            <label>Member 2 Full Name <span style="color:var(--red);">*</span></label>
+            <input type="text" id="regMember2" placeholder="e.g. Elena Rostova" required autocomplete="off">
           </div>
         </div>
 
@@ -169,28 +165,41 @@ export async function renderAdminDashboard() {
               <th style="padding:12px 14px;">Members</th>
               <th style="padding:12px 14px;">Login Email</th>
               <th style="padding:12px 14px;">Invite Code</th>
-              <th style="padding:12px 14px; text-align:right;">Status</th>
+              <th style="padding:12px 14px;">Status</th>
+              <th style="padding:12px 14px; text-align:right;">Actions</th>
             </tr>
           </thead>
           <tbody>
-            ${teams.map((t, idx) => `
-              <tr style="border-bottom:1px solid rgba(140,180,220,0.08); background:${idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'};">
-                <td style="padding:14px; font-weight:700; color:var(--cyan);">${escapeHtml(t.name)}</td>
-                <td style="padding:14px; color:var(--text);">${escapeHtml(t.college || 'MMCOE Pune')}</td>
-                <td style="padding:14px; color:#cbd5e1; max-width:240px;">
-                  <span title="${escapeHtml(Array.isArray(t.members) ? t.members.join(', ') : '')}">
-                    ${escapeHtml(Array.isArray(t.members) ? t.members.join(', ') : 'Roster configured')}
-                  </span>
-                </td>
-                <td style="padding:14px; color:var(--green);">${escapeHtml(t.login_email || `${t.name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@neura.io`)}</td>
-                <td style="padding:14px; color:var(--text); font-weight:600;">${escapeHtml(t.invite_code || t.inviteCode || 'NR-XXXX')}</td>
-                <td style="padding:14px; text-align:right;">
-                  <span class="chip ${t.status === 'locked' ? 'chip-amber' : 'chip-green'}" style="font-size:10px; padding:3px 8px;">
-                    ${(t.status || 'FORMING').toUpperCase()}
-                  </span>
-                </td>
-              </tr>
-            `).join('')}
+            ${teams.map((t, idx) => {
+              const isElim = t.status === 'eliminated';
+              return `
+                <tr style="border-bottom:1px solid rgba(140,180,220,0.08); background:${idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'}; ${isElim ? 'opacity:0.6;' : ''}">
+                  <td style="padding:14px; font-weight:700; color:var(--cyan);">${escapeHtml(t.name)}</td>
+                  <td style="padding:14px; color:var(--text);">${escapeHtml(t.college || 'MMCOE Pune')}</td>
+                  <td style="padding:14px; color:#cbd5e1; max-width:240px;">
+                    <span title="${escapeHtml(Array.isArray(t.members) ? t.members.join(', ') : '')}">
+                      ${escapeHtml(Array.isArray(t.members) ? t.members.join(', ') : '2 Members')}
+                    </span>
+                  </td>
+                  <td style="padding:14px; color:var(--green);">${escapeHtml(t.login_email || `${t.name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@neura.io`)}</td>
+                  <td style="padding:14px; color:var(--text); font-weight:600;">${escapeHtml(t.invite_code || t.inviteCode || 'NR-XXXX')}</td>
+                  <td style="padding:14px;">
+                    <span class="chip ${isElim ? 'chip-red' : t.status === 'locked' ? 'chip-amber' : 'chip-green'}" style="font-size:10px; padding:3px 8px;">
+                      ${(t.status || 'ACTIVE').toUpperCase()}
+                    </span>
+                  </td>
+                  <td style="padding:14px; text-align:right;">
+                    ${!isElim ? `
+                      <button class="btn btn-sm btn-red" onclick="window.adminEliminateTeam('${t.id}', '${escapeHtml(t.name)}')" style="padding:4px 10px; font-size:10px; font-weight:700;">
+                        🛑 ELIMINATE
+                      </button>
+                    ` : `
+                      <span class="mono-text" style="color:var(--red); font-size:10px;">DISQUALIFIED</span>
+                    `}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -305,31 +314,31 @@ function attachAdminDashboardHandlers() {
   // Remove Member Row Buttons
   attachRemoveMemberListeners();
 
-  // Team Registration Form Submit Handler
+  // Team Registration Form Submit Handler (2-Member Rule)
   document.getElementById('formAdminRegisterTeam')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    syncCurrentMemberInputs();
 
     const teamName = document.getElementById('regTeamName')?.value.trim();
     const college = document.getElementById('regCollege')?.value.trim();
-    const validMembers = newTeamMembers.map(m => m.trim()).filter(Boolean);
+    const member1 = document.getElementById('regMember1')?.value.trim();
+    const member2 = document.getElementById('regMember2')?.value.trim();
 
     if (!teamName || !college) {
       showCustomErrorModal('MISSING REQUIRED FIELDS', 'Both Team Name and College / Institution Name are required.');
       return;
     }
 
-    if (validMembers.length < 1 || validMembers.length > 4) {
-      showCustomErrorModal('INVALID TEAM SIZE', 'Please provide between 1 and 4 valid team members.');
+    if (!member1 || !member2) {
+      showCustomErrorModal('2 MEMBERS REQUIRED', 'Every team must have exactly 2 student members. Please provide both Member 1 and Member 2.');
       return;
     }
 
-    // Check duplicate members within the team
-    const lowerMembers = validMembers.map(m => m.toLowerCase());
-    if (new Set(lowerMembers).size !== lowerMembers.length) {
-      showCustomErrorModal('DUPLICATE MEMBER DETECTED', 'The same person cannot be entered multiple times inside the same team.');
+    if (member1.toLowerCase() === member2.toLowerCase()) {
+      showCustomErrorModal('DUPLICATE MEMBER NAMES', 'Member 1 and Member 2 cannot have the same name. Each member must be distinct.');
       return;
     }
+
+    const validMembers = [member1, member2];
 
     const submitBtn = document.getElementById('btnSubmitTeamRegistration');
     if (submitBtn) {
@@ -358,8 +367,10 @@ function attachAdminDashboardHandlers() {
       // Reset form fields
       document.getElementById('regTeamName').value = '';
       document.getElementById('regCollege').value = '';
-      newTeamMembers = ['', ''];
-      refreshMemberInputsUI();
+      const m1 = document.getElementById('regMember1');
+      const m2 = document.getElementById('regMember2');
+      if (m1) m1.value = '';
+      if (m2) m2.value = '';
 
       // Refresh table
       renderAdminDashboard();
@@ -608,6 +619,52 @@ function showCustomErrorModal(title, message) {
   document.getElementById('btnCloseErrorModal')?.addEventListener('click', close);
   document.getElementById('btnCloseErrorModalBtn')?.addEventListener('click', close);
 }
+
+function showAdminEliminateModal(teamId, teamName) {
+  const container = document.getElementById('customModalContainer') || document.body;
+  const modalDiv = document.createElement('div');
+  modalDiv.className = 'neura-modal-overlay';
+  modalDiv.style.display = 'flex';
+  modalDiv.innerHTML = `
+    <div class="neura-modal glass bracket-frame" style="max-width:500px; width:92%; padding:28px; border-color:rgba(255,0,85,0.6);">
+      <span class="bl" style="border-color:var(--red);"></span><span class="br" style="border-color:var(--red);"></span>
+      <div class="chip chip-red" style="margin-bottom:12px; font-weight:800;">ADMINISTRATIVE SANCTION</div>
+      <h3 class="heading-md" style="margin-bottom:8px; color:var(--red);">ELIMINATE TEAM: ${escapeHtml(teamName)}</h3>
+      <p class="sub-text" style="font-size:12.5px; line-height:1.5; margin-bottom:16px;">
+        Eliminating this team will permanently disqualify them, revoke live challenge access, and remove them from official leaderboard podium eligibility.
+      </p>
+
+      <div class="field" style="margin-bottom:14px;">
+        <label>Elimination Reason / Audit Finding <span style="color:var(--red);">*</span></label>
+        <input type="text" id="adminElimReasonInput" value="Disqualified by Competition Administration" style="font-size:12px;">
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:12px;">
+        <button class="btn btn-sm" id="btnCancelAdminElim" style="padding:6px 14px;">CANCEL</button>
+        <button class="btn btn-sm btn-red" id="btnConfirmAdminElim" style="padding:6px 18px; font-weight:700;">CONFIRM ELIMINATION 🛑</button>
+      </div>
+    </div>
+  `;
+  container.appendChild(modalDiv);
+
+  modalDiv.querySelector('#btnCancelAdminElim')?.addEventListener('click', () => { modalDiv.remove(); });
+  modalDiv.querySelector('#btnConfirmAdminElim')?.addEventListener('click', async () => {
+    const reason = modalDiv.querySelector('#adminElimReasonInput')?.value.trim() || 'Disqualified by Administration';
+    const btn = modalDiv.querySelector('#btnConfirmAdminElim');
+    btn.disabled = true;
+    btn.textContent = 'TRANSMITTING...';
+
+    const res = await store.eliminateTeam(teamId, reason);
+    modalDiv.remove();
+    if (res.success) {
+      Router.showToast(`Team '${teamName}' eliminated.`, 'red');
+      await renderAdminDashboard();
+    } else {
+      Router.showToast(res.error || 'Elimination failed', 'red');
+    }
+  });
+}
+window.adminEliminateTeam = showAdminEliminateModal;
 
 function escapeHtml(str) {
   if (!str) return '';

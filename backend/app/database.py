@@ -150,6 +150,15 @@ def init_db():
             if cols and "college" not in cols:
                 conn.execute(text("ALTER TABLE teams ADD COLUMN college VARCHAR;"))
                 conn.commit()
+
+            eval_res = conn.execute(text("PRAGMA table_info(arena_evaluations);"))
+            eval_cols = [row[1] for row in eval_res.fetchall()]
+            if eval_cols:
+                if "output_format_score" not in eval_cols:
+                    conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN output_format_score FLOAT DEFAULT 0.0;"))
+                if "constraints_score" not in eval_cols:
+                    conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN constraints_score FLOAT DEFAULT 0.0;"))
+                conn.commit()
     except Exception:
         pass
     seed_initial_data()
