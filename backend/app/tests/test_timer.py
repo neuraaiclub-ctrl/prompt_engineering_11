@@ -1,19 +1,11 @@
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database import SessionLocal
-from app.models.user import User, Role
+from app.tests.conftest import create_test_user
 
 client = TestClient(app)
 
 def test_server_authoritative_timer():
-    # Setup Admin
-    client.post("/api/v1/auth/register", json={"name": "Timer Admin", "email": "timeradmin@example.com", "password": "Pass123!"})
-    
-    db = SessionLocal()
-    u = db.query(User).filter(User.email == "timeradmin@example.com").first()
-    db.add(Role(user_id=u.id, name="admin"))
-    db.commit()
-    db.close()
+    create_test_user("timeradmin@example.com", "Pass123!", name="Timer Admin", roles=["admin"])
 
     admin_login = client.post("/api/v1/auth/login", json={"email": "timeradmin@example.com", "password": "Pass123!"})
     admin_token = admin_login.json()["access_token"]

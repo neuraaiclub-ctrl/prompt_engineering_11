@@ -250,6 +250,15 @@ class Store {
 
   getToken() { return this.data.token; }
 
+  getAuthHeaders() {
+    const token = this.getToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  }
+
   async loginWithCredentials(email, password) {
     try {
       const resp = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -790,6 +799,198 @@ class Store {
       return { success: false, error: data.detail || 'Failed to fetch score dashboard' };
     } catch (e) {
       return { success: false, error: 'Connection error' };
+    }
+  }
+
+  // =========================================================================
+  // ADMIN LIVE REGISTRATION MANAGEMENT & SYNC API METHODS
+  // =========================================================================
+
+  async getAdminRegistrations(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const url = `${API_BASE_URL}/admin/registrations${query ? '?' + query : ''}`;
+    try {
+      const resp = await fetch(url, { headers: this.getAuthHeaders() });
+      if (resp.ok) {
+        return await resp.json();
+      }
+    } catch (e) {
+      console.warn('Backend registrations error:', e);
+    }
+    return [];
+  }
+
+  async getRegistrationStatusSummary() {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/admin/registrations/status-summary`, { headers: this.getAuthHeaders() });
+      if (resp.ok) {
+        return await resp.json();
+      }
+    } catch (e) {
+      console.warn('Backend status summary error:', e);
+    }
+    return {
+      google_sheets_connected: false,
+      total_registrations: 0,
+      verified: 0,
+      pending: 0,
+      rejected: 0,
+      disabled: 0,
+      active_accounts: 0,
+      unprovisioned: 0,
+      flagged_for_review: 0,
+      last_synced_at: null
+    };
+  }
+
+  async syncGoogleSheetsRegistrations() {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/admin/registrations/sync`, {
+        method: 'POST',
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        return { success: true, ...data };
+      }
+      return { success: false, error: data.detail || 'Google Sheets sync failed' };
+    } catch (e) {
+      return { success: false, error: 'Connection error during sync' };
+    }
+  }
+
+  async importRegistrationsFile(file) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const headers = {};
+      const token = this.getToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const resp = await fetch(`${API_BASE_URL}/admin/registrations/import`, {
+        method: 'POST',
+        headers,
+        body: formData
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        return { success: true, ...data };
+      }
+      return { success: false, error: data.detail || 'Import failed' };
+    } catch (e) {
+      return { success: false, error: 'Connection error during import' };
+    }
+  }
+
+  async verifyRegistration(regId, notes = '') {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/admin/registrations/${regId}/verify`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ notes })
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, ...data };
+      return { success: false, error: data.detail || 'Verification failed' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
+
+  async rejectRegistration(regId, notes = '') {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/admin/registrations/${regId}/reject`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ notes })
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, ...data };
+      return { success: false, error: data.detail || 'Rejection failed' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
+
+  async disableRegistration(regId, notes = '') {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/admin/registrations/${regId}/disable`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ notes })
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, ...data };
+      return { success: false, error: data.detail || 'Disabling failed' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
+
+  async provisionRegistrationAccount(regId) {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/admin/registrations/${regId}/provision`, {
+        method: 'POST',
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, ...data };
+      return { success: false, error: data.detail || 'Provisioning failed' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
+
+  async provisionAllVerifiedRegistrations() {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/admin/registrations/provision-all`, {
+        method: 'POST',
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, ...data };
+      return { success: false, error: data.detail || 'Bulk provisioning failed' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
+
+  async resetRegistrationCredentials(regId) {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/admin/registrations/${regId}/reset-credentials`, {
+        method: 'POST',
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, ...data };
+      return { success: false, error: data.detail || 'Reset failed' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
+
+  async downloadRegistrationsCsv() {
+    try {
+      const token = this.getToken();
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const resp = await fetch(`${API_BASE_URL}/admin/registrations/export`, { headers });
+      if (resp.ok) {
+        const blob = await resp.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'neura_registrations_export.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        return { success: true };
+      }
+      return { success: false, error: 'Export failed' };
+    } catch (e) {
+      return { success: false, error: 'Connection error during export' };
     }
   }
 }

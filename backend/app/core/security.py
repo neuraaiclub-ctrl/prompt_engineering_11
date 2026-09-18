@@ -135,3 +135,8 @@ def decode_access_token(token: str) -> Optional[dict]:
         return payload
     except JWTError:
         return None
+
+def generate_random_token(length: int = 32) -> str:
+    """Generates a cryptographically secure random token string."""
+    return secrets.token_urlsafe(length)
+

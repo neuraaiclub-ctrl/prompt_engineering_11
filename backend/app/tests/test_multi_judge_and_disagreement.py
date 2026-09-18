@@ -15,22 +15,10 @@ def test_multi_judge_independent_scores_and_disagreement_flag():
     Leaderboard aggregates average per dimension.
     Delta >= 2 points on any dimension sets disagreement_flag = True.
     """
-    db = SessionLocal()
-    # 1. Setup Admin, Judge 1, Judge 2
-    client.post("/api/v1/auth/register", json={"name": "Admin Multi", "email": "admin_multi@judging.com", "password": "Password123!"})
-    a_user = db.query(User).filter(User.email == "admin_multi@judging.com").first()
-    db.add(Role(user_id=a_user.id, name="admin"))
-
-    client.post("/api/v1/auth/register", json={"name": "Judge Alice", "email": "alice@judging.com", "password": "Password123!"})
-    j1 = db.query(User).filter(User.email == "alice@judging.com").first()
-    db.add(Role(user_id=j1.id, name="judge"))
-
-    client.post("/api/v1/auth/register", json={"name": "Judge Bob", "email": "bob@judging.com", "password": "Password123!"})
-    j2 = db.query(User).filter(User.email == "bob@judging.com").first()
-    db.add(Role(user_id=j2.id, name="judge"))
-
-    db.commit()
-    db.close()
+    from app.tests.conftest import create_test_user
+    create_test_user("admin_multi@judging.com", "Password123!", name="Admin Multi", roles=["admin"])
+    create_test_user("alice@judging.com", "Password123!", name="Judge Alice", roles=["judge"])
+    create_test_user("bob@judging.com", "Password123!", name="Judge Bob", roles=["judge"])
 
     admin_token = client.post("/api/v1/auth/login", json={"email": "admin_multi@judging.com", "password": "Password123!"}).json()["access_token"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
@@ -58,7 +46,7 @@ def test_multi_judge_independent_scores_and_disagreement_flag():
     }, headers=admin_headers).json()
     challenge_id = case_res["challenge_id"]
 
-    client.post("/api/v1/auth/register", json={"name": "Team Dev", "email": "dev_multi@judging.com", "password": "Password123!"})
+    create_test_user("dev_multi@judging.com", "Password123!", name="Team Dev", roles=["participant"])
     p_token = client.post("/api/v1/auth/login", json={"email": "dev_multi@judging.com", "password": "Password123!"}).json()["access_token"]
     p_headers = {"Authorization": f"Bearer {p_token}"}
 

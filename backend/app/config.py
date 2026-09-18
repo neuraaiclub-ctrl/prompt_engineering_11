@@ -40,4 +40,37 @@ class Settings:
     JUDGE1_PASSWORD: str = os.getenv("JUDGE1_PASSWORD", "NeuraJudge2026!Eval")
     JUDGE1_NAME: str = os.getenv("JUDGE1_NAME", "Dr. Vance (Judge)")
 
+    # Google Sheets Live Registration Sync Configuration
+    GOOGLE_SHEETS_ENABLED: bool = os.getenv("GOOGLE_SHEETS_ENABLED", "false").lower() == "true"
+    GOOGLE_SHEET_ID: str = os.getenv("GOOGLE_SHEET_ID", "")
+    GOOGLE_SHEET_NAME: str = os.getenv("GOOGLE_SHEET_NAME", "Form Responses 1")
+    GOOGLE_SHEET_RANGE: str = os.getenv("GOOGLE_SHEET_RANGE", "A:Z")
+    GOOGLE_SERVICE_ACCOUNT_FILE: str = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "")
+    GOOGLE_SERVICE_ACCOUNT_JSON: str = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+
+    REGISTRATION_SYNC_ENABLED: bool = os.getenv("REGISTRATION_SYNC_ENABLED", "false").lower() == "true"
+    REGISTRATION_SYNC_INTERVAL_SECONDS: int = int(os.getenv("REGISTRATION_SYNC_INTERVAL_SECONDS", "300"))
+
+    # Configurable Registration Column Mapping
+    REGISTRATION_COLUMN_MAP: dict = {
+        "Timestamp": "submitted_at",
+        "Registration ID": "external_registration_id",
+        "Team Name": "team_name",
+        "Participant Name": "participant_name",
+        "Email": "email",
+        "Phone": "phone",
+        "College": "college",
+        "Course": "course",
+        "Year": "year",
+        "Member 1 Name": "member_1_name",
+        "Member 1 Email": "member_1_email",
+        "Member 2 Name": "member_2_name",
+        "Member 2 Email": "member_2_email",
+        "Member 3 Name": "member_3_name",
+        "Member 3 Email": "member_3_email",
+        "Member 4 Name": "member_4_name",
+        "Member 4 Email": "member_4_email",
+    }
+
 settings = Settings()
+

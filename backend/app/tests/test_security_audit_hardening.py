@@ -106,12 +106,8 @@ def test_token_revocation_on_logout():
     email = f"logout_test_{int(time.time())}@neura.io"
     pwd = "ValidPassword123!"
 
-    reg = client.post("/api/v1/auth/register", json={
-        "name": "Logout Tester",
-        "email": email,
-        "password": pwd
-    })
-    assert reg.status_code == 201
+    from app.tests.conftest import create_test_user
+    create_test_user(email, pwd, name="Logout Tester", roles=["participant"])
 
     login = client.post("/api/v1/auth/login", json={"email": email, "password": pwd})
     assert login.status_code == 200

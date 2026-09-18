@@ -1,14 +1,48 @@
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.database import init_db
-from app.api import auth, users, teams, hackathons, audit, cases, challenges, executions, submissions, judging, leaderboard, arena
+from app.database import init_db, SessionLocal
+from app.api import auth, users, teams, hackathons, audit, cases, challenges, executions, submissions, judging, leaderboard, arena, registrations
+from app.services.google_sheets import GoogleSheetsService
+from app.services.registration_sync import RegistrationSyncService
+
+async def periodic_registration_sync_worker():
+    """
+    Background worker for automatic periodic Google Sheets registration sync.
+    Runs when REGISTRATION_SYNC_ENABLED=true.
+    """
+    while True:
+        try:
+            await asyncio.sleep(settings.REGISTRATION_SYNC_INTERVAL_SECONDS)
+            if settings.REGISTRATION_SYNC_ENABLED and GoogleSheetsService.is_configured():
+                db = SessionLocal()
+                try:
+                    RegistrationSyncService.sync_google_sheets(db)
+                except Exception:
+                    pass
+                finally:
+                    db.close()
+
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            pass
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    sync_task = None
+    if settings.REGISTRATION_SYNC_ENABLED and GoogleSheetsService.is_configured():
+        sync_task = asyncio.create_task(periodic_registration_sync_worker())
     yield
+    if sync_task:
+        sync_task.cancel()
+        try:
+            await sync_task
+        except asyncio.CancelledError:
+            pass
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -71,6 +105,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(users.router, prefix=settings.API_V1_STR)
 app.include_router(teams.router, prefix=settings.API_V1_STR)
+app.include_router(registrations.router, prefix=settings.API_V1_STR)
 app.include_router(hackathons.hackathon_router, prefix=settings.API_V1_STR)
 app.include_router(hackathons.round_router, prefix=settings.API_V1_STR)
 app.include_router(cases.router, prefix=settings.API_V1_STR)

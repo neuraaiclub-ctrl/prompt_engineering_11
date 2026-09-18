@@ -390,3 +390,44 @@ Access the production frontend at `http://localhost:8080`.
 
 ## 11. License & Copyright
 Developed for the **NEURA Global Prompt Engineering Tournament 2026**. Built in strict compliance with the authoritative Software Requirements Specification.
+
+---
+
+## 12. Registration Architecture (Google Form → Google Sheets → NEURA Database)
+
+### Onboarding & Authentication Architecture Flow
+
+```text
+Google Form (External Participant Registration)
+        ↓
+Google Sheets (Form Responses 1)
+        ↓
+Registration Sync / Import Service (Google Sheets API or CSV/XLSX Upload)
+        ↓
+NEURA Database (PostgreSQL / SQLite Authoritative Store)
+        ↓
+Admin Verification & Account Provisioning
+        ↓
+Participant Login (PBKDF2 Hashed Passcode + Bearer JWT)
+        ↓
+Team Workspace & Tournament Arena
+```
+
+### Key Architectural Principles
+1. **Direct Public Participant Registration Disabled**:
+   - `POST /api/v1/auth/register` returns `403 Forbidden` (`{"detail": "Participant registration is managed through the official registration form."}`).
+   - Public account creation forms in the frontend are removed.
+2. **Database-Backed Source of Truth**:
+   - Google Sheets responses are imported into the `registrations` table (`Registration` model).
+   - Lifecycle states: Registration (`PENDING`, `VERIFIED`, `REJECTED`, `DISABLED`, `WITHDRAWN`) and Account (`NOT_PROVISIONED`, `ACTIVE`, `LOCKED`, `DISABLED`).
+3. **Idempotent Upserts**:
+   - Sync operations match records via `external_registration_id` or `email.lower()`.
+   - Repeated sync runs update modified fields without duplicating users or overwriting provisioned credentials.
+4. **Non-Destructive Sync Safety Guard**:
+   - Rows removed from Google Sheets are flagged for review (`flagged_for_review=True`) rather than being auto-deleted.
+5. **Dual Integration Modes**:
+   - **Mode A — Live Google Sheets API Polling**: Service Account credentials (`GOOGLE_SERVICE_ACCOUNT_FILE` or `GOOGLE_SERVICE_ACCOUNT_JSON`).
+   - **Mode B — Admin CSV / XLSX Upload Fallback**: Drag-and-drop or file selector import via Admin Control Center.
+6. **Admin Registration Control Panel**:
+   - Admin UI displays Google Sheets connection status, stats overview counters, upload modal, inline actions (`Verify`, `Reject`, `Provision Account`, `Reset Passcode`, `Disable`), and CSV export.
+

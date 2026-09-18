@@ -6,19 +6,8 @@ client = TestClient(app)
 
 def test_round1_full_workflow():
     # 1. Admin login & Hackathon / Round creation
-    client.post("/api/v1/auth/register", json={
-        "name": "R1Admin",
-        "email": "r1admin@example.com",
-        "password": "AdminPassword123!"
-    })
-    
-    from app.database import SessionLocal
-    from app.models.user import User, Role
-    db = SessionLocal()
-    u = db.query(User).filter(User.email == "r1admin@example.com").first()
-    db.add(Role(user_id=u.id, name="admin"))
-    db.commit()
-    db.close()
+    from app.tests.conftest import create_test_user
+    create_test_user("r1admin@example.com", "AdminPassword123!", name="R1Admin", roles=["admin"])
 
     admin_login = client.post("/api/v1/auth/login", json={
         "email": "r1admin@example.com",
@@ -66,11 +55,7 @@ def test_round1_full_workflow():
     challenge_id = test_case_item["challenge_id"]
 
     # 3. Setup Participant and Team
-    client.post("/api/v1/auth/register", json={
-        "name": "R1Participant",
-        "email": "r1part@example.com",
-        "password": "PartPassword123!"
-    })
+    create_test_user("r1part@example.com", "PartPassword123!", name="R1Participant", roles=["participant"])
     part_login = client.post("/api/v1/auth/login", json={
         "email": "r1part@example.com",
         "password": "PartPassword123!"

@@ -53,7 +53,7 @@ async function initWorkspace(container) {
 
 function renderDesktopRequired(container) {
   container.innerHTML = `
-    <div style="max-width:560px; margin:80px auto; padding:36px; text-align:center;" class="glass bracket-frame">
+    <div style="width:100%; max-width:100%; box-sizing:border-box; margin:20px 0; padding:36px; text-align:center;" class="glass bracket-frame">
       <span class="bl"></span><span class="br"></span>
       <div style="font-size:42px; margin-bottom:16px;">💻</div>
       <div class="chip chip-amber" style="margin-bottom:12px;">DESKTOP ENVIRONMENT REQUIRED</div>
@@ -68,7 +68,7 @@ function renderDesktopRequired(container) {
 
 function renderUnauthenticated(container) {
   container.innerHTML = `
-    <div style="max-width:540px; margin:80px auto; padding:36px; text-align:center;" class="glass bracket-frame">
+    <div style="width:100%; max-width:100%; box-sizing:border-box; margin:20px 0; padding:36px; text-align:center;" class="glass bracket-frame">
       <span class="bl"></span><span class="br"></span>
       <div class="chip chip-cyan" style="margin-bottom:12px;">AUTHENTICATION REQUIRED</div>
       <h2 class="heading-md" style="margin-bottom:12px;">ARENA ACCESS RESTRICTED</h2>
@@ -115,7 +115,7 @@ async function refreshArenaView(container, isBackgroundPoll = false) {
       }
       if (!isBackgroundPoll) {
         container.innerHTML = `
-          <div style="max-width:500px; margin:80px auto; padding:32px; text-align:center;" class="glass bracket-frame">
+          <div style="width:100%; max-width:100%; box-sizing:border-box; margin:20px 0; padding:32px; text-align:center;" class="glass bracket-frame">
             <span class="bl"></span><span class="br"></span>
             <div class="chip chip-red" style="margin-bottom:12px;">COMMUNICATION ERROR</div>
             <p class="sub-text">${escapeHtml(challengeRes.error || 'Failed to retrieve challenge')}</p>
@@ -153,7 +153,7 @@ async function refreshArenaView(container, isBackgroundPoll = false) {
 function renderEliminatedScreen(container, data) {
   const reason = data.elimination_reason || data.reason || data.error || 'Team has been disqualified by Competition Administration for rule or integrity violation.';
   container.innerHTML = `
-    <div style="max-width:680px; margin:60px auto; padding:40px; text-align:center;" class="glass bracket-frame">
+    <div style="width:100%; max-width:100%; box-sizing:border-box; margin:20px 0; padding:40px; text-align:center;" class="glass bracket-frame">
       <span class="bl" style="border-color:var(--red);"></span><span class="br" style="border-color:var(--red);"></span>
       <div style="font-size:54px; margin-bottom:14px;">🛑</div>
       <div class="chip chip-red" style="margin-bottom:14px; font-weight:800; letter-spacing:1.5px;">COMPETITION STATUS // ELIMINATED</div>
@@ -191,7 +191,7 @@ function renderWaitingLobby(container, statusData) {
 
   const user = store.data.currentUser || {};
   container.innerHTML = `
-    <div style="max-width:800px; margin:40px auto; padding:40px;" class="glass bracket-frame">
+    <div style="width:100%; max-width:100%; box-sizing:border-box; margin:20px 0; padding:40px;" class="glass bracket-frame">
       <span class="bl"></span><span class="br"></span>
 
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -208,24 +208,32 @@ function renderWaitingLobby(container, statusData) {
         </p>
       </div>
 
-      <!-- Animated SVG Hourglass with flowing sand particles -->
+      <!-- Animated SVG Hourglass with Real 180° Flip Rotation & Flowing Sand -->
       <div id="arenaHourglassWrap" class="arena-hourglass-wrap" style="text-align:center; margin:32px 0;">
         <div class="arena-hourglass">
-          <svg width="84" height="110" viewBox="0 0 100 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="90" height="120" viewBox="0 0 100 130" fill="none" xmlns="http://www.w3.org/2000/svg">
             <!-- Glass Frame Contour -->
             <path d="M 20 15 L 80 15 L 80 30 C 80 50, 58 60, 52 65 C 58 70, 80 80, 80 100 L 80 115 L 20 115 L 20 100 C 20 80, 42 70, 48 65 C 42 60, 20 50, 20 30 Z" 
-                  stroke="rgba(0, 243, 255, 0.7)" stroke-width="3" fill="rgba(6, 11, 24, 0.7)"/>
+                  stroke="rgba(0, 243, 255, 0.85)" stroke-width="3.5" fill="rgba(6, 11, 24, 0.75)"/>
+            
+            <!-- Metallic End Caps -->
+            <rect x="16" y="10" width="68" height="5" rx="2.5" fill="#00f3ff" opacity="0.9"/>
+            <rect x="16" y="115" width="68" height="5" rx="2.5" fill="#00f3ff" opacity="0.9"/>
+
             <!-- Top Sand Reservoir -->
             <path d="M 28 32 C 35 32, 65 32, 72 32 C 72 45, 56 56, 50 64 C 44 56, 28 45, 28 32 Z" 
                   fill="url(#sandGrad)" class="sand-top"/>
+
             <!-- Flowing Sand Stream -->
-            <line x1="50" y1="65" x2="50" y2="105" stroke="#00f3ff" stroke-width="2.5" stroke-dasharray="3 3" class="sand-stream"/>
+            <line x1="50" y1="65" x2="50" y2="105" stroke="#00f3ff" stroke-width="2.5" stroke-dasharray="4 3" class="sand-stream"/>
+
             <!-- Bottom Sand Pile -->
-            <path d="M 30 112 C 40 102, 60 102, 70 112 Z" fill="url(#sandGrad)" class="sand-bottom"/>
+            <path d="M 28 112 C 38 100, 62 100, 72 112 Z" fill="url(#sandGrad)" class="sand-bottom"/>
+
             <defs>
               <linearGradient id="sandGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#00f3ff" stop-opacity="0.9"/>
-                <stop offset="100%" stop-color="#9d4edd" stop-opacity="0.7"/>
+                <stop offset="0%" stop-color="#00f3ff" stop-opacity="0.95"/>
+                <stop offset="100%" stop-color="#9d4edd" stop-opacity="0.85"/>
               </linearGradient>
             </defs>
           </svg>
@@ -567,7 +575,7 @@ function renderCompletedScreen(container, challengeRes) {
   const completedAt = challengeRes.completed_at ? new Date(challengeRes.completed_at).toLocaleTimeString() : 'Recorded';
 
   container.innerHTML = `
-    <div style="max-width:760px; margin:40px auto; padding:40px;" class="glass bracket-frame">
+    <div style="width:100%; max-width:100%; box-sizing:border-box; margin:20px 0; padding:40px;" class="glass bracket-frame">
       <span class="bl"></span><span class="br"></span>
 
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -647,7 +655,7 @@ async function renderResultsReport(container) {
     const avgConstraints = (chs.reduce((acc, c) => acc + (c.characteristics?.constraints || 0), 0) / chs.length).toFixed(1);
 
     container.innerHTML = `
-      <div style="max-width:960px; margin:20px auto; padding:32px;" class="glass bracket-frame">
+      <div style="width:100%; max-width:100%; box-sizing:border-box; margin:20px 0; padding:32px;" class="glass bracket-frame">
         <span class="bl"></span><span class="br"></span>
 
         <!-- Report Header -->
@@ -795,7 +803,7 @@ async function renderResultsReport(container) {
   const reportRes = await store.getArenaReport();
   if (!reportRes.success) {
     container.innerHTML = `
-      <div style="max-width:540px; margin:80px auto; padding:36px; text-align:center;" class="glass bracket-frame">
+      <div style="width:100%; max-width:100%; box-sizing:border-box; margin:20px 0; padding:36px; text-align:center;" class="glass bracket-frame">
         <span class="bl"></span><span class="br"></span>
         <div class="chip chip-violet" style="margin-bottom:12px;">RESULTS PENDING</div>
         <h2 class="heading-md" style="margin-bottom:12px;">EVALUATION IN PROGRESS</h2>
@@ -812,7 +820,7 @@ async function renderResultsReport(container) {
   const rank = report.current_rank ? `#${report.current_rank}` : 'TBD';
 
   container.innerHTML = `
-    <div style="max-width:960px; margin:20px auto; padding:32px;" class="glass bracket-frame">
+    <div style="width:100%; max-width:100%; box-sizing:border-box; margin:20px 0; padding:32px;" class="glass bracket-frame">
       <span class="bl"></span><span class="br"></span>
 
       <!-- Report Header -->

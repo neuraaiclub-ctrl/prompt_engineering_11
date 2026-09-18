@@ -28,18 +28,10 @@ def test_leaderboard_gating_and_deterministic_tiebreak():
     - CSV and JSON exports.
     - Recomputation latency verification.
     """
-    db = SessionLocal()
-
-    # 1. Setup Admin & Participant
-    client.post("/api/v1/auth/register", json={"name": "Admin LB", "email": "admin_lb@tiebreak.com", "password": "Password123!"})
-    a_user = db.query(User).filter(User.email == "admin_lb@tiebreak.com").first()
-    db.add(Role(user_id=a_user.id, name="admin"))
-
-    client.post("/api/v1/auth/register", json={"name": "Part LB", "email": "part_lb@tiebreak.com", "password": "Password123!"})
-    p_user = db.query(User).filter(User.email == "part_lb@tiebreak.com").first()
+    from app.tests.conftest import create_test_user
+    create_test_user("admin_lb@tiebreak.com", "Password123!", name="Admin LB", roles=["admin"])
+    p_user = create_test_user("part_lb@tiebreak.com", "Password123!", name="Part LB", roles=["participant"])
     p_user_id = p_user.id
-    db.commit()
-    db.close()
 
     admin_token = client.post("/api/v1/auth/login", json={"email": "admin_lb@tiebreak.com", "password": "Password123!"}).json()["access_token"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}

@@ -15,26 +15,9 @@ def test_atomic_rubric_scoring_and_boundary_validation():
     Guarantees no partial writes.
     """
     # 1. Setup Admin & Judge
-    client.post("/api/v1/auth/register", json={
-        "name": "Judge One",
-        "email": "judge1@rubric.com",
-        "password": "Password123!"
-    })
-
-    db = SessionLocal()
-    j_user = db.query(User).filter(User.email == "judge1@rubric.com").first()
-    db.add(Role(user_id=j_user.id, name="judge"))
-    
-    # Admin setup
-    client.post("/api/v1/auth/register", json={
-        "name": "Admin Rubric",
-        "email": "admin@rubric.com",
-        "password": "Password123!"
-    })
-    a_user = db.query(User).filter(User.email == "admin@rubric.com").first()
-    db.add(Role(user_id=a_user.id, name="admin"))
-    db.commit()
-    db.close()
+    from app.tests.conftest import create_test_user
+    create_test_user("judge1@rubric.com", "Password123!", name="Judge One", roles=["judge"])
+    create_test_user("admin@rubric.com", "Password123!", name="Admin Rubric", roles=["admin"])
 
     judge_token = client.post("/api/v1/auth/login", json={"email": "judge1@rubric.com", "password": "Password123!"}).json()["access_token"]
     judge_headers = {"Authorization": f"Bearer {judge_token}"}
@@ -60,7 +43,7 @@ def test_atomic_rubric_scoring_and_boundary_validation():
     challenge_id = case_res["challenge_id"]
 
     # Participant team
-    client.post("/api/v1/auth/register", json={"name": "Dev", "email": "dev@rubric.com", "password": "Password123!"})
+    create_test_user("dev@rubric.com", "Password123!", name="Dev", roles=["participant"])
     p_token = client.post("/api/v1/auth/login", json={"email": "dev@rubric.com", "password": "Password123!"}).json()["access_token"]
     p_headers = {"Authorization": f"Bearer {p_token}"}
 

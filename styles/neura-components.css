@@ -139,8 +139,10 @@
 
 /* Page Layout Container */
 .page-container {
-  padding: 32px;
-  max-width: 1280px;
+  padding: 24px 32px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   min-height: calc(100vh - 70px);
   position: relative;
@@ -1284,51 +1286,68 @@
   align-items: center;
 }
 
-.hourglass-wrapper {
-  position: relative;
-  width: 90px;
-  height: 120px;
-  margin: 16px auto 28px;
+.arena-hourglass-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  perspective: 1000px;
 }
 
-.hourglass-svg {
-  width: 100%;
-  height: 100%;
-  filter: drop-shadow(0 0 16px rgba(71, 224, 255, 0.35));
+.arena-hourglass {
+  display: inline-block;
+  transform-origin: 50px 65px;
+  animation: hourglassSpinReset 4.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  filter: drop-shadow(0 0 18px rgba(0, 243, 255, 0.55));
 }
 
-@keyframes sandTrickle {
-  0% { transform: scaleY(0); opacity: 0.3; }
-  50% { transform: scaleY(1); opacity: 0.9; }
-  100% { transform: scaleY(0.9); opacity: 0.8; }
+@keyframes hourglassSpinReset {
+  0% { transform: rotate(0deg); }
+  80% { transform: rotate(0deg); }
+  95% { transform: rotate(360deg); }
+  100% { transform: rotate(360deg); }
 }
 
-@keyframes sandFall {
-  0% { transform: translateY(0); opacity: 1; }
-  100% { transform: translateY(32px); opacity: 0.2; }
+.sand-top {
+  transform-origin: 50px 64px;
+  animation: sandTopDrain 4.2s linear infinite;
+}
+
+.sand-bottom {
+  transform-origin: 50px 112px;
+  animation: sandBottomFill 4.2s linear infinite;
 }
 
 .sand-stream {
   stroke-dasharray: 4, 3;
-  animation: sandFall 0.8s linear infinite;
+  animation: sandStreamFlow 0.5s linear infinite, sandStreamVisibility 4.2s linear infinite;
 }
 
-.sand-top-level {
-  animation: sandLevelDrop 12s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+@keyframes sandStreamFlow {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -14; }
 }
 
-.sand-bottom-level {
-  animation: sandLevelRise 12s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+@keyframes sandTopDrain {
+  0% { transform: scaleY(1); opacity: 1; }
+  75% { transform: scaleY(0.05); opacity: 0.2; }
+  80% { transform: scaleY(0); opacity: 0; }
+  95% { transform: scaleY(1); opacity: 1; }
+  100% { transform: scaleY(1); opacity: 1; }
 }
 
-@keyframes sandLevelDrop {
-  0% { transform: translateY(0) scaleY(1); }
-  100% { transform: translateY(8px) scaleY(0.2); }
+@keyframes sandBottomFill {
+  0% { transform: scaleY(0.08); opacity: 0.25; }
+  75% { transform: scaleY(1); opacity: 1; }
+  80% { transform: scaleY(1); opacity: 1; }
+  95% { transform: scaleY(0.08); opacity: 0.25; }
+  100% { transform: scaleY(0.08); opacity: 0.25; }
 }
 
-@keyframes sandLevelRise {
-  0% { transform: translateY(8px) scaleY(0.2); }
-  100% { transform: translateY(0) scaleY(1); }
+@keyframes sandStreamVisibility {
+  0%, 75% { opacity: 1; }
+  80%, 95% { opacity: 0; }
+  98%, 100% { opacity: 1; }
 }
 
 /* 2. Challenge Progress Dots Indicator */
@@ -1655,6 +1674,64 @@
   font-size: 12.5px;
   color: var(--text);
   animation: pulseWarning 2s infinite ease-in-out;
+}
+
+/* ==========================================================================
+   EDGE CASE & RESPONSIVE UTILITIES
+   ========================================================================== */
+.truncate-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 6px;
+}
+
+.empty-state-card {
+  padding: 40px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.empty-state-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: 0.8;
+}
+
+.btn-loading {
+  opacity: 0.7;
+  pointer-events: none;
+  position: relative;
+}
+
+.btn-loading::after {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 

@@ -18,6 +18,8 @@ export async function renderAdminDashboard() {
   const submissions = store.data.submissions || [];
   const evaluations = store.data.evaluations || [];
   const teams = await store.getAdminTeams();
+  const regSummary = await store.getRegistrationStatusSummary();
+  const registrations = await store.getAdminRegistrations();
 
   const timerSecs = hackathon.timerSeconds !== undefined ? hackathon.timerSeconds : 180;
   const mins = Math.floor(timerSecs / 60);
@@ -96,6 +98,146 @@ export async function renderAdminDashboard() {
     </div>
 
     <!-- ====================================================================
+         SECTION 0: LIVE GOOGLE FORM REGISTRATION & DATABASE SYNC CONTROL
+         ==================================================================== -->
+    <div class="glass bracket-frame mb-4" style="padding:26px; border-color:var(--cyan-dim);">
+      <span class="bl"></span><span class="br"></span>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <div class="eyebrow" style="color:var(--cyan);">Source of Truth // Participant Authentication</div>
+          <h2 class="heading-md" style="margin-top:4px;">GOOGLE FORM / SHEETS LIVE REGISTRATION CONTROL</h2>
+          <p class="sub-text" style="margin-top:2px;">
+            Synchronize participant registrations from Google Sheets or CSV/XLSX imports into NEURA database.
+          </p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="chip ${regSummary.google_sheets_connected ? 'chip-green' : 'chip-amber'}">
+            ● GOOGLE SHEETS: ${regSummary.google_sheets_connected ? 'CONNECTED' : 'NOT CONFIGURED'}
+          </span>
+          ${regSummary.last_synced_at ? `<span class="mono-text" style="font-size:11px; color:var(--muted);">Last Sync: ${new Date(regSummary.last_synced_at).toLocaleTimeString()}</span>` : ''}
+        </div>
+      </div>
+
+      <!-- Registration Stats Counter Grid -->
+      <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:12px; margin-bottom:20px;">
+        <div class="glass-card" style="padding:12px; text-align:center;">
+          <div class="eyebrow" style="font-size:9.5px;">TOTAL RECORDS</div>
+          <div style="font-family:var(--disp); font-size:22px; font-weight:700; color:var(--cyan); margin-top:2px;">${regSummary.total_registrations || 0}</div>
+        </div>
+        <div class="glass-card" style="padding:12px; text-align:center;">
+          <div class="eyebrow" style="font-size:9.5px;">VERIFIED</div>
+          <div style="font-family:var(--disp); font-size:22px; font-weight:700; color:var(--green); margin-top:2px;">${regSummary.verified || 0}</div>
+        </div>
+        <div class="glass-card" style="padding:12px; text-align:center;">
+          <div class="eyebrow" style="font-size:9.5px;">PENDING</div>
+          <div style="font-family:var(--disp); font-size:22px; font-weight:700; color:var(--amber); margin-top:2px;">${regSummary.pending || 0}</div>
+        </div>
+        <div class="glass-card" style="padding:12px; text-align:center;">
+          <div class="eyebrow" style="font-size:9.5px;">REJECTED</div>
+          <div style="font-family:var(--disp); font-size:22px; font-weight:700; color:var(--red); margin-top:2px;">${regSummary.rejected || 0}</div>
+        </div>
+        <div class="glass-card" style="padding:12px; text-align:center;">
+          <div class="eyebrow" style="font-size:9.5px;">ACTIVE ACCOUNTS</div>
+          <div style="font-family:var(--disp); font-size:22px; font-weight:700; color:var(--cyan); margin-top:2px;">${regSummary.active_accounts || 0}</div>
+        </div>
+        <div class="glass-card" style="padding:12px; text-align:center;">
+          <div class="eyebrow" style="font-size:9.5px;">UNPROVISIONED</div>
+          <div style="font-family:var(--disp); font-size:22px; font-weight:700; color:var(--violet); margin-top:2px;">${regSummary.unprovisioned || 0}</div>
+        </div>
+      </div>
+
+      <!-- Actions Toolbar -->
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px; background:var(--panel-2); padding:14px 18px; border-radius:6px; border:1px solid var(--line);">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-sm btn-primary" id="btnSyncGoogleSheets" ${!regSummary.google_sheets_connected ? 'disabled title="Configure Google Sheets API credentials in backend .env"' : ''}>
+            ⚡ SYNC GOOGLE SHEETS NOW
+          </button>
+          <button class="btn btn-sm" id="btnTriggerCsvImport" style="border-color:var(--cyan); color:var(--cyan);">
+            📁 IMPORT CSV / XLSX FILE
+          </button>
+          <input type="file" id="registrationFileInput" accept=".csv,.xlsx,.xls" style="display:none;">
+          <button class="btn btn-sm" id="btnProvisionAllVerified" style="border-color:var(--green); color:var(--green);">
+            ⚡ PROVISION ALL VERIFIED (${regSummary.unprovisioned || 0})
+          </button>
+        </div>
+        <div>
+          <button class="btn btn-sm" id="btnExportRegistrationsCsv" style="border-color:var(--line-strong);">
+            📥 EXPORT REGISTRATIONS CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Registration Data Directory Table -->
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11.5px; text-align:left;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--line-strong); color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em;">
+              <th style="padding:10px 12px;">Reg ID / Ext ID</th>
+              <th style="padding:10px 12px;">Team Name</th>
+              <th style="padding:10px 12px;">Participant Name</th>
+              <th style="padding:10px 12px;">Email</th>
+              <th style="padding:10px 12px;">College</th>
+              <th style="padding:10px 12px;">Status</th>
+              <th style="padding:10px 12px;">Account Status</th>
+              <th style="padding:10px 12px; text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${registrations.length === 0 ? `
+              <tr>
+                <td colspan="8" style="padding:24px; text-align:center; color:var(--muted);">
+                  No registration records found. Click <strong>SYNC GOOGLE SHEETS NOW</strong> or <strong>IMPORT CSV / XLSX FILE</strong> to import participant responses.
+                </td>
+              </tr>
+            ` : registrations.map((r, idx) => {
+              const isVer = r.registration_status === 'VERIFIED';
+              const isRej = r.registration_status === 'REJECTED';
+              const isDis = r.registration_status === 'DISABLED';
+              const isAct = r.account_status === 'ACTIVE';
+
+              return `
+                <tr style="border-bottom:1px solid rgba(140,180,220,0.08); background:${idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'}">
+                  <td style="padding:10px 12px; font-weight:600; color:var(--text);">${escapeHtml(r.external_registration_id || r.id.substring(0, 8))}</td>
+                  <td style="padding:10px 12px; font-weight:700; color:var(--cyan);">${escapeHtml(r.team_name)}</td>
+                  <td style="padding:10px 12px; color:var(--text);">${escapeHtml(r.participant_name)}</td>
+                  <td style="padding:10px 12px; color:var(--green);">${escapeHtml(r.email)}</td>
+                  <td style="padding:10px 12px; color:var(--muted);">${escapeHtml(r.college || 'N/A')}</td>
+                  <td style="padding:10px 12px;">
+                    <span class="chip ${isVer ? 'chip-green' : isRej ? 'chip-red' : isDis ? 'chip-red' : 'chip-amber'}" style="font-size:9.5px; padding:2px 6px;">
+                      ${(r.registration_status || 'PENDING').toUpperCase()}
+                    </span>
+                  </td>
+                  <td style="padding:10px 12px;">
+                    <span class="chip ${isAct ? 'chip-cyan' : 'chip-amber'}" style="font-size:9.5px; padding:2px 6px;">
+                      ${(r.account_status || 'NOT_PROVISIONED').toUpperCase()}
+                    </span>
+                  </td>
+                  <td style="padding:10px 12px; text-align:right;">
+                    <div style="display:flex; justify-content:flex-end; gap:6px; flex-wrap:wrap;">
+                      ${!isVer && !isRej ? `
+                        <button class="btn btn-sm btn-primary" onclick="window.verifyRegAction('${r.id}')" style="padding:3px 8px; font-size:9.5px;">✓ VERIFY</button>
+                        <button class="btn btn-sm btn-red" onclick="window.rejectRegAction('${r.id}')" style="padding:3px 8px; font-size:9.5px;">✕ REJECT</button>
+                      ` : ''}
+                      ${isVer && !isAct ? `
+                        <button class="btn btn-sm" onclick="window.provisionRegAction('${r.id}')" style="padding:3px 8px; font-size:9.5px; border-color:var(--green); color:var(--green);">⚡ PROVISION</button>
+                      ` : ''}
+                      ${isAct ? `
+                        <button class="btn btn-sm" onclick="window.resetRegCredsAction('${r.id}')" style="padding:3px 8px; font-size:9.5px; border-color:var(--cyan); color:var(--cyan);">🔑 RESET PASS</button>
+                      ` : ''}
+                      ${!isDis ? `
+                        <button class="btn btn-sm btn-red" onclick="window.disableRegAction('${r.id}')" style="padding:3px 8px; font-size:9.5px;">🛑 DISABLE</button>
+                      ` : ''}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ====================================================================
          SECTION 1: ADMIN TEAM REGISTRATION & PROVISIONING (EXPERT FEATURE)
          ==================================================================== -->
     <div class="glass bracket-frame mb-4" style="padding:26px; border-color:var(--cyan-dim);">
@@ -156,7 +298,7 @@ export async function renderAdminDashboard() {
         <button class="btn btn-sm" id="btnRefreshTeamsList" style="border-color:var(--line-strong);">⟳ REFRESH</button>
       </div>
 
-      <div style="overflow-x:auto;">
+      <div class="table-responsive">
         <table style="width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12px; text-align:left;">
           <thead>
             <tr style="border-bottom:1px solid var(--line-strong); color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em;">
@@ -170,18 +312,28 @@ export async function renderAdminDashboard() {
             </tr>
           </thead>
           <tbody>
-            ${teams.map((t, idx) => {
+            ${teams.length === 0 ? `
+              <tr>
+                <td colspan="7" style="padding:0;">
+                  <div class="empty-state-card">
+                    <div class="empty-state-icon">👥</div>
+                    <div class="heading-md" style="font-size:15px; margin-bottom:4px;">No Registered Teams Found</div>
+                    <p class="sub-text" style="font-size:12px;">Register a team above or import records from Google Form sync.</p>
+                  </div>
+                </td>
+              </tr>
+            ` : teams.map((t, idx) => {
               const isElim = t.status === 'eliminated';
               return `
                 <tr style="border-bottom:1px solid rgba(140,180,220,0.08); background:${idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'}; ${isElim ? 'opacity:0.6;' : ''}">
-                  <td style="padding:14px; font-weight:700; color:var(--cyan);">${escapeHtml(t.name)}</td>
-                  <td style="padding:14px; color:var(--text);">${escapeHtml(t.college || 'MMCOE Pune')}</td>
-                  <td style="padding:14px; color:#cbd5e1; max-width:240px;">
+                  <td style="padding:14px; font-weight:700; color:var(--cyan);" class="truncate-text" style="max-width:180px;">${escapeHtml(t.name)}</td>
+                  <td style="padding:14px; color:var(--text);" class="truncate-text" style="max-width:180px;">${escapeHtml(t.college || 'MMCOE Pune')}</td>
+                  <td style="padding:14px; color:#cbd5e1; max-width:240px;" class="truncate-text">
                     <span title="${escapeHtml(Array.isArray(t.members) ? t.members.join(', ') : '')}">
                       ${escapeHtml(Array.isArray(t.members) ? t.members.join(', ') : '2 Members')}
                     </span>
                   </td>
-                  <td style="padding:14px; color:var(--green);">${escapeHtml(t.login_email || `${t.name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@neura.io`)}</td>
+                  <td style="padding:14px; color:var(--green);" class="truncate-text" style="max-width:200px;">${escapeHtml(t.login_email || `${t.name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@neura.io`)}</td>
                   <td style="padding:14px; color:var(--text); font-weight:600;">${escapeHtml(t.invite_code || t.inviteCode || 'NR-XXXX')}</td>
                   <td style="padding:14px;">
                     <span class="chip ${isElim ? 'chip-red' : t.status === 'locked' ? 'chip-amber' : 'chip-green'}" style="font-size:10px; padding:3px 8px;">
@@ -378,6 +530,52 @@ function attachAdminDashboardHandlers() {
       // Show Custom Animated Error Modal
       showCustomErrorModal('REGISTRATION REJECTED', res.error || 'A team with this name or member is already registered.');
     }
+  });
+
+  // Section 0: Registration Sync & File Import Event Handlers
+  document.getElementById('btnSyncGoogleSheets')?.addEventListener('click', async () => {
+    Router.showToast('Synchronizing live responses from Google Sheets...', 'cyan');
+    const res = await store.syncGoogleSheetsRegistrations();
+    if (res.success) {
+      Router.showToast(`Sync complete! Total: ${res.total_rows}, Created: ${res.created}, Updated: ${res.updated}`, 'green');
+      await renderAdminDashboard();
+    } else {
+      Router.showToast(res.error || 'Google Sheets sync failed', 'red');
+    }
+  });
+
+  const fileInput = document.getElementById('registrationFileInput');
+  document.getElementById('btnTriggerCsvImport')?.addEventListener('click', () => {
+    fileInput?.click();
+  });
+
+  fileInput?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    Router.showToast(`Processing file '${file.name}'...`, 'cyan');
+    const res = await store.importRegistrationsFile(file);
+    if (res.success) {
+      Router.showToast(`Import complete! Total: ${res.total_rows}, Created: ${res.created}, Updated: ${res.updated}`, 'green');
+      await renderAdminDashboard();
+    } else {
+      Router.showToast(res.error || 'Import failed', 'red');
+    }
+  });
+
+  document.getElementById('btnProvisionAllVerified')?.addEventListener('click', async () => {
+    Router.showToast('Provisioning all verified registrations...', 'cyan');
+    const res = await store.provisionAllVerifiedRegistrations();
+    if (res.success) {
+      Router.showToast(`Provisioned ${res.total_provisioned} accounts!`, 'green');
+      await renderAdminDashboard();
+    } else {
+      Router.showToast(res.error || 'Bulk provisioning failed', 'red');
+    }
+  });
+
+  document.getElementById('btnExportRegistrationsCsv')?.addEventListener('click', async () => {
+    Router.showToast('Exporting registrations CSV...', 'cyan');
+    await store.downloadRegistrationsCsv();
   });
 
   document.getElementById('btnAdminLogout')?.addEventListener('click', () => {
@@ -665,6 +863,97 @@ function showAdminEliminateModal(teamId, teamName) {
   });
 }
 window.adminEliminateTeam = showAdminEliminateModal;
+
+// Registration Action Handlers
+window.verifyRegAction = async (regId) => {
+  const res = await store.verifyRegistration(regId);
+  if (res.success) {
+    Router.showToast('Registration verified.', 'green');
+    renderAdminDashboard();
+  } else {
+    Router.showToast(res.error || 'Verification failed', 'red');
+  }
+};
+
+window.rejectRegAction = async (regId) => {
+  const res = await store.rejectRegistration(regId);
+  if (res.success) {
+    Router.showToast('Registration rejected.', 'red');
+    renderAdminDashboard();
+  } else {
+    Router.showToast(res.error || 'Rejection failed', 'red');
+  }
+};
+
+window.disableRegAction = async (regId) => {
+  const res = await store.disableRegistration(regId);
+  if (res.success) {
+    Router.showToast('Registration disabled.', 'red');
+    renderAdminDashboard();
+  } else {
+    Router.showToast(res.error || 'Disabling failed', 'red');
+  }
+};
+
+window.provisionRegAction = async (regId) => {
+  const res = await store.provisionRegistrationAccount(regId);
+  if (res.success) {
+    showAdminRegistrationCredsModal(res);
+    renderAdminDashboard();
+  } else {
+    Router.showToast(res.error || 'Provisioning failed', 'red');
+  }
+};
+
+window.resetRegCredsAction = async (regId) => {
+  const res = await store.resetRegistrationCredentials(regId);
+  if (res.success) {
+    showAdminRegistrationCredsModal(res);
+    renderAdminDashboard();
+  } else {
+    Router.showToast(res.error || 'Credential reset failed', 'red');
+  }
+};
+
+function showAdminRegistrationCredsModal(res) {
+  const container = document.getElementById('customModalContainer') || document.body;
+  const modalDiv = document.createElement('div');
+  modalDiv.className = 'neura-modal-overlay';
+  modalDiv.style.display = 'flex';
+
+  const email = res.credentials?.email || res.email;
+  const pass = res.credentials?.password || '••••••••';
+
+  modalDiv.innerHTML = `
+    <div class="neura-modal glass bracket-frame" style="max-width:520px; width:92%; padding:28px; border-color:var(--cyan-dim);">
+      <span class="bl"></span><span class="br"></span>
+      <div class="chip chip-green" style="margin-bottom:12px; font-weight:800;">✓ ACCOUNT PROVISIONED</div>
+      <h3 class="heading-md" style="margin-bottom:8px; color:var(--cyan);">CREDENTIALS FOR ${escapeHtml(res.participant_name || res.team_name)}</h3>
+      <p class="sub-text" style="font-size:12.5px; line-height:1.5; margin-bottom:16px;">
+        Account is provisioned and linked to team <strong>${escapeHtml(res.team_name)}</strong>.
+      </p>
+
+      <div style="background:var(--panel-2); padding:14px; border-radius:6px; border:1px solid var(--line); font-family:var(--mono); font-size:12px; margin-bottom:18px;">
+        <div style="margin-bottom:8px;"><strong style="color:var(--muted);">Login Email:</strong> <span style="color:var(--green);">${escapeHtml(email)}</span></div>
+        <div><strong style="color:var(--muted);">Temporary Passcode:</strong> <span style="color:var(--cyan); font-weight:700;">${escapeHtml(pass)}</span></div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:12px;">
+        <button class="btn btn-sm btn-primary" id="btnCopyCredsModal">📋 COPY CREDENTIALS</button>
+        <button class="btn btn-sm" id="btnCloseCredsModal">CLOSE</button>
+      </div>
+    </div>
+  `;
+  container.appendChild(modalDiv);
+
+  modalDiv.querySelector('#btnCloseCredsModal')?.addEventListener('click', () => { modalDiv.remove(); });
+  modalDiv.querySelector('#btnCopyCredsModal')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(`NEURA CREDENTIALS\nName: ${res.participant_name}\nTeam: ${res.team_name}\nEmail: ${email}\nPassword: ${pass}`).then(() => {
+      Router.showToast('Credentials copied to clipboard!', 'green');
+      modalDiv.remove();
+    });
+  });
+}
 
 function escapeHtml(str) {
   if (!str) return '';

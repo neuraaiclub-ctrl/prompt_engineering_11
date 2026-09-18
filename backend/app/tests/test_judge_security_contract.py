@@ -14,21 +14,10 @@ def test_judge_security_contract_hidden_tests_never_leaked():
     Judges and participants can NEVER see unrevealed hidden test inputs/outputs.
     Only admin or revealed test cases can expose inputs/expected outputs.
     """
-    db = SessionLocal()
-    # 1. Setup Admin
-    client.post("/api/v1/auth/register", json={"name": "Admin Sec", "email": "admin_sec@hack.com", "password": "Password123!"})
-    a_user = db.query(User).filter(User.email == "admin_sec@hack.com").first()
-    db.add(Role(user_id=a_user.id, name="admin"))
-
-    # Setup Judge
-    client.post("/api/v1/auth/register", json={"name": "Judge Sec", "email": "judge_sec@hack.com", "password": "Password123!"})
-    j_user = db.query(User).filter(User.email == "judge_sec@hack.com").first()
-    db.add(Role(user_id=j_user.id, name="judge"))
-
-    # Setup Participant
-    client.post("/api/v1/auth/register", json={"name": "Part Sec", "email": "part_sec@hack.com", "password": "Password123!"})
-    db.commit()
-    db.close()
+    from app.tests.conftest import create_test_user
+    create_test_user("admin_sec@hack.com", "Password123!", name="Admin Sec", roles=["admin"])
+    create_test_user("judge_sec@hack.com", "Password123!", name="Judge Sec", roles=["judge"])
+    create_test_user("part_sec@hack.com", "Password123!", name="Part Sec", roles=["participant"])
 
     admin_token = client.post("/api/v1/auth/login", json={"email": "admin_sec@hack.com", "password": "Password123!"}).json()["access_token"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}

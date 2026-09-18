@@ -5,6 +5,8 @@
 
 import { store } from './store.js';
 import { setupStaffModal, openStaffModal, closeStaffModal } from './components/staff-modal.js';
+import { renderLandingPage } from './views/landing-page.js';
+import { renderTeamLobby } from './views/auth-team.js';
 
 export const ROLE_PERMISSIONS = {
   participant: ['arena-workspace', 'r1-workspace', 'team-lobby', 'landing'],
@@ -18,6 +20,17 @@ export class Router {
     this.setupLogout();
     this.setupStaffModal();
     this.applyRolePermissions(store.getRole());
+
+    // Direct authenticated users to their active workspace instead of landing briefing
+    if (store.isAuthenticated()) {
+      const role = store.getRole();
+      const defaultView = role === 'admin' ? 'admin-dashboard' 
+                        : role === 'judge' ? 'judge-dashboard' 
+                        : 'arena-workspace';
+      this.navigate(defaultView);
+    } else {
+      this.navigate('landing');
+    }
   }
 
   static setupNavigation() {
@@ -29,7 +42,15 @@ export class Router {
     });
 
     document.getElementById('brandLogo')?.addEventListener('click', () => {
-      this.navigate('landing');
+      if (store.isAuthenticated()) {
+        const role = store.getRole();
+        const defaultView = role === 'admin' ? 'admin-dashboard' 
+                          : role === 'judge' ? 'judge-dashboard' 
+                          : 'arena-workspace';
+        this.navigate(defaultView);
+      } else {
+        this.navigate('landing');
+      }
     });
   }
 
@@ -90,6 +111,8 @@ export class Router {
       store.logout();
       Router.showToast('Successfully signed out of session', 'cyan');
       Router.applyRolePermissions('participant');
+      renderLandingPage();
+      renderTeamLobby();
       Router.navigate('landing');
     });
   }
@@ -108,6 +131,15 @@ export class Router {
   static navigate(pageId) {
     const isAuth = store.isAuthenticated();
     const role = store.getRole();
+
+    // Direct authenticated users away from landing briefing page to their workspace
+    if (isAuth && pageId === 'landing') {
+      const defaultView = role === 'admin' ? 'admin-dashboard' 
+                        : role === 'judge' ? 'judge-dashboard' 
+                        : 'arena-workspace';
+      this.navigate(defaultView);
+      return;
+    }
     const allowedPages = ROLE_PERMISSIONS[role] || ['landing'];
 
     // Route Guard: Unauthenticated access protection

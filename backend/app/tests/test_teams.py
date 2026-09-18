@@ -1,22 +1,13 @@
 from fastapi.testclient import TestClient
 from app.main import app
+from app.tests.conftest import create_test_user
 
 client = TestClient(app)
 
 def test_team_lifecycle_and_locks():
     # 1. Admin setup hackathon & round
-    client.post("/api/v1/auth/register", json={"name": "Admin User", "email": "admin@example.com", "password": "Pass123!"})
+    create_test_user("admin@example.com", "Pass123!", name="Admin User", roles=["admin"])
     
-    # Manually promote admin in DB for testing
-    from app.database import SessionLocal
-    from app.models.user import User, Role
-    db = SessionLocal()
-    u = db.query(User).filter(User.email == "admin@example.com").first()
-    db.add(Role(user_id=u.id, name="admin"))
-    db.commit()
-    db.close()
-    
-    # Admin re-logins to get updated admin role JWT
     admin_login = client.post("/api/v1/auth/login", json={"email": "admin@example.com", "password": "Pass123!"})
     admin_token = admin_login.json()["access_token"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
@@ -25,7 +16,7 @@ def test_team_lifecycle_and_locks():
     rnd = client.post(f"/api/v1/hackathons/{hk['id']}/rounds", json={"type": "round1_fix_the_prompt"}, headers=admin_headers).json()
 
     # 2. Register User 1 & Create Team
-    client.post("/api/v1/auth/register", json={"name": "User 1", "email": "u1@example.com", "password": "Pass123!"})
+    create_test_user("u1@example.com", "Pass123!", name="User 1", roles=["participant"])
     u1_token = client.post("/api/v1/auth/login", json={"email": "u1@example.com", "password": "Pass123!"}).json()["access_token"]
     u1_headers = {"Authorization": f"Bearer {u1_token}"}
 
@@ -38,7 +29,7 @@ def test_team_lifecycle_and_locks():
     assert create_2nd.status_code == 409
 
     # 4. User 2 joins team via invite code
-    client.post("/api/v1/auth/register", json={"name": "User 2", "email": "u2@example.com", "password": "Pass123!"})
+    create_test_user("u2@example.com", "Pass123!", name="User 2", roles=["participant"])
     u2_token = client.post("/api/v1/auth/login", json={"email": "u2@example.com", "password": "Pass123!"}).json()["access_token"]
     u2_headers = {"Authorization": f"Bearer {u2_token}"}
 
@@ -54,7 +45,7 @@ def test_team_lifecycle_and_locks():
     assert start_rnd.status_code == 200
 
     # 7. User 3 attempting to join team after lock -> Expect 423 Locked
-    client.post("/api/v1/auth/register", json={"name": "User 3", "email": "u3@example.com", "password": "Pass123!"})
+    create_test_user("u3@example.com", "Pass123!", name="User 3", roles=["participant"])
     u3_token = client.post("/api/v1/auth/login", json={"email": "u3@example.com", "password": "Pass123!"}).json()["access_token"]
     u3_headers = {"Authorization": f"Bearer {u3_token}"}
 

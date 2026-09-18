@@ -79,15 +79,16 @@ def test_admin_register_team_success():
 
 def test_admin_register_team_forbidden_for_non_admin():
     """Non-admin (participant) calling admin register receives 403 Forbidden."""
-    # Register regular participant
-    client.post("/api/v1/auth/register", json={
-        "name": "Normal Participant",
-        "email": "norm@example.com",
-        "password": "Password123!"
-    })
+    admin_headers = get_admin_headers()
+    t_res = client.post("/api/v1/teams/admin/register", json={
+        "team_name": "Norm Team",
+        "college": "Zion",
+        "members": ["Normal Participant"]
+    }, headers=admin_headers)
+    creds = t_res.json()["credentials"]
     token = client.post("/api/v1/auth/login", json={
-        "email": "norm@example.com",
-        "password": "Password123!"
+        "email": creds["email"],
+        "password": creds["password"]
     }).json()["access_token"]
 
     p_headers = {"Authorization": f"Bearer {token}"}

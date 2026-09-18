@@ -16,19 +16,8 @@ def test_security_gate_hidden_test_cases_and_broken_reason():
     5. Admin CAN view test case details and broken_reason.
     """
     # 1. Register and login Admin
-    client.post("/api/v1/auth/register", json={
-        "name": "SecAdmin",
-        "email": "secadmin@example.com",
-        "password": "AdminPassword123!"
-    })
-    
-    # Assign admin role in DB
-    from app.models.user import User, Role
-    db = SessionLocal()
-    u = db.query(User).filter(User.email == "secadmin@example.com").first()
-    db.add(Role(user_id=u.id, name="admin"))
-    db.commit()
-    db.close()
+    from app.tests.conftest import create_test_user
+    create_test_user("secadmin@example.com", "AdminPassword123!", name="SecAdmin", roles=["admin"])
 
     admin_login = client.post("/api/v1/auth/login", json={
         "email": "secadmin@example.com",
@@ -38,11 +27,7 @@ def test_security_gate_hidden_test_cases_and_broken_reason():
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
 
     # 2. Register and login Participant
-    client.post("/api/v1/auth/register", json={
-        "name": "SecParticipant",
-        "email": "secpart@example.com",
-        "password": "PartPassword123!"
-    })
+    create_test_user("secpart@example.com", "PartPassword123!", name="SecParticipant", roles=["participant"])
     part_login = client.post("/api/v1/auth/login", json={
         "email": "secpart@example.com",
         "password": "PartPassword123!"

@@ -20,29 +20,12 @@ def test_full_platform_e2e_dry_run():
     7. Participant views final leaderboard & tie-break ranking.
     8. Audit log verifies full immutable event trail.
     """
-    db = SessionLocal()
-
-    # 1. Setup Admin, Judges & Participants
-    # Admin
-    client.post("/api/v1/auth/register", json={"name": "Admin E2E", "email": "admin@neura-e2e.com", "password": "Password123!"})
-    a_user = db.query(User).filter(User.email == "admin@neura-e2e.com").first()
-    db.add(Role(user_id=a_user.id, name="admin"))
-
-    # Judge 1 & Judge 2
-    client.post("/api/v1/auth/register", json={"name": "Judge 1", "email": "judge1@neura-e2e.com", "password": "Password123!"})
-    j1_user = db.query(User).filter(User.email == "judge1@neura-e2e.com").first()
-    db.add(Role(user_id=j1_user.id, name="judge"))
-
-    client.post("/api/v1/auth/register", json={"name": "Judge 2", "email": "judge2@neura-e2e.com", "password": "Password123!"})
-    j2_user = db.query(User).filter(User.email == "judge2@neura-e2e.com").first()
-    db.add(Role(user_id=j2_user.id, name="judge"))
-
-    # Participants: Team 1 Lead & Team 2 Lead
-    client.post("/api/v1/auth/register", json={"name": "Nova Lead", "email": "lead1@neura-e2e.com", "password": "Password123!"})
-    client.post("/api/v1/auth/register", json={"name": "Synapse Lead", "email": "lead2@neura-e2e.com", "password": "Password123!"})
-
-    db.commit()
-    db.close()
+    from app.tests.conftest import create_test_user
+    create_test_user("admin@neura-e2e.com", "Password123!", name="Admin E2E", roles=["admin"])
+    create_test_user("judge1@neura-e2e.com", "Password123!", name="Judge 1", roles=["judge"])
+    create_test_user("judge2@neura-e2e.com", "Password123!", name="Judge 2", roles=["judge"])
+    create_test_user("lead1@neura-e2e.com", "Password123!", name="Nova Lead", roles=["participant"])
+    create_test_user("lead2@neura-e2e.com", "Password123!", name="Synapse Lead", roles=["participant"])
 
     admin_token = client.post("/api/v1/auth/login", json={"email": "admin@neura-e2e.com", "password": "Password123!"}).json()["access_token"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}

@@ -1,6 +1,8 @@
 import pytest
 import os
-from app.database import Base, engine
+from app.database import Base, engine, SessionLocal
+from app.models.user import User, Role
+from app.core.security import hash_password
 
 @pytest.fixture(autouse=True, scope="module")
 def setup_test_db():
@@ -19,3 +21,27 @@ def reset_mock_provider():
     yield
     AIProviderAdapter.mock_provider = MockLLMProvider()
 
+def create_test_user(email: str, password: str = "Password123!", name: str = "Test User", roles: list = None):
+    if roles is None:
+        roles = ["participant"]
+    db = SessionLocal()
+    try:
+        existing = db.query(User).filter(User.email == email.lower()).first()
+        if not existing:
+            u = User(
+                name=name,
+                email=email.lower(),
+                password_hash=hash_password(password),
+                affiliation="Test Affiliation",
+                status="active"
+            )
+            db.add(u)
+            db.flush()
+            for r in roles:
+                db.add(Role(user_id=u.id, name=r))
+            db.commit()
+            db.refresh(u)
+            return u
+        return existing
+    finally:
+        db.close()

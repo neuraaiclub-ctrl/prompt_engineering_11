@@ -19,12 +19,8 @@ def test_concurrency_20_teams_runoff_and_duplicate_rejection():
     """
     db = SessionLocal()
 
-    # 1. Setup Admin
-    client.post("/api/v1/auth/register", json={"name": "Admin Runoff", "email": "admin_runoff@load.com", "password": "Password123!"})
-    a_user = db.query(User).filter(User.email == "admin_runoff@load.com").first()
-    db.add(Role(user_id=a_user.id, name="admin"))
-    db.commit()
-    db.close()
+    from app.tests.conftest import create_test_user
+    create_test_user("admin_runoff@load.com", "Password123!", name="Admin Runoff", roles=["admin"])
 
     admin_token = client.post("/api/v1/auth/login", json={"email": "admin_runoff@load.com", "password": "Password123!"}).json()["access_token"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
@@ -58,7 +54,7 @@ def test_concurrency_20_teams_runoff_and_duplicate_rejection():
     team_sessions = []
     for i in range(1, 21):
         email = f"team_lead_{i}@load.com"
-        client.post("/api/v1/auth/register", json={"name": f"Leader {i}", "email": email, "password": "Password123!"})
+        create_test_user(email, "Password123!", name=f"Leader {i}", roles=["participant"])
         t_login = client.post("/api/v1/auth/login", json={"email": email, "password": "Password123!"}).json()
         token = t_login["access_token"]
         headers = {"Authorization": f"Bearer {token}"}

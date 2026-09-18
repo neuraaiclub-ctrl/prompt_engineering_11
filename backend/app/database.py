@@ -123,6 +123,135 @@ def seed_initial_data():
                 )
                 db.add(item)
 
+        # 5. Seed Test Participant Teams & Registrations for Live Testing
+        from app.models.registration import Registration
+        from app.models.team import Team, TeamMember
+
+        test_teams = [
+            {
+                "team_name": "Neural Mavericks",
+                "college": "MMCOE Pune",
+                "invite_code": "NR-4827",
+                "members": [
+                    {"name": "Alex Mercer", "email": "alex.mercer@neura.io", "role": "leader"},
+                    {"name": "Elena Rostova", "email": "elena.rostova@neura.io", "role": "member"}
+                ]
+            },
+            {
+                "team_name": "Code Warriors",
+                "college": "COEP Pune",
+                "invite_code": "CW-1029",
+                "members": [
+                    {"name": "David Kim", "email": "david.kim@neura.io", "role": "leader"},
+                    {"name": "Sarah Lee", "email": "sarah.lee@neura.io", "role": "member"}
+                ]
+            },
+            {
+                "team_name": "Byte Force",
+                "college": "PICT Pune",
+                "invite_code": "BF-3049",
+                "members": [
+                    {"name": "Priya Nair", "email": "priya.nair@neura.io", "role": "leader"},
+                    {"name": "Jonah Hill", "email": "jonah.hill@neura.io", "role": "member"}
+                ]
+            }
+        ]
+
+        # Seed legacy alex@neuralninjas.io login account
+        legacy_alex = db.query(User).filter(User.email == "alex@neuralninjas.io").first()
+        if not legacy_alex:
+            legacy_u = User(
+                name="Alex Mercer",
+                email="alex@neuralninjas.io",
+                password_hash=hash_password("Pass123!"),
+                affiliation="MMCOE Pune",
+                status="active"
+            )
+            db.add(legacy_u)
+            db.flush()
+            db.add(Role(user_id=legacy_u.id, name="participant"))
+            db.add(Role(user_id=legacy_u.id, name="team_leader"))
+
+        for t_info in test_teams:
+            existing_t = db.query(Team).filter(Team.hackathon_id == "hk-2026", Team.name == t_info["team_name"]).first()
+            if not existing_t:
+                team = Team(
+                    hackathon_id="hk-2026",
+                    name=t_info["team_name"],
+                    college=t_info["college"],
+                    invite_code=t_info["invite_code"],
+                    status="forming"
+                )
+                db.add(team)
+                db.flush()
+            else:
+                team = existing_t
+
+            for m_idx, m_info in enumerate(t_info["members"], start=1):
+                m_email = m_info["email"].lower()
+                u = db.query(User).filter(User.email == m_email).first()
+                if not u:
+                    u = User(
+                        name=m_info["name"],
+                        email=m_email,
+                        password_hash=hash_password("Pass123!"),
+                        affiliation=t_info["college"],
+                        status="active"
+                    )
+                    db.add(u)
+                    db.flush()
+                    db.add(Role(user_id=u.id, name="participant"))
+                    if m_info["role"] == "leader":
+                        db.add(Role(user_id=u.id, name="team_leader"))
+
+                tm = db.query(TeamMember).filter(TeamMember.user_id == u.id).first()
+                if not tm:
+                    db.add(TeamMember(team_id=team.id, user_id=u.id, role=m_info["role"]))
+
+                reg = db.query(Registration).filter(Registration.email == m_email).first()
+                if not reg:
+                    db.add(Registration(
+                        external_registration_id=f"REG-SEED-{team.invite_code}-M{m_idx}",
+                        team_name=t_info["team_name"],
+                        participant_name=m_info["name"],
+                        email=m_email,
+                        college=t_info["college"],
+                        member_number=m_idx,
+                        registration_status="VERIFIED",
+                        verification_status="VERIFIED",
+                        account_status="ACTIVE",
+                        password_hash=u.password_hash,
+                        password_set=True,
+                        user_id=u.id,
+                        team_id=team.id,
+                        source="seed",
+                        is_active=True
+                    ))
+
+        # 6. Seed Pending & Rejected Registrations for Admin Workflow Testing
+        pending_records = [
+            ("Kaelen Vance", "kaelen.vance@example.com", "Cyber Dynamics", "MMCOE Pune", 1, "PENDING", "NOT_PROVISIONED"),
+            ("Marcus Vance", "marcus.vance@example.com", "Cyber Dynamics", "MMCOE Pune", 2, "PENDING", "NOT_PROVISIONED"),
+            ("Sora Takahashi", "sora.takahashi@example.com", "Shadow Protocol", "WCE Sangli", 1, "REJECTED", "DISABLED")
+        ]
+
+        for p_name, p_email, p_team, p_coll, p_mno, p_rstatus, p_astatus in pending_records:
+            reg = db.query(Registration).filter(Registration.email == p_email.lower()).first()
+            if not reg:
+                db.add(Registration(
+                    external_registration_id=f"REG-FORM-{p_email.split('@')[0]}",
+                    team_name=p_team,
+                    participant_name=p_name,
+                    email=p_email.lower(),
+                    college=p_coll,
+                    member_number=p_mno,
+                    registration_status=p_rstatus,
+                    verification_status=p_rstatus,
+                    account_status=p_astatus,
+                    source="google_sheets",
+                    is_active=(p_astatus != "DISABLED")
+                ))
+
         db.commit()
     except Exception as e:
         db.rollback()
@@ -140,7 +269,9 @@ def init_db():
     import app.models.score
     import app.models.leaderboard
     import app.models.arena
+    import app.models.registration
     Base.metadata.create_all(bind=engine)
+
     # Safe SQLite column migration for existing databases
     try:
         from sqlalchemy import text

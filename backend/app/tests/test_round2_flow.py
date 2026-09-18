@@ -6,19 +6,8 @@ client = TestClient(app)
 
 def test_round2_full_workflow_and_scoring():
     # 1. Admin setup
-    client.post("/api/v1/auth/register", json={
-        "name": "R2Admin",
-        "email": "r2admin@example.com",
-        "password": "AdminPassword123!"
-    })
-
-    from app.database import SessionLocal
-    from app.models.user import User, Role
-    db = SessionLocal()
-    u = db.query(User).filter(User.email == "r2admin@example.com").first()
-    db.add(Role(user_id=u.id, name="admin"))
-    db.commit()
-    db.close()
+    from app.tests.conftest import create_test_user
+    create_test_user("r2admin@example.com", "AdminPassword123!", name="R2Admin", roles=["admin"])
 
     admin_login = client.post("/api/v1/auth/login", json={
         "email": "r2admin@example.com",
@@ -66,11 +55,7 @@ def test_round2_full_workflow_and_scoring():
         assert tc_res.status_code == 201
 
     # 4. Setup Team 1 (violator: over-limit prompt)
-    client.post("/api/v1/auth/register", json={
-        "name": "OverlimitDev",
-        "email": "overlimit@example.com",
-        "password": "Password123!"
-    })
+    create_test_user("overlimit@example.com", "Password123!", name="OverlimitDev", roles=["participant"])
     t1_login = client.post("/api/v1/auth/login", json={
         "email": "overlimit@example.com",
         "password": "Password123!"
@@ -117,11 +102,7 @@ def test_round2_full_workflow_and_scoring():
     assert "already submitted" in dup_sub.json()["detail"].lower()
 
     # 6. Setup Team 2 (compliant: concise prompt under 15 tokens)
-    client.post("/api/v1/auth/register", json={
-        "name": "ConciseDev",
-        "email": "concise@example.com",
-        "password": "Password123!"
-    })
+    create_test_user("concise@example.com", "Password123!", name="ConciseDev", roles=["participant"])
     t2_login = client.post("/api/v1/auth/login", json={
         "email": "concise@example.com",
         "password": "Password123!"

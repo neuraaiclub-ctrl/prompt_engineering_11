@@ -34,15 +34,16 @@ export function renderTeamLobby() {
 
     ${!isAuth ? `
       <!-- Unauthenticated State: Clean Participant Team Login Card -->
-      <div class="glass bracket-frame mb-4" style="padding:32px; max-width:620px; margin:0 auto 28px;">
+      <div class="glass bracket-frame mb-4" style="padding:32px; width:100%; max-width:100%; box-sizing:border-box; margin:0 0 28px;">
         <span class="bl"></span><span class="br"></span>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
           <div class="chip chip-cyan">● PARTICIPATING TEAM AUTHENTICATION</div>
           <div class="mono-text" style="font-size:11px; color:var(--muted);">NEURA 2026</div>
         </div>
 
-        <h2 class="heading-md" style="margin-bottom:6px;">ENTER TEAM CREDENTIALS</h2>
-        <p class="sub-text" style="margin-bottom:20px;">Use the login email and secure passcode provisioned by the event organizer.</p>
+        <h2 class="heading-md" style="margin-bottom:6px;">NEURA PARTICIPANT ACCESS</h2>
+        <p class="sub-text" style="margin-bottom:20px;">Use the login credentials provisioned after official Google Form registration verification.</p>
+
 
         <div class="field" style="margin-bottom:14px;">
           <label>Team Login Email / Team Identifier</label>
@@ -63,9 +64,9 @@ export function renderTeamLobby() {
       <!-- Authenticated State: Active Status Banner with Direct Workspace Entry -->
       <div class="glass bracket-frame mb-4" style="padding:20px 28px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; border-color:var(--cyan-dim);">
         <span class="bl"></span><span class="br"></span>
-        <div>
-          <div class="chip chip-green" style="margin-bottom:6px;">✓ AUTHENTICATED: ${currentTeam.name.toUpperCase()}</div>
-          <div style="font-size:13px; color:var(--muted);">
+        <div style="max-width:60%;">
+          <div class="chip chip-green truncate-text" style="max-width:320px; margin-bottom:6px;">✓ AUTHENTICATED: ${currentTeam.name.toUpperCase()}</div>
+          <div class="truncate-text" style="font-size:13px; color:var(--muted);">
             Signed in as <strong>${user.name || currentTeam.name}</strong> (${user.email || 'Team Session'})
           </div>
         </div>
@@ -93,13 +94,13 @@ export function renderTeamLobby() {
 
         <div style="margin-bottom:16px;">
           <div class="eyebrow" style="margin-bottom:4px;">Team Name</div>
-          <div class="heading-md" style="color:var(--cyan);">${currentTeam.name}</div>
+          <div class="heading-md truncate-text" style="color:var(--cyan);">${currentTeam.name}</div>
         </div>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
           <div>
             <div class="eyebrow" style="margin-bottom:4px;">College / Institution</div>
-            <div class="mono-text" style="font-size:14px; color:var(--text);">${currentTeam.college || 'Engineering Institute'}</div>
+            <div class="mono-text truncate-text" style="font-size:14px; color:var(--text);">${currentTeam.college || 'Engineering Institute'}</div>
           </div>
           <div>
             <div class="eyebrow" style="margin-bottom:4px;">Invite Code</div>
@@ -111,7 +112,7 @@ export function renderTeamLobby() {
         <div style="display:flex; flex-direction:column; gap:8px;">
           ${(currentTeam.members || []).map((m, idx) => `
             <div class="glass-card" style="padding:10px 14px; display:flex; justify-content:space-between; align-items:center; font-family:var(--mono); font-size:12.5px;">
-              <span>${m} ${idx === 0 ? '<span style="color:var(--cyan); font-size:10px; margin-left:6px;">(LEADER)</span>' : ''}</span>
+              <span class="truncate-text" style="max-width:70%;">${m} ${idx === 0 ? '<span style="color:var(--cyan); font-size:10px; margin-left:6px;">(LEADER)</span>' : ''}</span>
               <span style="color:var(--green); font-size:10.5px;">READY</span>
             </div>
           `).join('')}
@@ -138,8 +139,7 @@ export function renderTeamLobby() {
           <div class="eyebrow" style="margin-bottom:8px;">Notice for Participants</div>
           <div class="heading-md" style="margin-bottom:8px; font-size:16px;">EVENT CREDENTIALS</div>
           <p class="sub-text" style="font-size:12px; line-height:1.5;">
-            All participating teams receive their unique login email and passcode during on-site registration. 
-            If you need credential assistance, contact your Hackathon Director or room judge.
+            NEURA PARTICIPANT ACCESS: Public self-registration is disabled. All participant accounts are synchronized from official Google Form registration records. Use the credentials provided after official registration verification. Contact your Hackathon Director if you need credential assistance.
           </p>
         </div>
       </div>

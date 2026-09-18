@@ -1,15 +1,11 @@
 from fastapi.testclient import TestClient
 from app.main import app
+from app.tests.conftest import create_test_user
 
 client = TestClient(app)
 
 def test_negative_rbac_permissions():
-    # Register regular participant
-    client.post("/api/v1/auth/register", json={
-        "name": "Regular User",
-        "email": "regular@example.com",
-        "password": "Password123!"
-    })
+    create_test_user("regular@example.com", "Password123!", name="Regular User", roles=["participant"])
     
     login_resp = client.post("/api/v1/auth/login", json={
         "email": "regular@example.com",
