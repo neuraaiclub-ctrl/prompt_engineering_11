@@ -47,7 +47,7 @@ export function updateNavTimerUI(totalSecs) {
   if (adminTimer) adminTimer.textContent = `${m}:${s}`;
 
   if (timerCircle) {
-    const circ = 125.6; // 2 * PI * 20
+    const circ = parseFloat(timerCircle.getAttribute('stroke-dasharray')) || 113.1; // 2 * PI * r
     const frac = Math.max(totalSecs / 180, 0);
     timerCircle.style.strokeDashoffset = circ * (1 - frac);
   }

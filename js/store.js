@@ -408,7 +408,7 @@ class Store {
     } catch (e) {
       // fallback to store
     }
-    return this.data.teams.map(t => ({
+    return (this.data.teams || []).map(t => ({
       id: t.id,
       name: t.name,
       college: t.college || 'MMCOE Pune',
@@ -822,7 +822,7 @@ class Store {
 
   async getRegistrationStatusSummary() {
     try {
-      const resp = await fetch(`${API_BASE_URL}/admin/registrations/status-summary`, { headers: this.getAuthHeaders() });
+      const resp = await fetch(`${API_BASE_URL}/admin/registrations/summary`, { headers: this.getAuthHeaders() });
       if (resp.ok) {
         return await resp.json();
       }

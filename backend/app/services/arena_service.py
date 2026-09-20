@@ -477,6 +477,7 @@ class ArenaService:
 
         return {
             "status": conf.status,
+            "is_results_released": getattr(conf, 'is_results_released', False),
             "started_at": conf.started_at.isoformat() if conf.started_at else None,
             "stats": {
                 "total_teams": total_teams,

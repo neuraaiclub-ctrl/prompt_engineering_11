@@ -5,6 +5,7 @@
    ========================================================================== */
 
 import { store } from '../store.js';
+import { warpWormhole } from './wormhole.js';
 
 let modalInitialized = false;
 
@@ -84,7 +85,7 @@ export function setupStaffModal(callbacks = {}) {
 
     if (!email || !password) {
       if (errBox) {
-        errBox.textContent = 'Please enter both staff email and password.';
+        errBox.textContent = 'Enter both your email and password.';
         errBox.style.display = 'block';
       }
       return;
@@ -92,20 +93,21 @@ export function setupStaffModal(callbacks = {}) {
 
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.textContent = 'AUTHENTICATING...';
+      submitBtn.textContent = 'Signing in…';
     }
 
     const res = await store.loginWithCredentials(email, password);
 
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'AUTHENTICATE & ENTER →';
+      submitBtn.textContent = 'Sign in';
     }
 
     if (res.success) {
       closeStaffModal();
+      warpWormhole(1);
       if (callbacks.showToast) {
-        callbacks.showToast(`Authenticated as ${res.role.toUpperCase()} (${res.user.name || res.user.email})!`, 'green');
+        callbacks.showToast(`Signed in as ${res.role} (${res.user.name || res.user.email})`, 'green');
       }
       if (callbacks.applyRolePermissions) {
         callbacks.applyRolePermissions(res.role);
@@ -122,7 +124,7 @@ export function setupStaffModal(callbacks = {}) {
       }
     } else {
       if (errBox) {
-        errBox.textContent = res.error || 'Invalid staff credentials or unauthorized account.';
+        errBox.textContent = res.error || 'That email and password don’t match a staff account.';
         errBox.style.display = 'block';
       }
     }

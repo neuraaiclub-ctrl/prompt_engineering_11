@@ -29,8 +29,8 @@ export async function renderJudgeDashboard() {
     judgeOverviewCache = res;
   }
 
-  const arenaStatus = judgeOverviewCache?.arena_config?.status || 'waiting';
-  const isResultsReleased = judgeOverviewCache?.arena_config?.is_results_released || false;
+  const arenaStatus = judgeOverviewCache?.status || 'waiting';
+  const isResultsReleased = judgeOverviewCache?.is_results_released || false;
   const submissions = judgeOverviewCache?.submissions || [];
   const metrics = judgeOverviewCache?.metrics || {
     total_teams: 0,
@@ -167,8 +167,11 @@ export async function renderJudgeDashboard() {
 
             ${submissions.map(sub => {
               const isSelected = sub.id === selectedArenaSubId;
-              const isEvaluated = !!sub.is_evaluated;
-              const timeStr = sub.submitted_at ? new Date(sub.submitted_at).toLocaleTimeString() : 'N/A';
+              const isEvaluated = !!sub.has_evaluated;
+              let timeStr = sub.submitted_at || 'N/A';
+              if (timeStr.length > 10 && timeStr.includes('T')) {
+                timeStr = new Date(timeStr).toLocaleTimeString();
+              }
 
               return `
                 <div class="judge-queue-card ${isSelected ? 'selected' : ''}" onclick="window.selectArenaSub('${sub.id}')" style="cursor:pointer; padding:14px; border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--line)'}; border-radius:4px; background:${isSelected ? 'rgba(0,243,255,0.06)' : 'rgba(255,255,255,0.02)'};">
@@ -177,7 +180,7 @@ export async function renderJudgeDashboard() {
                     <span class="chip chip-cyan" style="font-size:9.5px; padding:2px 6px;">QUESTION ${sub.challenge_index}</span>
                   </div>
                   <div class="mono-text" style="font-size:11px; color:var(--muted); margin-bottom:8px;">
-                    ${escapeHtml(sub.challenge_title)} &bull; Submitted at ${timeStr}
+                    ${escapeHtml(sub.prompt_title || 'Prompt Fixing Challenge')} &bull; Submitted at ${timeStr}
                   </div>
                   <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span class="chip chip-${isEvaluated ? 'green' : 'amber'}" style="font-size:9px; padding:2px 6px;">
@@ -201,7 +204,7 @@ export async function renderJudgeDashboard() {
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
                 <div>
                   <div class="eyebrow" style="margin-bottom:2px;">SUBMISSION INSPECTOR // ${escapeHtml(selectedSub.team_name)}</div>
-                  <h3 class="heading-md" style="font-size:16px;">Question ${selectedSub.challenge_index}: ${escapeHtml(selectedSub.challenge_title)}</h3>
+                  <h3 class="heading-md" style="font-size:16px;">Question ${selectedSub.challenge_index}: ${escapeHtml(selectedSub.prompt_title || 'Prompt Fixing Challenge')}</h3>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                   <span class="chip chip-${selectedSub.challenge_difficulty === 'hard' ? 'violet' : 'cyan'}">
@@ -217,7 +220,7 @@ export async function renderJudgeDashboard() {
               <div style="margin-bottom:14px;">
                 <div class="eyebrow" style="margin-bottom:4px; color:var(--red);">Original Flawed Prompt</div>
                 <div class="evidence-block" style="font-size:12px; max-height:85px; border-color:rgba(255,0,85,0.3); background:rgba(255,0,85,0.03);">
-                  ${escapeHtml(selectedSub.flawed_prompt)}
+                  ${escapeHtml(selectedSub.original_bad_prompt || 'N/A')}
                 </div>
               </div>
 
@@ -225,7 +228,7 @@ export async function renderJudgeDashboard() {
               <div style="margin-bottom:14px;">
                 <div class="eyebrow" style="margin-bottom:4px; color:var(--cyan);">Team's Refactored Solution</div>
                 <div class="evidence-block" style="font-size:12.5px; max-height:160px; border-color:var(--cyan); background:rgba(0,243,255,0.04); color:var(--text); font-family:var(--mono);">
-                  ${escapeHtml(selectedSub.fixed_prompt)}
+                  ${escapeHtml(selectedSub.submitted_prompt || 'N/A')}
                 </div>
               </div>
 

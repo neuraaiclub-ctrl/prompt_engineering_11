@@ -14,6 +14,7 @@
   3. **Final Output Quality:** Structure, accuracy, and adherence of the resulting output.
   4. **Documentation Clarity:** Legibility and transparency of the stated iteration rationale.
 * **Architecture:** Engineered as a high-performance **Modular Monolith** with a **FastAPI (Python 3.10+)** backend, **SQLAlchemy 2.0**, **PostgreSQL / SQLite**, **Redis**, and a **Vanilla ES6 Cyber-Glass SPA Frontend** (sub-second load times, zero build steps, zero bundle overhead).
+* **UI/UX Overhaul:** Features a premium Cyber-Technical Maroon and Purple aesthetic with a highly optimized dynamic 3D Perspective Wormhole rendering engine built entirely in Vanilla HTML5 Canvas.
 
 ---
 

@@ -1,0 +1,133 @@
+/* ==========================================================================
+   NEURA SHELL — top bar, page container, modals, toasts
+   ========================================================================== */
+
+/* Top bar: transparent over the tunnel, no boxed pill group */
+.topnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 32px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: linear-gradient(to bottom, rgba(8, 5, 9, 0.90), rgba(8, 5, 9, 0));
+}
+
+.brand { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.brand-logo-img, .brand-logo-fallback {
+  width: 34px; height: 34px; border-radius: 50%; display: block; flex: none;
+}
+.brand-logo-img { object-fit: cover; background: #fff; }
+.brand-logo-fallback {
+  display: none; align-items: center; justify-content: center;
+  border: 1.5px solid var(--cyan); color: var(--cyan);
+  font-family: var(--disp); font-weight: 700; font-size: 15px;
+}
+.brand-text b { font-family: var(--disp); font-size: 16px; font-weight: 600; letter-spacing: 0.02em; display: block; line-height: 1.1; }
+.brand-text small { display: block; font-size: 11.5px; color: var(--muted); line-height: 1.2; }
+
+.navlinks { display: flex; gap: 6px; }
+.navlinks button {
+  background: none; border: none; position: relative;
+  color: var(--muted); font-family: var(--body); font-size: 14px; font-weight: 500;
+  padding: 8px 14px; border-radius: var(--r-sm);
+  transition: color 0.18s var(--ease);
+}
+.navlinks button:hover { color: var(--text); }
+.navlinks button.on { color: #fff; }
+.navlinks button.on::after {
+  content: ''; position: absolute; left: 14px; right: 14px; bottom: 2px; height: 2px;
+  background: var(--cyan); border-radius: 2px;
+}
+
+.nav-right { display: flex; align-items: center; gap: 14px; }
+
+.user-session-wrap { display: flex; align-items: center; gap: 10px; }
+.session-role { font-size: 12px; font-weight: 500; color: var(--cyan); padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(176,106,255,0.35); }
+.session-role[data-role="admin"] { color: #f0a0bc; border-color: rgba(224,112,144,0.45); }
+.session-role[data-role="judge"] { color: #b8a8ff; border-color: rgba(138,114,255,0.40); }
+.session-user-name { font-family: var(--body); font-size: 13px; color: var(--text-dim); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The sign-in page already is the sign-in */
+body[data-page="team-lobby"] #btnNavSignIn { display: none !important; }
+
+/* Legacy countdown ring: only meaningful in the timed legacy workspaces + admin */
+.timer-wrap { display: none; align-items: center; gap: 12px; }
+body[data-page="r1-workspace"] .timer-wrap,
+body[data-page="admin-dashboard"] .timer-wrap { display: flex; }
+.timer-ring { position: relative; width: 44px; height: 44px; }
+.timer-ring svg { transform: rotate(-90deg); }
+.timer-ring circle { fill: none; stroke-width: 3.5; }
+.timer-track { stroke: var(--line-strong); }
+.timer-prog { stroke: var(--cyan); stroke-linecap: round; transition: stroke-dashoffset 1s linear, stroke 0.3s; }
+.timer-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 10.5px; font-weight: 600; }
+.timer-wrap.warn .timer-prog { stroke: var(--amber); }
+.timer-wrap.crit .timer-prog { stroke: var(--red); animation: pulse-red 0.9s ease-in-out infinite; }
+@keyframes pulse-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* Focus mode: during a live challenge the arena HUD replaces the top bar */
+body.focus-mode .topnav { display: none; }
+body.focus-mode .page-container { padding-top: 0; min-height: 100vh; }
+
+/* Page container */
+.page-container {
+  padding: 8px 32px 40px;
+  width: 100%;
+  margin: 0 auto;
+  min-height: calc(100vh - 72px);
+  position: relative;
+  z-index: 1;
+}
+.view-section { display: none; }
+.view-section.active { display: block; animation: fadein 0.35s ease both; }
+
+/* Modals */
+.neura-modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(8, 5, 9, 0.76);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: fadein 0.2s ease both;
+}
+.neura-modal {
+  background: rgba(18, 10, 14, 0.97);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop);
+  position: relative;
+  animation: modalIn 0.28s var(--ease) both;
+}
+.neura-modal.modal-glow-green { border-color: rgba(94, 240, 176, 0.4); }
+.neura-modal.modal-glow-red { border-color: rgba(255, 93, 115, 0.4); }
+@keyframes modalIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+.modal-title { font-family: var(--disp); font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 8px; }
+.modal-body { font-size: 14px; color: var(--text-dim); line-height: 1.6; margin-bottom: 22px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.btn-modal-close { background: none; border: none; color: var(--muted); font-size: 22px; line-height: 1; padding: 0 4px; }
+.btn-modal-close:hover { color: var(--text); }
+
+/* Toasts */
+#toastContainer { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.toast {
+  pointer-events: auto; min-width: 240px; max-width: 380px;
+  padding: 12px 16px; border-radius: var(--r-md);
+  background: rgba(18, 10, 14, 0.97); border: 1px solid var(--line-strong);  border-left-width: 3px; font-size: 13.5px; color: var(--text);
+  box-shadow: var(--shadow-pop);
+  animation: toastIn 0.3s var(--ease) both;
+}
+.toast.cyan { border-left-color: var(--cyan); }
+.toast.green { border-left-color: var(--green); }
+.toast.amber { border-left-color: var(--amber); }
+.toast.red { border-left-color: var(--red); }
+.toast.leaving { opacity: 0; transform: translateY(8px); transition: all 0.3s ease; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 760px) {
+  .topnav { padding: 12px 16px; }
+  .page-container { padding: 8px 16px 32px; }
+  .brand-text small { display: none; }
+  .session-user-name { display: none; }
+}
