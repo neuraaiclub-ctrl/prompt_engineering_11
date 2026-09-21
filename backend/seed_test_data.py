@@ -45,27 +45,6 @@ def seed_test_data():
     ]
 
     password_hash = hash_password("password123")
-    admin_password_hash = hash_password("admin123")
-    
-    # Create Admin User
-    admin_email = "admin@neura.dev"
-    admin_user = db.query(User).filter(User.email == admin_email).first()
-    if not admin_user:
-        admin_user = User(
-            name="Super Admin",
-            email=admin_email,
-            password_hash=admin_password_hash
-        )
-        db.add(admin_user)
-        db.commit()
-        db.refresh(admin_user)
-        
-        # Assign Admin role
-        admin_role = Role(user_id=admin_user.id, name="admin")
-        db.add(admin_role)
-        db.commit()
-        print(f"Created Admin User: {admin_email}")
-        
     
     for t_data in teams_data:
         # Create Team
@@ -111,7 +90,6 @@ def seed_test_data():
 
     db.close()
     print("Test data seeded successfully. All participant passwords are 'password123'.")
-    print("Admin password is 'admin123'.")
 
 if __name__ == "__main__":
     seed_test_data()
