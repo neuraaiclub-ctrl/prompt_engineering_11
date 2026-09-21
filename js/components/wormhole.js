@@ -29,14 +29,11 @@ const CFG = {
   purple: { far: [175, 115, 220], near: [55,  10, 135] }
 };
 
-const SIDES   = 36;
+const SIDES   = 18;
 const RAILS   = SIDES;
 const POLYGON = Array.from({ length: SIDES }, (_, i) => {
   const a = (i / SIDES) * TAU;
-  const denom = 1 + Math.sin(a) * Math.sin(a);
-  const x = (1.5 * Math.cos(a)) / denom;
-  const y = (1.5 * Math.sin(a) * Math.cos(a)) / denom * 1.2; 
-  return [x, y];
+  return [Math.cos(a), Math.sin(a)];
 });
 
 let canvas, ctx;
@@ -238,10 +235,11 @@ function draw() {
 
   /* -------------------------------------------------------------------
      RAILS — longitudinal grid lines.
-     Base opacity is ZERO so the infinity shape is only created by the glowing snake!
+     Base opacity is VERY low (~3%). cylGlow(u) raises it dramatically
+     near the cylinder, revealing the moving geometry beneath the darkness.
   ------------------------------------------------------------------- */
-  const BASE_RAIL = 0.00; // completely invisible in darkness
-  const CYL_RAIL  = 0.90;  // full brightness inside cylinder light cone
+  const BASE_RAIL = 0.032; // almost invisible in darkness
+  const CYL_RAIL  = 0.72;  // full brightness inside cylinder light cone
 
   const S    = CFG.railSamples;
   const prev = projectRing(0);
@@ -266,10 +264,10 @@ function draw() {
 
   /* -------------------------------------------------------------------
      RINGS — latitudinal polygons.
-     Same darkness-with-illumination treatment. Base is 0.
+     Same darkness-with-illumination treatment.
   ------------------------------------------------------------------- */
-  const BASE_RING = 0.00;
-  const CYL_RING  = 1.00;
+  const BASE_RING = 0.025;
+  const CYL_RING  = 0.88;
 
   for (let i = 0; i < CFG.rings; i++) {
     const u    = fract(i / CFG.rings + phase);
@@ -361,6 +359,10 @@ function draw() {
 
     // Layer 3: Leading face — 3-pass (halo / bloom / hot core)
     if (u_f <= 1.05) {
+      const hotR = Math.round(lerp(colorNear[0], 255, 0.58));
+      const hotG = Math.round(lerp(colorNear[1], 210, 0.42));
+      const hotB = Math.round(lerp(colorNear[2], 255, 0.58));
+
       const ptsF = projectRing(u_f);
       ctx.beginPath();
       ctx.moveTo(ptsF[0][0], ptsF[0][1]);
@@ -374,7 +376,7 @@ function draw() {
       ctx.strokeStyle = color(u_f, ef * CYL.bright * A * op * 0.30);
       ctx.stroke();
       ctx.lineWidth   = wF * 0.9;
-      ctx.strokeStyle = color(u_f, ef * CYL.bright * A * op * 0.88);
+      ctx.strokeStyle = `rgba(${hotR},${hotG},${hotB},${(ef * CYL.bright * A * op * 0.88).toFixed(3)})`;
       ctx.stroke();
     }
 
@@ -394,7 +396,6 @@ function draw() {
       ctx.stroke();
     }
   }
-  ctx.restore();
 }
 
 /* ==========================================================================
