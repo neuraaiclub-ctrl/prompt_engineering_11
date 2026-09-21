@@ -358,11 +358,23 @@ function renderChallenge(container, res) {
             </aside>` : ''}
           </div>
 
-          <footer class="ar-lockbar">
+          <div id="executionSandboxOutput" class="ar-sandbox-output" style="display:none; margin-bottom:16px; padding:12px; background:var(--bg); border:1px solid var(--line-strong); border-radius:6px; font-family:var(--mono); font-size:12px; color:var(--text); white-space:pre-wrap; max-height:200px; overflow-y:auto;">
+            <div style="color:var(--cyan); margin-bottom:8px; font-weight:700; display:flex; justify-content:space-between;">
+              <span>TEST RUN OUTPUT (gpt-4o-mini)</span>
+              <span id="sandboxMetrics" style="color:var(--muted); font-size:10px;"></span>
+            </div>
+            <div id="sandboxText"></div>
+          </div>
+          <footer class="ar-lockbar" style="display:flex; justify-content:space-between; align-items:center;">
             <p class="ar-lockbar-msg" id="lockHint">Locking is final and records your time.</p>
-            <button class="btn btn-primary btn-lg" id="btnSubmitChallenge">
-              ${isLast ? 'Lock final prompt' : `Lock prompt ${idx}`}
-            </button>
+            <div style="display:flex; gap:12px;">
+              <button class="btn btn-lg" id="btnTestRun" style="background:var(--panel-2); color:var(--cyan); border-color:var(--cyan);">
+                🧪 TEST RUN
+              </button>
+              <button class="btn btn-primary btn-lg" id="btnSubmitChallenge">
+                ${isLast ? 'Lock final prompt' : `Lock prompt ${idx}`}
+              </button>
+            </div>
           </footer>
         </section>
       </main>
@@ -374,6 +386,10 @@ function renderChallenge(container, res) {
   const counter = container.querySelector('#charCounter');
   const meter = container.querySelector('#charMeter');
   const saveEl = container.querySelector('#autoSaveIndicator');
+  const btnTestRun = container.querySelector('#btnTestRun');
+  const sandboxOutput = container.querySelector('#executionSandboxOutput');
+  const sandboxText = container.querySelector('#sandboxText');
+  const sandboxMetrics = container.querySelector('#sandboxMetrics');
   const submitBtn = container.querySelector('#btnSubmitChallenge');
   const lockHint = container.querySelector('#lockHint');
   const coverHint = container.querySelector('#coverHint');
@@ -450,6 +466,38 @@ function renderChallenge(container, res) {
   });
   container.querySelector('#btnChallengeLogout').addEventListener('click', () => {
     Router.confirmLogout('Your draft stays on this device, so you can pick up where you left off.');
+  });
+
+  /* ---- test run --------------------------------------------------------- */
+  btnTestRun?.addEventListener('click', async () => {
+    const fixed = textarea.value.trim();
+    if (!fixed) {
+      lockHint.textContent = 'Write your rewrite before testing.';
+      lockHint.classList.add('is-error');
+      return;
+    }
+    
+    btnTestRun.disabled = true;
+    btnTestRun.innerHTML = '<span class="status-dot running"></span> RUNNING...';
+    sandboxOutput.style.display = 'block';
+    sandboxText.textContent = 'Executing prompt on target model (gpt-4o-mini)...';
+    sandboxMetrics.textContent = '';
+    
+    // Auto-scroll to show sandbox
+    sandboxOutput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    const res = await store.runTestExecution(fixed);
+    
+    btnTestRun.disabled = false;
+    btnTestRun.innerHTML = '🧪 TEST RUN';
+    
+    if (res.success) {
+      sandboxText.textContent = res.output_text;
+      sandboxMetrics.textContent = `${res.latency_ms}ms | ${res.token_count_prompt} in | ${res.token_count_output} out`;
+    } else {
+      sandboxText.textContent = 'ERROR: ' + (res.error || 'Execution failed');
+      sandboxText.style.color = 'var(--red)';
+    }
   });
 
   /* ---- lock ------------------------------------------------------------- */

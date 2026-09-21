@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — NEURA Prompt Engineering Hackathon</title>
+  <meta name="theme-color" content="#04050b">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="./styles/neura-core.css?v=3">
+  <link rel="stylesheet" href="./styles/neura-shell.css?v=3">
+  <link rel="stylesheet" href="./styles/neura-components.css?v=3">
+  <link rel="stylesheet" href="./styles/neura-gateway.css?v=3">
+  <link rel="stylesheet" href="./styles/neura-arena.css?v=3">
+</head>
+<body data-page="login">
+
+  <!-- Background: wormhole tunnel canvas + vignette -->
+  <canvas id="wormhole" aria-hidden="true"></canvas>
+  <div class="bg-vignette" aria-hidden="true"></div>
+
+  <!-- Top bar -->
+  <header class="topnav">
+    <div style="display: flex; align-items: center; gap: 24px;">
+      <a href="index.html" class="btn btn-ghost" style="text-decoration:none; display:inline-flex; align-items:center; gap: 6px; padding: 6px 12px; font-size: 14px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><polyline points="12 19 5 12 12 5"></polyline></svg>
+        Back
+      </a>
+      <a href="index.html" class="brand" title="Home" style="text-decoration:none; color:inherit;">
+        <img src="./assets/neura-logo.jpg" alt="" class="brand-logo-img"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        <span class="brand-logo-fallback" aria-hidden="true">N</span>
+        <div class="brand-text">
+          <b>NEURA</b>
+          <small>Prompt engineering hackathon</small>
+        </div>
+      </a>
+    </div>
+
+    <div class="nav-right">
+    </div>
+  </header>
+
+  <!-- Login view section -->
+  <main class="page-container" style="display:flex; justify-content:center; align-items:center; min-height: calc(100vh - 80px);">
+    <section class="view-section active" id="page-login" style="width:100%; display:flex; justify-content:center;"></section>
+  </main>
+
+  <!-- Staff sign-in modal (unadvertised: Ctrl+Shift+S, Alt+A, or #staff) -->
+  <div class="neura-modal-overlay" id="modalStaffLogin" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="staffTitle">
+    <div class="neura-modal" style="max-width:420px; width:100%; padding:28px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+        <h3 class="modal-title" id="staffTitle">Staff sign-in</h3>
+        <button class="btn-modal-close" id="btnCloseStaffModal" aria-label="Close">&times;</button>
+      </div>
+      <p class="sub-text" style="margin-bottom:20px;">For directors and judges.</p>
+
+      <div class="field">
+        <label for="staffEmailInput">Email</label>
+        <input type="email" id="staffEmailInput" placeholder="you@neura.io" autocomplete="username">
+      </div>
+      <div class="field" style="margin-bottom:20px;">
+        <label for="staffPasswordInput">Password</label>
+        <input type="password" id="staffPasswordInput" autocomplete="current-password">
+      </div>
+      <button class="btn btn-violet" style="width:100%;" id="btnPerformStaffLogin">Sign in</button>
+      <div id="staffLoginError" role="alert" style="color:#ff8a9b; font-size:13px; margin-top:12px; display:none;"></div>
+    </div>
+  </div>
+
+  <div id="customModalContainer"></div>
+
+  <script type="module" src="./js/login-app.js?v=1"></script>
+</body>
+</html>

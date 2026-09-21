@@ -7,6 +7,7 @@ import { Router } from './router.js';
 import { initWormhole } from './components/wormhole.js';
 import { initAppTimer } from './components/timer.js';
 import { renderLandingPage } from './views/landing-page.js';
+import { renderLoginPage } from './views/login-page.js';
 import { renderTeamLobby } from './views/auth-team.js';
 import { renderArenaWorkspace } from './views/arena-workspace.js';
 import { renderRound1Workspace } from './views/round1-workspace.js';
@@ -24,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initWormhole();
   initAppTimer();
 
+  Router.registerOnEnter('login', renderLoginPage);
   Router.registerOnEnter('arena-workspace', renderArenaWorkspace);
   Router.registerOnEnter('team-lobby', renderTeamLobby);
   Router.registerOnEnter('round1-workspace', renderRound1Workspace);

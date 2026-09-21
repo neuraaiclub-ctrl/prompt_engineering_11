@@ -5,205 +5,28 @@
 
 import { apiClient, API_BASE_URL } from './services/api-client.js';
 
-const STORAGE_KEY = 'NEURA_HACKATHON_STATE_V2';
+const STORAGE_KEY = 'NEURA_HACKATHON_STATE_V3';
 
 const INITIAL_SEED_DATA = {
-  activeRole: 'participant', // 'participant' | 'team_leader' | 'judge' | 'admin' | 'spectator'
+  activeRole: 'participant',
   token: null,
   isAuthenticated: false,
-  currentUser: {
-    id: 'usr-001',
-    name: 'Alex Mercer',
-    email: 'alex@neuralninjas.io',
-    teamId: 'team-01',
-    role: 'team_leader'
-  },
+  currentUser: null,
   hackathon: {
     id: 'hk-2026',
     title: 'NEURA Prompt Engineering Hackathon 2026',
     status: 'active',
-    activeRound: 1, // 1 or 2
-    timerSeconds: 180, // 3 minutes
+    activeRound: 1,
+    timerSeconds: 180,
     isTimerRunning: true
   },
-  teams: [
-    { id: 'team-01', name: 'Neural Ninjas', inviteCode: 'NR-4827', status: 'locked', members: ['Alex Mercer', 'Elena Rostova', 'Kaelen Vance', 'Sora T.'] },
-    { id: 'team-02', name: 'Code Warriors', inviteCode: 'CW-1029', status: 'locked', members: ['David Kim', 'Sarah L.', 'Marcus V.'] },
-    { id: 'team-03', name: 'Byte Force', inviteCode: 'BF-3049', status: 'locked', members: ['Priya Nair', 'Jonah H.'] },
-    { id: 'team-04', name: 'Ghost Protocol', inviteCode: 'GP-9912', status: 'locked', members: ['Aria Stark', 'Chen Wei'] }
-  ],
-  round1Cases: [
-    {
-      id: 'r1-case-01',
-      title: 'Case 01 — Signal // Archive',
-      difficulty: 'medium',
-      brokenReason: 'no_format_specified',
-      originalPrompt: `Extract the customer key details and sentiment from this feedback transcript immediately. Return it fast.`,
-      badOutput: `The customer seems really upset about the delay in shipping. They mentioned their order ID #84920 and said they want a refund if it doesn't arrive by Tuesday. Overall sentiment is very negative.`,
-      badOutputScreenshot: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=600&q=80',
-      description: 'The model returns unformatted prose narrative instead of structured, key-value data required by downstream parsers.'
-    },
-    {
-      id: 'r1-case-02',
-      title: 'Case 02 — Shattered Circuit',
-      difficulty: 'hard',
-      brokenReason: 'contradictory',
-      originalPrompt: `Summarize the article in exactly 3 bullet points. Be extremely comprehensive and include all 10 historical background events mentioned. Do not exceed 20 words total.`,
-      badOutput: `Error: Unable to synthesize 10 historical events in under 20 words across 3 bullet points. Here is a partial summary...`,
-      description: 'The prompt sets impossible contradictory length and completeness bounds, causing model failure.'
-    }
-  ],
-  round2Challenges: [
-    {
-      id: 'r2-chal-01',
-      title: 'Challenge 01 — Sentiment Classification under 50 Tokens',
-      constraintType: 'max_tokens_50',
-      maxTokens: 50,
-      taskDescription: 'Classify sarcastic or complex customer product reviews into POSITIVE, NEGATIVE, or NEUTRAL.',
-      formatRule: 'Must return exactly one word: POSITIVE, NEGATIVE, or NEUTRAL.'
-    },
-    {
-      id: 'r2-chal-02',
-      title: 'Challenge 02 — Structured Extraction with Valid JSON',
-      constraintType: 'valid_json_always',
-      maxTokens: 120,
-      taskDescription: 'Extract entity names, dates, and currency values from unstructured email signatures into JSON format.',
-      formatRule: 'Output MUST be valid JSON matching schema: { "name": string, "date": string, "amount": string }'
-    }
-  ],
-  hiddenTestCases: [
-    {
-      id: 'tc-01',
-      challengeId: 'r2-chal-01',
-      input: 'Review: "Oh brilliant! Another software patch that completely wiped my settings. Pure genius design."',
-      expectedOutput: 'NEGATIVE',
-      evalRule: { type: 'exact' }
-    },
-    {
-      id: 'tc-02',
-      challengeId: 'r2-chal-01',
-      input: 'Review: "Package arrived 2 days early. Packaging was a bit crushed but the device works great."',
-      expectedOutput: 'POSITIVE',
-      evalRule: { type: 'exact' }
-    },
-    {
-      id: 'tc-03',
-      challengeId: 'r2-chal-01',
-      input: 'Review: "The colors are fine. Delivery took standard time. Nothing special."',
-      expectedOutput: 'NEUTRAL',
-      evalRule: { type: 'exact' }
-    },
-    {
-      id: 'tc-04',
-      challengeId: 'r2-chal-01',
-      input: 'Review: "I loved waiting on hold for 45 minutes just to be disconnected!"',
-      expectedOutput: 'NEGATIVE',
-      evalRule: { type: 'exact' }
-    },
-    {
-      id: 'tc-05',
-      challengeId: 'r2-chal-01',
-      input: 'Review: "Item functions exactly as specified in the manual."',
-      expectedOutput: 'POSITIVE',
-      evalRule: { type: 'exact' }
-    },
-    {
-      id: 'tc-06',
-      challengeId: 'r2-chal-02',
-      input: 'Signed, John Doe. Sent on October 14, 2026. Total invoice due: $450.00.',
-      expectedOutput: '{"name":"John Doe","date":"October 14, 2026","amount":"$450.00"}',
-      evalRule: { type: 'json' }
-    },
-    {
-      id: 'tc-07',
-      challengeId: 'r2-chal-02',
-      input: 'Best regards, Dr. Alice Smith | Timestamp: 11/05/2026 | Wire transfer sent: EUR 1,200',
-      expectedOutput: '{"name":"Dr. Alice Smith","date":"11/05/2026","amount":"EUR 1,200"}',
-      evalRule: { type: 'json' }
-    },
-    {
-      id: 'tc-08',
-      challengeId: 'r2-chal-02',
-      input: 'Thanks, Marcus Aurelius - Date: Jan 1st 2026. Refund requested: 75 USD.',
-      expectedOutput: '{"name":"Marcus Aurelius","date":"Jan 1st 2026","amount":"75 USD"}',
-      evalRule: { type: 'json' }
-    },
-    {
-      id: 'tc-09',
-      challengeId: 'r2-chal-02',
-      input: 'Warmly, Sarah Connor. Confirmed on 09-07-2026. Balance remaining: $0.00',
-      expectedOutput: '{"name":"Sarah Connor","date":"09-07-2026","amount":"$0.00"}',
-      evalRule: { type: 'json' }
-    },
-    {
-      id: 'tc-10',
-      challengeId: 'r2-chal-02',
-      input: 'From: Wayne Enterprises Inc (Bruce Wayne) - Date of service: Dec 25, 2025 - Bill: $5,000',
-      expectedOutput: '{"name":"Bruce Wayne","date":"Dec 25, 2025","amount":"$5,000"}',
-      evalRule: { type: 'json' }
-    }
-  ],
-  promptVersions: [
-    {
-      id: 'ver-01',
-      caseId: 'r1-case-01',
-      teamId: 'team-01',
-      versionNumber: 1,
-      promptText: `Extract the customer key details and sentiment from this feedback transcript immediately. Return it fast.`,
-      explanation: `Original baseline prompt provided by organizers.`,
-      isFinal: false,
-      timestamp: '10:14:02'
-    },
-    {
-      id: 'ver-02',
-      caseId: 'r1-case-01',
-      teamId: 'team-01',
-      versionNumber: 2,
-      promptText: `Analyze the customer feedback transcript. Extract: 1. Order ID 2. Customer Request 3. Overall Sentiment (Positive/Negative/Neutral). Return as bullet points.`,
-      explanation: `Added explicit numbered field list to eliminate rambling narrative prose.`,
-      isFinal: false,
-      timestamp: '10:22:15'
-    },
-    {
-      id: 'ver-03',
-      caseId: 'r1-case-01',
-      teamId: 'team-01',
-      versionNumber: 3,
-      promptText: `You are an automated customer analytics parser. Read the feedback below and output ONLY a valid JSON object with keys: "orderId", "customerRequest", "sentiment". Do not include Markdown or extra commentary.`,
-      explanation: `Assigned role context and enforced strict JSON output schema for API integration.`,
-      isFinal: true,
-      timestamp: '10:35:40'
-    }
-  ],
-  submissions: [
-    {
-      id: 'sub-r1-t1',
-      round: 1,
-      caseId: 'r1-case-01',
-      teamId: 'team-01',
-      finalPromptVersionId: 'ver-03',
-      promptText: `You are an automated customer analytics parser. Read the feedback below and output ONLY a valid JSON object with keys: "orderId", "customerRequest", "sentiment". Do not include Markdown or extra commentary.`,
-      explanation: `Assigned role context and enforced strict JSON output schema for API integration.`,
-      submittedAt: '10:35:40',
-      status: 'locked'
-    }
-  ],
-  evaluations: [
-    {
-      id: 'eval-r1-t1',
-      submissionId: 'sub-r1-t1',
-      judgeId: 'judge-vance',
-      judgeName: 'Dr. Vance',
-      scores: {
-        diagnosisQuality: 5,
-        improvementQuality: 4,
-        finalOutputQuality: 5,
-        documentationClarity: 5
-      },
-      comment: 'Excellent diagnosis of missing format specification. The step-by-step iteration was methodical and clearly documented.',
-      timestamp: '10:48:00'
-    }
-  ]
+  teams: [],
+  round1Cases: [],
+  round2Challenges: [],
+  hiddenTestCases: [],
+  promptVersions: [],
+  submissions: [],
+  evaluations: []
 };
 
 class Store {
@@ -286,31 +109,7 @@ class Store {
         return { success: false, error: errData.detail || 'Invalid email or password' };
       }
     } catch (e) {
-      // Offline fallback: Check against seeded mock identities for offline dev resilience
-      console.warn('Backend offline or unreachable, using local fallback:', e);
-      const lower = email.trim().toLowerCase();
-      if (lower.includes('admin')) {
-        this.data.activeRole = 'admin';
-        this.data.currentUser = { id: 'usr-admin', name: 'Director Vance (Admin)', email: lower, roles: ['admin'] };
-        this.data.isAuthenticated = true;
-        this.saveState();
-        return { success: true, role: 'admin', user: this.data.currentUser };
-      } else if (lower.includes('judge')) {
-        this.data.activeRole = 'judge';
-        this.data.currentUser = { id: 'usr-judge', name: 'Dr. Vance (Judge)', email: lower, roles: ['judge'] };
-        this.data.isAuthenticated = true;
-        this.saveState();
-        return { success: true, role: 'judge', user: this.data.currentUser };
-      } else {
-        const team = this.data.teams.find(t => t.inviteCode.toUpperCase() === email.toUpperCase() || t.name.toLowerCase() === lower);
-        if (team) {
-          this.data.activeRole = 'participant';
-          this.data.currentUser = { id: 'usr-team', name: team.name, email: `${team.name.toLowerCase().replace(/\s+/g, '.')}@neura.io`, teamId: team.id, roles: ['participant'] };
-          this.data.isAuthenticated = true;
-          this.saveState();
-          return { success: true, role: 'participant', user: this.data.currentUser };
-        }
-      }
+      console.warn('Backend offline or unreachable:', e);
       return { success: false, error: 'Could not connect to backend server. Please verify FastAPI is running.' };
     }
   }
@@ -521,47 +320,6 @@ class Store {
     return evalObj;
   }
 
-  calculateLeaderboard() {
-    return this.data.teams.map(team => {
-      const teamSubs = this.data.submissions.filter(s => s.teamId === team.id && s.id !== 'sub-r2-t1');
-
-      let caseScore = 0;
-
-      if (teamSubs.length > 0) {
-        let totalCaseScores = 0;
-        for (const sub of teamSubs) {
-          const evals = this.data.evaluations.filter(e => e.submissionId === sub.id);
-          if (evals.length > 0) {
-            const sum = evals.reduce((acc, ev) => acc + (
-              (ev.scores?.diagnosisQuality || 0) +
-              (ev.scores?.improvementQuality || 0) +
-              (ev.scores?.finalOutputQuality || 0) +
-              (ev.scores?.documentationClarity || 0)
-            ), 0);
-            totalCaseScores += (sum / evals.length);
-          } else {
-            totalCaseScores += 15; // default benchmark
-          }
-        }
-        caseScore = totalCaseScores / teamSubs.length;
-      }
-
-      const totalScore = caseScore;
-      const solved = teamSubs.length;
-      const totalChallenges = (this.data.round1Cases?.length || 2);
-
-      return {
-        teamId: team.id,
-        teamName: team.name,
-        caseScore: caseScore.toFixed(1),
-        r1Score: caseScore.toFixed(1),
-        r2Score: '0.0',
-        totalScore: totalScore.toFixed(1),
-        solved: `${solved}/${totalChallenges}`,
-        r2Passed: `${solved}/${totalChallenges}`
-      };
-    }).sort((a, b) => parseFloat(b.totalScore) - parseFloat(a.totalScore));
-  }
 
   getAuthHeaders() {
     const headers = { 'Content-Type': 'application/json' };
@@ -584,14 +342,11 @@ class Store {
         return await resp.json();
       }
     } catch (e) {
-      console.warn('Backend arena/status unavailable, using fallback:', e);
+      return {
+        success: false,
+        error: 'Connection error. Ensure backend is reachable.'
+      };
     }
-    return {
-      status: this.data.arenaStatus || 'waiting',
-      active_round: 1,
-      total_challenges: 5,
-      is_results_released: false
-    };
   }
 
   async startArena(durationMinutes = 60) {
@@ -609,9 +364,7 @@ class Store {
       }
       return { success: false, error: data.detail || 'Failed to start arena' };
     } catch (e) {
-      this.data.arenaStatus = 'live';
-      this.saveState();
-      return { success: true, status: 'live' };
+      return { success: false, error: 'Connection error. Ensure backend is reachable.' };
     }
   }
 
@@ -629,9 +382,7 @@ class Store {
       }
       return { success: false, error: data.detail || 'Failed to end arena' };
     } catch (e) {
-      this.data.arenaStatus = 'completed';
-      this.saveState();
-      return { success: true, status: 'completed' };
+      return { success: false, error: 'Connection error. Ensure backend is reachable.' };
     }
   }
 
@@ -649,9 +400,7 @@ class Store {
       }
       return { success: false, error: data.detail || 'Failed to release results' };
     } catch (e) {
-      this.data.arenaResultsReleased = true;
-      this.saveState();
-      return { success: true, status: 'results_available' };
+      return { success: false, error: 'Connection error. Ensure backend is reachable.' };
     }
   }
 
@@ -765,9 +514,8 @@ class Store {
         return Array.isArray(json) ? json : (json.standings || []);
       }
     } catch (e) {
-      console.warn('Backend leaderboard unreachable:', e);
+      return { success: false, error: 'Connection error. Ensure backend is reachable.', standings: [] };
     }
-    return [];
   }
 
   async eliminateTeam(teamId, reason) {
@@ -991,6 +739,68 @@ class Store {
       return { success: false, error: 'Export failed' };
     } catch (e) {
       return { success: false, error: 'Connection error during export' };
+    }
+  }
+  // ==========================================
+  // PROMPT BANK MANAGEMENT (ADMIN CRUD)
+  // ==========================================
+  async getPromptBank() {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/prompt-bank/`, {
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  }
+
+  async createPrompt(payload) {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/prompt-bank/`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, item: data };
+      return { success: false, error: data.detail || 'Failed to create prompt' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
+
+  async updatePrompt(id, payload) {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/prompt-bank/${id}`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, item: data };
+      return { success: false, error: data.detail || 'Failed to update prompt' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
+  // ==========================================
+  // EXECUTION SANDBOX (PARTICIPANT)
+  // ==========================================
+  async runTestExecution(user_prompt, system_prompt = null, model = "gpt-4o-mini") {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/executions/preview`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ user_prompt, system_prompt, model })
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, ...data };
+      return { success: false, error: data.detail || 'Execution failed' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
     }
   }
 }

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db, SessionLocal
-from app.api import auth, users, teams, hackathons, audit, cases, challenges, executions, submissions, judging, leaderboard, arena, registrations
+from app.api import auth, users, teams, hackathons, audit, cases, challenges, executions, submissions, judging, leaderboard, arena, registrations, prompt_bank
 from app.services.google_sheets import GoogleSheetsService
 from app.services.registration_sync import RegistrationSyncService
 
@@ -106,6 +106,7 @@ app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(users.router, prefix=settings.API_V1_STR)
 app.include_router(teams.router, prefix=settings.API_V1_STR)
 app.include_router(registrations.router, prefix=settings.API_V1_STR)
+app.include_router(prompt_bank.router, prefix=settings.API_V1_STR)
 app.include_router(hackathons.hackathon_router, prefix=settings.API_V1_STR)
 app.include_router(hackathons.round_router, prefix=settings.API_V1_STR)
 app.include_router(cases.router, prefix=settings.API_V1_STR)

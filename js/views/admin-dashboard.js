@@ -31,6 +31,7 @@ export async function renderAdminDashboard() {
   const regSummary = await store.getRegistrationStatusSummary();
   const registrations = await store.getAdminRegistrations();
   const arenaRes = await store.getArenaJudgeOverview();
+  const promptBank = await store.getPromptBank();
   const arenaStatus = arenaRes?.success && arenaRes.status ? arenaRes.status : 'waiting';
   const isResultsReleased = arenaRes?.success && arenaRes.is_results_released ? arenaRes.is_results_released : false;
   
@@ -291,6 +292,65 @@ export async function renderAdminDashboard() {
       </div>
     </div>
 
+      </div>
+    </details>
+
+    <!-- ====================================================================
+         SECTION 1A: PROMPT BANK MANAGER
+         ==================================================================== -->
+    <details class="glass bracket-frame mb-4" style="padding:0; overflow:hidden; border-color:var(--cyan-dim);" open>
+      <summary style="padding:16px 24px; cursor:pointer; font-weight:700; background:rgba(0,0,0,0.2); border-bottom:1px solid var(--line-strong); outline:none; user-select:none; color:var(--cyan);">
+         3. PROMPT BANK MANAGER (CONTENT EDITOR)
+      </summary>
+      <div style="padding:26px;">
+        <span class="bl"></span><span class="br"></span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+          <div>
+            <div class="eyebrow" style="color:var(--cyan);">Arena Content Editor</div>
+            <h2 class="heading-md" style="margin-top:4px;">PROMPT BANK ITEMS</h2>
+            <p class="sub-text" style="margin-top:2px;">
+              Manage the pool of broken prompts that will be dynamically assigned to participants.
+            </p>
+          </div>
+          <div>
+            <button class="btn btn-sm btn-primary" id="btnAdminCreatePromptBankItem" style="background:var(--cyan); color:#000;">
+              + NEW PROMPT CASE
+            </button>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11.5px; text-align:left;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--line-strong); color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em;">
+                <th style="padding:10px 12px;">Code</th>
+                <th style="padding:10px 12px;">Title</th>
+                <th style="padding:10px 12px;">Category</th>
+                <th style="padding:10px 12px;">Difficulty</th>
+                <th style="padding:10px 12px; text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${promptBank.length === 0 ? `
+                <tr>
+                  <td colspan="5" style="padding:24px; text-align:center; color:var(--muted);">
+                    No prompt bank items found. Click <strong>+ NEW PROMPT CASE</strong> to create one.
+                  </td>
+                </tr>
+              ` : promptBank.map(p => `
+                <tr style="border-bottom:1px solid var(--line);">
+                  <td style="padding:12px; color:var(--cyan); font-weight:700;">${p.code}</td>
+                  <td style="padding:12px;">${p.title}</td>
+                  <td style="padding:12px; color:var(--violet);">${p.category}</td>
+                  <td style="padding:12px; color:${p.difficulty === 'hard' ? 'var(--red)' : p.difficulty === 'medium' ? 'var(--amber)' : 'var(--green)'};">${p.difficulty.toUpperCase()}</td>
+                  <td style="padding:12px; text-align:right;">
+                    <button class="btn btn-sm btn-edit-prompt" data-id="${p.id}" style="padding:4px 8px; font-size:10px; border-color:var(--line-strong);">EDIT</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>
     </details>
 
@@ -660,6 +720,22 @@ function attachAdminDashboardHandlers() {
   document.getElementById('btnExportRegistrationsCsv')?.addEventListener('click', async () => {
     Router.showToast('Exporting registrations CSV...', 'cyan');
     await store.downloadRegistrationsCsv();
+  });
+
+  // Prompt Bank Handlers
+  document.getElementById('btnAdminCreatePromptBankItem')?.addEventListener('click', () => {
+    showPromptBankModal();
+  });
+
+  document.querySelectorAll('.btn-edit-prompt').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const id = e.target.getAttribute('data-id');
+      const promptBank = await store.getPromptBank();
+      const promptItem = promptBank.find(p => p.id === id);
+      if (promptItem) {
+        showPromptBankModal(promptItem);
+      }
+    });
   });
 
   document.getElementById('btnAdminLogout')?.addEventListener('click', () => {
@@ -1105,3 +1181,114 @@ function escapeHtml(str) {
   if (!str) return '';
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
+
+window.showPromptBankModal = function(promptItem = null) {
+  const container = document.getElementById('customModalContainer') || document.body;
+  const modalDiv = document.createElement('div');
+  modalDiv.className = 'neura-modal-overlay';
+  modalDiv.style.display = 'flex';
+  
+  const isEdit = !!promptItem;
+  
+  modalDiv.innerHTML = `
+    <div class="neura-modal glass bracket-frame" style="max-width:600px; width:92%; padding:28px; border-color:var(--cyan-dim); max-height: 90vh; overflow-y: auto;">
+      <span class="bl"></span><span class="br"></span>
+      <h3 class="heading-md" style="margin-bottom:16px; color:var(--cyan);">${isEdit ? 'EDIT PROMPT CASE' : 'NEW PROMPT CASE'}</h3>
+      
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:14px;">
+        <div class="field">
+          <label>Code (e.g. P001) <span style="color:var(--red);">*</span></label>
+          <input type="text" id="pbCode" value="${isEdit ? escapeHtml(promptItem.code) : ''}" required>
+        </div>
+        <div class="field">
+          <label>Category <span style="color:var(--red);">*</span></label>
+          <input type="text" id="pbCategory" value="${isEdit ? escapeHtml(promptItem.category) : 'general'}" required>
+        </div>
+      </div>
+      
+      <div class="field mb-3">
+        <label>Title <span style="color:var(--red);">*</span></label>
+        <input type="text" id="pbTitle" value="${isEdit ? escapeHtml(promptItem.title) : ''}" required>
+      </div>
+      
+      <div class="field mb-3">
+        <label>Difficulty</label>
+        <select id="pbDifficulty" style="background:var(--panel-2); color:var(--text); border:1px solid var(--line-strong); border-radius:4px; padding:8px 12px; font-family:var(--mono); font-size:12px; width:100%;">
+          <option value="easy" ${isEdit && promptItem.difficulty === 'easy' ? 'selected' : ''}>Easy</option>
+          <option value="medium" ${!isEdit || promptItem.difficulty === 'medium' ? 'selected' : ''}>Medium</option>
+          <option value="hard" ${isEdit && promptItem.difficulty === 'hard' ? 'selected' : ''}>Hard</option>
+        </select>
+      </div>
+
+      <div class="field mb-3">
+        <label>Original Broken Prompt <span style="color:var(--red);">*</span></label>
+        <textarea id="pbOriginalPrompt" rows="3" required>${isEdit ? escapeHtml(promptItem.original_bad_prompt) : ''}</textarea>
+      </div>
+
+      <div class="field mb-3">
+        <label>Observed Bad Output Evidence <span style="color:var(--red);">*</span></label>
+        <textarea id="pbBadOutput" rows="3" required>${isEdit ? escapeHtml(promptItem.bad_output_evidence) : ''}</textarea>
+      </div>
+      
+      <div class="field mb-3">
+        <label>Flawed Reasons (comma separated)</label>
+        <input type="text" id="pbFlawedReasons" value="${isEdit && promptItem.flawed_reasons ? escapeHtml(promptItem.flawed_reasons.join(', ')) : ''}">
+      </div>
+      
+      <div class="field mb-4">
+        <label>Expected Improvements (comma separated)</label>
+        <input type="text" id="pbImprovements" value="${isEdit && promptItem.expected_improvements ? escapeHtml(promptItem.expected_improvements.join(', ')) : ''}">
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:12px;">
+        <button class="btn btn-sm" id="btnCancelPbModal">CANCEL</button>
+        <button class="btn btn-sm btn-primary" id="btnSavePbModal">${isEdit ? 'SAVE CHANGES' : 'CREATE PROMPT'}</button>
+      </div>
+    </div>
+  `;
+  
+  container.appendChild(modalDiv);
+  
+  modalDiv.querySelector('#btnCancelPbModal').addEventListener('click', () => modalDiv.remove());
+  
+  modalDiv.querySelector('#btnSavePbModal').addEventListener('click', async () => {
+    const code = document.getElementById('pbCode').value.trim();
+    const category = document.getElementById('pbCategory').value.trim();
+    const title = document.getElementById('pbTitle').value.trim();
+    const difficulty = document.getElementById('pbDifficulty').value;
+    const original_bad_prompt = document.getElementById('pbOriginalPrompt').value.trim();
+    const bad_output_evidence = document.getElementById('pbBadOutput').value.trim();
+    const flawed_reasons = document.getElementById('pbFlawedReasons').value.split(',').map(s => s.trim()).filter(Boolean);
+    const expected_improvements = document.getElementById('pbImprovements').value.split(',').map(s => s.trim()).filter(Boolean);
+    
+    if (!code || !category || !title || !original_bad_prompt || !bad_output_evidence) {
+      Router.showToast('Please fill all required fields.', 'red');
+      return;
+    }
+    
+    const payload = {
+      code, category, title, difficulty, original_bad_prompt, bad_output_evidence, flawed_reasons, expected_improvements
+    };
+    
+    const btn = modalDiv.querySelector('#btnSavePbModal');
+    btn.disabled = true;
+    btn.textContent = 'SAVING...';
+    
+    let res;
+    if (isEdit) {
+      res = await store.updatePrompt(promptItem.id, payload);
+    } else {
+      res = await store.createPrompt(payload);
+    }
+    
+    if (res.success) {
+      Router.showToast(`Prompt Case ${isEdit ? 'updated' : 'created'} successfully!`, 'green');
+      modalDiv.remove();
+      renderAdminDashboard();
+    } else {
+      Router.showToast(res.error || 'Failed to save prompt', 'red');
+      btn.disabled = false;
+      btn.textContent = isEdit ? 'SAVE CHANGES' : 'CREATE PROMPT';
+    }
+  });
+};

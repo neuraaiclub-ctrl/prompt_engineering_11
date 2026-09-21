@@ -1,69 +1,69 @@
 /* ==========================================================================
-   NEURA ROUTER & VIEW CONTROLLER
-   Role-based navigation, route guards, page mood for the wormhole background,
-   and the shared modal/toast helpers.
+   NEURA ROUTER & AUTH GUARD (MPA Version)
+   Role-based navigation guards, shared UI helpers (toast, modal).
    ========================================================================== */
 
 import { store } from './store.js';
 import { setupStaffModal } from './components/staff-modal.js';
 import { setWormholeMood, warpWormhole } from './components/wormhole.js';
-import { renderLandingPage } from './views/landing-page.js';
-import { renderTeamLobby } from './views/auth-team.js';
 
 export const ROLE_PERMISSIONS = {
-  participant: ['arena-workspace', 'r1-workspace', 'team-lobby', 'landing'],
-  judge: ['judge-dashboard', 'arena-workspace', 'spectator-view', 'landing'],
-  admin: ['admin-dashboard', 'judge-dashboard', 'arena-workspace', 'spectator-view', 'landing']
-};
-
-/* How visible the tunnel is behind each page */
-const PAGE_MOOD = {
-  landing: 'calm',
-  'team-lobby': 'calm',
-  'arena-workspace': 'calm',   // the arena view switches to 'focus' itself while a prompt is live
-  'spectator-view': 'calm'
+  participant: ['arena', 'r1', 'team'],
+  judge: ['judge', 'arena', 'live'],
+  admin: ['admin', 'judge', 'arena', 'live']
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 function homeFor(role) {
-  return role === 'admin' ? 'admin-dashboard' : role === 'judge' ? 'judge-dashboard' : 'arena-workspace';
+  return role === 'admin' ? 'admin.html' : role === 'judge' ? 'judge.html' : 'arena.html';
 }
 
 export class Router {
-  /** Views that must (re)render every time they are entered, e.g. the arena after sign-in */
-  static onEnter = {};
-
-  static registerOnEnter(pageId, fn) { this.onEnter[pageId] = fn; }
-
-  static init() {
-    this.setupNavigation();
+  static init(currentPage, mood = 'calm') {
     this.setupLogout();
     this.setupStaffModal();
     this.applyRolePermissions(store.getRole());
-
-    // Signed-in users go straight to their workspace, everyone else to the landing page
-    this.navigate(store.isAuthenticated() ? homeFor(store.getRole()) : 'landing');
+    this.guardRoute(currentPage);
+    
+    document.body.dataset.page = currentPage;
+    setWormholeMood(mood);
+    
+    // Highlight the active nav link
+    document.querySelectorAll('.navlinks a').forEach(btn => btn.classList.remove('on'));
+    const activeLink = document.querySelector(`.navlinks a[data-page="${currentPage}"]`);
+    if (activeLink) activeLink.classList.add('on');
   }
 
-  static setupNavigation() {
-    document.querySelectorAll('.navlinks button').forEach(btn => {
-      btn.addEventListener('click', (e) => this.navigate(e.currentTarget.getAttribute('data-page')));
-    });
+  static guardRoute(pageId) {
+    const isAuth = store.isAuthenticated();
+    const role = store.getRole();
 
-    const brand = document.getElementById('brandLogo');
-    const goHome = () => this.navigate(store.isAuthenticated() ? homeFor(store.getRole()) : 'landing');
-    brand?.addEventListener('click', goHome);
-    brand?.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goHome(); } });
+    // If on landing or login while authenticated, redirect to home
+    if (isAuth && (pageId === 'landing' || pageId === 'login')) {
+      window.location.href = homeFor(role);
+      return;
+    }
 
-    document.getElementById('btnNavSignIn')?.addEventListener('click', () => this.navigate('team-lobby'));
+    const protectedPages = ['arena', 'r1', 'team', 'judge', 'admin', 'live'];
+    if (!isAuth && protectedPages.includes(pageId)) {
+      this.showToast('Sign in to open this page.', 'amber');
+      window.location.href = 'login.html';
+      return;
+    }
+
+    const allowedPages = ROLE_PERMISSIONS[role] || [];
+    if (isAuth && protectedPages.includes(pageId) && !allowedPages.includes(pageId)) {
+      this.showToast(`Your ${role} account can’t open that page.`, 'red');
+      window.location.href = homeFor(role);
+      return;
+    }
   }
 
   static setupLogout() {
     document.getElementById('btnNavLogout')?.addEventListener('click', () => this.confirmLogout());
   }
 
-  /** Confirmation dialog shared by every "sign out" button */
   static confirmLogout(message = 'You’ll need to sign in again to continue.') {
     document.getElementById('modalLogoutConfirm')?.remove();
 
@@ -96,11 +96,7 @@ export class Router {
     overlay.querySelector('#btnConfirmLogoutModal').addEventListener('click', () => {
       close();
       store.logout();
-      Router.showToast('Signed out', 'cyan');
-      Router.applyRolePermissions('participant');
-      renderLandingPage();
-      renderTeamLobby();
-      Router.navigate('landing');
+      window.location.href = 'index.html';
     });
   }
 
@@ -108,63 +104,28 @@ export class Router {
     setupStaffModal({
       showToast: (msg, type) => Router.showToast(msg, type),
       applyRolePermissions: (role) => Router.applyRolePermissions(role),
-      navigate: (page) => Router.navigate(page)
+      navigate: (page) => {
+        const role = store.getRole();
+        window.location.href = homeFor(role);
+      }
     });
   }
 
-  /** Central route guard + view switch */
-  static navigate(pageId) {
-    const isAuth = store.isAuthenticated();
-    const role = store.getRole();
-
-    if (isAuth && pageId === 'landing') { this.navigate(homeFor(role)); return; }
-
-    const protectedPages = ['arena-workspace', 'r1-workspace', 'judge-dashboard', 'admin-dashboard'];
-    if (!isAuth && protectedPages.includes(pageId)) {
-      this.showToast('Sign in to open this page.', 'amber');
-      this.navigate('team-lobby');
-      return;
-    }
-
-    const allowedPages = ROLE_PERMISSIONS[role] || ['landing'];
-    if (isAuth && !allowedPages.includes(pageId)) {
-      this.showToast(`Your ${role} account can’t open that page.`, 'red');
-      this.navigate(homeFor(role));
-      return;
-    }
-
-    document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
-    document.querySelectorAll('.navlinks button').forEach(btn => btn.classList.remove('on'));
-    document.querySelector(`.navlinks button[data-page="${pageId}"]`)?.classList.add('on');
-
-    // Page-level hooks for CSS and the background
-    document.body.dataset.page = pageId;
-    if (pageId !== 'arena-workspace') document.body.classList.remove('focus-mode');
-    setWormholeMood(PAGE_MOOD[pageId] || 'dim');
-
-    const target = document.getElementById(`page-${pageId}`);
-    if (target) {
-      target.classList.add('active');
-      window.scrollTo(0, 0);
-    }
-
-    this.onEnter[pageId]?.();
-  }
-
-  /** Show only the links this role may use; signed-out visitors get a Sign in button instead */
   static applyRolePermissions(role) {
     const isAuth = store.isAuthenticated();
 
     const visibleFor = {
-      participant: ['arena-workspace', 'team-lobby'],
-      judge: ['judge-dashboard', 'spectator-view', 'arena-workspace'],
-      admin: ['admin-dashboard', 'spectator-view', 'arena-workspace']
+      participant: ['arena', 'team'],
+      judge: ['judge', 'live', 'arena'],
+      admin: ['admin', 'live', 'arena']
     };
 
-    document.querySelectorAll('.navlinks button').forEach(btn => {
+    document.querySelectorAll('.navlinks a').forEach(btn => {
       const page = btn.getAttribute('data-page');
-      const visible = isAuth && (visibleFor[role] || []).includes(page);
-      btn.style.display = visible ? 'inline-block' : 'none';
+      if (page) {
+        const visible = isAuth && (visibleFor[role] || []).includes(page);
+        btn.style.display = visible ? 'inline-flex' : 'none';
+      }
     });
 
     const signIn = document.getElementById('btnNavSignIn');

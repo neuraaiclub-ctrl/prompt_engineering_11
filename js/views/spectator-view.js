@@ -6,13 +6,23 @@ import { store } from '../store.js';
 
 let runoffInterval = null;
 let clockInterval = null;
+let leaderboardPollInterval = null;
 
-export function renderSpectatorView() {
+export async function renderSpectatorView() {
   const container = document.getElementById('page-spectator-view');
   if (!container) return;
 
-  const leaderboard = store.calculateLeaderboard();
-  const teams = store.getTeams();
+  if (leaderboardPollInterval) clearInterval(leaderboardPollInterval);
+  leaderboardPollInterval = setInterval(() => {
+    if (document.getElementById('page-spectator-view')?.parentElement?.classList.contains('active') || document.body.dataset.page === 'live') {
+      renderSpectatorView();
+    } else {
+      clearInterval(leaderboardPollInterval);
+    }
+  }, 5000);
+
+  const leaderboard = await store.getArenaLeaderboard();
+  const teams = await store.getAdminTeams();
 
   container.innerHTML = `
     <div style="text-align:center; margin-bottom:28px;">
@@ -41,15 +51,15 @@ export function renderSpectatorView() {
         </thead>
         <tbody>
           ${leaderboard.map((row, idx) => {
-            const rankStr = String(idx + 1).padStart(2, '0');
-            const rankClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : '';
+            const rankStr = row.rank ? String(row.rank).padStart(2, '0') : '--';
+            const rankClass = row.podium === 'winner' ? 'gold' : row.podium === 'runner_up' ? 'silver' : row.podium === 'second_runner_up' ? 'bronze' : '';
             return `
-              <tr class="${idx === 0 ? 'highlight-team' : ''}">
-                <td class="lb-rank ${rankClass}">${rankStr} ${idx === 0 ? '👑' : ''}</td>
-                <td style="font-family:var(--disp); font-weight:700; font-size:15px; color:var(--text);">${row.teamName}</td>
-                <td style="font-family:var(--mono); color:var(--muted);">${row.solved}</td>
-                <td style="font-family:var(--mono); color:var(--cyan); font-weight:600;">${row.caseScore || row.r1Score} pts</td>
-                <td style="font-family:var(--disp); font-weight:700; font-size:18px; color:var(--cyan);">${row.totalScore} PTS</td>
+              <tr class="${row.podium === 'winner' ? 'highlight-team' : ''} ${row.is_eliminated ? 'eliminated-team' : ''}">
+                <td class="lb-rank ${rankClass}">${rankStr} ${row.podium === 'winner' ? '👑' : ''}</td>
+                <td style="font-family:var(--disp); font-weight:700; font-size:15px; color:var(--text); ${row.is_eliminated ? 'text-decoration:line-through; opacity:0.5;' : ''}">${row.team_name} ${row.is_eliminated ? '<span style="color:var(--red); font-size:10px;">(ELIMINATED)</span>' : ''}</td>
+                <td style="font-family:var(--mono); color:var(--muted);">${row.completed_challenges}/5</td>
+                <td style="font-family:var(--mono); color:var(--cyan); font-weight:600;">${row.average_score.toFixed(1)} avg</td>
+                <td style="font-family:var(--disp); font-weight:700; font-size:18px; color:var(--cyan);">${row.total_score.toFixed(1)} PTS</td>
               </tr>
             `;
           }).join('')}

@@ -113,7 +113,7 @@ export function renderLandingPage() {
       warpWormhole(0.8);
       Router.navigate('arena-workspace');
     } else {
-      Router.navigate('team-lobby');
+      window.location.href = 'login.html';
     }
   });
 

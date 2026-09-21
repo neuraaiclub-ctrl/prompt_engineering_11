@@ -5,26 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NEURA — Prompt Engineering Hackathon</title>
   <meta name="theme-color" content="#04050b">
-
-  <!-- Fonts: display + body + mono (mono is only used for prompt text and numerals) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-
-  <!-- Stylesheets: tokens -> shell -> legacy components -> new views -->
   <link rel="stylesheet" href="./styles/neura-core.css?v=3">
   <link rel="stylesheet" href="./styles/neura-shell.css?v=3">
   <link rel="stylesheet" href="./styles/neura-components.css?v=3">
   <link rel="stylesheet" href="./styles/neura-gateway.css?v=3">
   <link rel="stylesheet" href="./styles/neura-arena.css?v=3">
 </head>
-<body data-page="landing">
-
-  <!-- Background: the wormhole tunnel (canvas) + vignette. Nothing else animates behind content. -->
+<body data-page="team-lobby">
   <canvas id="wormhole" aria-hidden="true"></canvas>
   <div class="bg-vignette" aria-hidden="true"></div>
-
-  <!-- Top bar -->
   <header class="topnav">
     <div class="brand" id="brandLogo" title="Home" role="link" tabindex="0">
       <img src="./assets/neura-logo.jpg" alt="" class="brand-logo-img"
@@ -35,7 +27,6 @@
         <small>Prompt engineering hackathon</small>
       </div>
     </div>
-
     <nav class="navlinks" aria-label="Primary">
       <a href="arena.html" data-page="arena" data-role="participant" class="btn btn-ghost">Prompt arena</a>
       <a href="fix.html" data-page="r1" data-role="participant" class="btn btn-ghost">Fix the prompt</a>
@@ -44,17 +35,13 @@
       <a href="admin.html" data-page="admin" data-role="admin" class="btn btn-ghost">Admin</a>
       <a href="live.html" data-page="live" data-role="spectator" class="btn btn-ghost">Live board</a>
     </nav>
-
     <div class="nav-right">
       <a href="login.html" class="btn btn-sm" id="btnNavSignIn" style="display:none; text-decoration:none;">Sign in</a>
-
       <div class="user-session-wrap" id="userSessionWrap" style="display:none;">
         <span class="session-role" id="navRoleBadge" data-role="participant">Participant</span>
         <span class="session-user-name" id="navUserName"></span>
         <button class="btn btn-sm btn-ghost" id="btnNavLogout" title="Sign out">Sign out</button>
       </div>
-
-      <!-- Legacy countdown ring (shown only on the timed legacy workspaces and admin) -->
       <div class="timer-wrap" id="navTimerWrap">
         <div class="timer-ring">
           <svg width="44" height="44">
@@ -66,13 +53,9 @@
       </div>
     </div>
   </header>
-
-  <!-- Views -->
   <main class="page-container">
-    <section class="view-section active" id="page-landing"></section>
+    <section class="view-section active" id="page-team-lobby"></section>
   </main>
-
-  <!-- Staff sign-in: unadvertised. Ctrl+Shift+S, Alt+A, or #staff -->
   <div class="neura-modal-overlay" id="modalStaffLogin" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="staffTitle">
     <div class="neura-modal" style="max-width:420px; width:100%; padding:28px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
@@ -80,7 +63,6 @@
         <button class="btn-modal-close" id="btnCloseStaffModal" aria-label="Close">&times;</button>
       </div>
       <p class="sub-text" style="margin-bottom:20px;">For directors and judges.</p>
-
       <div class="field">
         <label for="staffEmailInput">Email</label>
         <input type="email" id="staffEmailInput" placeholder="you@neura.io" autocomplete="username">
@@ -93,9 +75,7 @@
       <div id="staffLoginError" role="alert" style="color:#ff8a9b; font-size:13px; margin-top:12px; display:none;"></div>
     </div>
   </div>
-
   <div id="customModalContainer"></div>
-
-  <script type="module" src="./js/app-index.js?v=16"></script>
+  <script type="module" src="./js/app-team.js"></script>
 </body>
 </html>

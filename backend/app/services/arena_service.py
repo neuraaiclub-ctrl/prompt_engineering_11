@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
 from app.models.user import User
@@ -231,18 +232,24 @@ class ArenaService:
             }
 
         if not session:
-            assigned_ids = cls.assign_unique_prompts_for_team(db, team)
-            session = TeamArenaSession(
-                team_id=team.id,
-                hackathon_id="hk-2026",
-                prompt_ids=assigned_ids,
-                current_challenge_index=1,
-                status="active" if conf.status == "live" else "waiting",
-                started_at=datetime.utcnow() if conf.status == "live" else None
-            )
-            db.add(session)
-            db.commit()
-            db.refresh(session)
+            try:
+                assigned_ids = cls.assign_unique_prompts_for_team(db, team)
+                session = TeamArenaSession(
+                    team_id=team.id,
+                    hackathon_id="hk-2026",
+                    prompt_ids=assigned_ids,
+                    current_challenge_index=1,
+                    status="active" if conf.status == "live" else "waiting",
+                    started_at=datetime.utcnow() if conf.status == "live" else None
+                )
+                db.add(session)
+                db.commit()
+                db.refresh(session)
+            except IntegrityError:
+                db.rollback()
+                session = db.query(TeamArenaSession).filter(TeamArenaSession.team_id == team.id).first()
+                if not session:
+                    raise HTTPException(status_code=500, detail="Failed to initialize arena session due to concurrent load.")
 
         if session.current_challenge_index > conf.challenges_count:
             return {
