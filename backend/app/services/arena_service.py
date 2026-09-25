@@ -138,8 +138,12 @@ class ArenaService:
     @classmethod
     def start_competition(cls, db: Session, current_user: User) -> Dict[str, Any]:
         conf = cls.get_or_create_config(db)
-        if conf.status == "live":
-            return {"success": True, "message": "Competition is already LIVE.", "started_at": conf.started_at.isoformat()}
+
+        # Clear old arena data so only teams and prompt questions remain
+        db.query(ArenaEvaluation).delete()
+        db.query(ArenaSubmission).delete()
+        db.query(ArenaSecurityEvent).delete()
+        db.query(TeamArenaSession).delete()
 
         now = datetime.utcnow()
         conf.status = "live"

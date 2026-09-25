@@ -6,22 +6,49 @@
 
 import { store } from '../store.js';
 import { Router } from '../router.js';
+import { mountRadar } from '../components/radar.js';
+import { analyzePrompt } from '../utils/prompt-coverage.js';
 
 let activeJudgeTab = 'scoring'; // 'scoring' | 'security' | 'leaderboard'
 let selectedArenaSubId = null;
 let currentRubric = {
-  clarity_score: 20,
-  specificity_score: 20,
-  context_score: 20,
-  output_format_score: 20,
-  constraints_score: 20,
+  clarity_score: 0,
+  specificity_score: 0,
+  context_score: 0,
+  output_format_score: 0,
+  constraints_score: 0,
   feedback: ''
 };
+let activeSubIdForRubric = null;
 let judgeOverviewCache = null;
+let judgeAutoSyncInterval = null;
+
+if (!window.openTeamAccordionIds) {
+  window.openTeamAccordionIds = new Set();
+}
+window.toggleTeamAccordion = (teamId) => {
+  const tIdStr = String(teamId);
+  if (window.openTeamAccordionIds.has(tIdStr)) {
+    window.openTeamAccordionIds.delete(tIdStr);
+    if (selectedArenaSubId && judgeOverviewCache?.submissions) {
+      const selectedSub = judgeOverviewCache.submissions.find(s => String(s.id) === String(selectedArenaSubId));
+      if (selectedSub && String(selectedSub.team_id) === tIdStr) {
+        selectedArenaSubId = null;
+      }
+    }
+  } else {
+    window.openTeamAccordionIds.add(tIdStr);
+  }
+  renderJudgeDashboard();
+};
 
 export async function renderJudgeDashboard() {
   const container = document.getElementById('page-judge-dashboard');
   if (!container) return;
+
+  if (!judgeAutoSyncInterval) {
+    setupJudgeAutoSync();
+  }
 
   // Load fresh arena judge overview
   const res = await store.getArenaJudgeOverview();
@@ -45,26 +72,41 @@ export async function renderJudgeDashboard() {
     selectedArenaSubId = submissions[0].id;
   }
 
-  const selectedSub = submissions.find(s => s.id === selectedArenaSubId);
-  if (selectedSub && selectedSub.evaluation) {
-    const ev = selectedSub.evaluation;
-    currentRubric = {
-      clarity_score: ev.clarity_score !== undefined ? ev.clarity_score : 20,
-      specificity_score: ev.specificity_score !== undefined ? ev.specificity_score : 20,
-      context_score: ev.context_score !== undefined ? ev.context_score : 20,
-      output_format_score: (ev.output_format_score !== undefined && ev.output_format_score !== null) ? ev.output_format_score : (ev.output_structure_score !== undefined ? ev.output_structure_score : 20),
-      constraints_score: (ev.constraints_score !== undefined && ev.constraints_score !== null) ? ev.constraints_score : (ev.relevance_score !== undefined ? ev.relevance_score : 20),
-      feedback: ev.feedback || ev.judge_feedback || ''
-    };
-  } else {
-    currentRubric = {
-      clarity_score: 20,
-      specificity_score: 20,
-      context_score: 20,
-      output_format_score: 20,
-      constraints_score: 20,
-      feedback: ''
-    };
+  const selectedSub = submissions.find(s => String(s.id) === String(selectedArenaSubId));
+  
+  if (selectedArenaSubId !== activeSubIdForRubric) {
+    activeSubIdForRubric = selectedArenaSubId;
+    if (selectedSub && selectedSub.evaluation) {
+      const ev = selectedSub.evaluation;
+      currentRubric = {
+        clarity_score: ev.clarity_score !== undefined ? ev.clarity_score : 0,
+        specificity_score: ev.specificity_score !== undefined ? ev.specificity_score : 0,
+        context_score: ev.context_score !== undefined ? ev.context_score : 0,
+        output_format_score: (ev.output_format_score !== undefined && ev.output_format_score !== null) ? ev.output_format_score : (ev.output_structure_score !== undefined ? ev.output_structure_score : 0),
+        constraints_score: (ev.constraints_score !== undefined && ev.constraints_score !== null) ? ev.constraints_score : (ev.relevance_score !== undefined ? ev.relevance_score : 0),
+        feedback: ev.feedback || ev.judge_feedback || ''
+      };
+    } else {
+      let c_score = 0, s_score = 0, x_score = 0, f_score = 0, n_score = 0;
+      if (selectedSub && selectedSub.submitted_prompt) {
+        const scores = analyzePrompt(selectedSub.submitted_prompt);
+        const mapScore = (v) => v >= 0.8 ? 20 : (v >= 0.4 ? 10 : 0);
+        c_score = mapScore(scores[0]);
+        s_score = mapScore(scores[1]);
+        x_score = mapScore(scores[2]);
+        f_score = mapScore(scores[3]);
+        n_score = mapScore(scores[4]);
+      }
+
+      currentRubric = {
+        clarity_score: c_score,
+        specificity_score: s_score,
+        context_score: x_score,
+        output_format_score: f_score,
+        constraints_score: n_score,
+        feedback: ''
+      };
+    }
   }
 
   const statusBadge = arenaStatus === 'live' ? '<span class="chip chip-cyan" style="animation:pulse-glow 1.5s infinite;">● LIVE ARENA</span>'
@@ -107,7 +149,7 @@ export async function renderJudgeDashboard() {
       </div>
 
       <!-- Quick Metrics Counters -->
-      <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
+      <div class="judge-metrics-grid">
         <div class="glass-card" style="padding:10px 14px; text-align:center;">
           <div class="mono-text" style="font-size:10.5px; color:var(--muted);">TEAMS</div>
           <div class="heading-md" style="color:var(--cyan); margin-top:2px;">${metrics.total_teams}</div>
@@ -148,7 +190,7 @@ export async function renderJudgeDashboard() {
 
     <!-- TAB 1: RUBRIC SCORING QUEUE -->
     <div id="judgeTabContentScoring" style="display:${activeJudgeTab === 'scoring' ? 'block' : 'none'};">
-      <div style="display:grid; grid-template-columns: 0.95fr 1.45fr; gap:24px;">
+      <div class="judge-workspace-grid">
         
         <!-- Left: Submissions Queue -->
         <div class="glass bracket-frame" style="padding:22px;">
@@ -165,38 +207,64 @@ export async function renderJudgeDashboard() {
               </div>
             ` : ''}
 
-            ${submissions.map(sub => {
-              const isSelected = sub.id === selectedArenaSubId;
-              const isEvaluated = !!sub.has_evaluated;
-              let timeStr = sub.submitted_at || 'N/A';
-              if (timeStr.length > 10 && timeStr.includes('T')) {
-                timeStr = new Date(timeStr).toLocaleTimeString();
-              }
+            ${(() => {
+              const grouped = {};
+              submissions.forEach(sub => {
+                if (!grouped[sub.team_id]) {
+                  grouped[sub.team_id] = { team_name: sub.team_name, latest_time: sub.submitted_at || '', subs: [] };
+                }
+                grouped[sub.team_id].subs.push(sub);
+              });
+              const sortedTeamIds = Object.keys(grouped).sort((a,b) => grouped[a].latest_time < grouped[b].latest_time ? 1 : -1);
 
-              return `
-                <div class="judge-queue-card ${isSelected ? 'selected' : ''}" onclick="window.selectArenaSub('${sub.id}')" style="cursor:pointer; padding:14px; border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--line)'}; border-radius:4px; background:${isSelected ? 'rgba(0,243,255,0.06)' : 'rgba(255,255,255,0.02)'};">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                    <strong style="font-family:var(--disp); font-size:14px; color:var(--text);">${escapeHtml(sub.team_name)}</strong>
-                    <span class="chip chip-cyan" style="font-size:9.5px; padding:2px 6px;">QUESTION ${sub.challenge_index}</span>
+              return sortedTeamIds.map(tid => {
+                const group = grouped[tid];
+                const isOpen = window.openTeamAccordionIds.has(String(tid));
+                return `
+                  <div class="team-accordion" style="margin-bottom:8px; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,0.015);">
+                    <div style="padding:14px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="window.toggleTeamAccordion('${tid}')">
+                      <strong style="font-family:var(--disp); font-size:14px; color:var(--text);">${escapeHtml(group.team_name)}</strong>
+                      <span style="font-size:12px; color:var(--muted);">${isOpen ? '▲' : '▼'}</span>
+                    </div>
+                    ${isOpen ? `
+                      <div style="padding:0 14px 14px 14px; display:flex; flex-direction:column; gap:8px;">
+                        ${group.subs.map(sub => {
+                          const isSelected = String(sub.id) === String(selectedArenaSubId);
+                          const isEvaluated = !!sub.has_evaluated;
+                          let timeStr = sub.submitted_at || 'N/A';
+                          if (timeStr.length > 10 && timeStr.includes('T')) {
+                            timeStr = new Date(timeStr).toLocaleTimeString();
+                          }
+                          return `
+                            <div class="judge-queue-card ${isSelected ? 'selected' : ''}" onclick="window.selectArenaSub('${sub.id}')" style="cursor:pointer; padding:12px; border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--line-subtle)'}; border-radius:4px; background:${isSelected ? 'rgba(0,243,255,0.06)' : 'rgba(255,255,255,0.02)'};">
+                              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <span class="chip chip-cyan" style="font-size:9.5px; padding:2px 6px;">QUESTION ${sub.challenge_index}</span>
+                                <span class="mono-text" style="font-size:10px; color:var(--muted);">${timeStr}</span>
+                              </div>
+                              <div class="mono-text" style="font-size:11px; color:var(--muted); margin-bottom:8px;">
+                                ${escapeHtml(sub.prompt_title || 'Prompt Fixing Challenge')}
+                              </div>
+                              <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span class="chip chip-${isEvaluated ? 'green' : 'amber'}" style="font-size:9px; padding:2px 6px;">
+                                  ${isEvaluated ? '✓ SCORED (' + sub.evaluation.total_score + '/100)' : '⏳ PENDING'}
+                                </span>
+                                <span class="mono-text" style="font-size:10.5px; color:var(--cyan);">Inspect &rarr;</span>
+                              </div>
+                            </div>
+                          `;
+                        }).join('')}
+                      </div>
+                    ` : ''}
                   </div>
-                  <div class="mono-text" style="font-size:11px; color:var(--muted); margin-bottom:8px;">
-                    ${escapeHtml(sub.prompt_title || 'Prompt Fixing Challenge')} &bull; Submitted at ${timeStr}
-                  </div>
-                  <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="chip chip-${isEvaluated ? 'green' : 'amber'}" style="font-size:9px; padding:2px 6px;">
-                      ${isEvaluated ? `✓ SCORED (${sub.evaluation.total_score}/100)` : '⏳ PENDING'}
-                    </span>
-                    <span class="mono-text" style="font-size:10.5px; color:var(--cyan);">Inspect &rarr;</span>
-                  </div>
-                </div>
-              `;
-            }).join('')}
+                `;
+              }).join('');
+            })()}
           </div>
         </div>
 
         <!-- Right: Submission Inspector & Rubric Evaluation Form -->
         ${selectedSub ? `
-          <div style="display:flex; flex-direction:column; gap:20px;">
+          <div style="display:flex; flex-direction:column; gap:20px; max-height:740px; overflow-y:auto; padding-right:12px;">
             
             <!-- Solution Inspection Panel -->
             <div class="glass bracket-frame" style="padding:24px;">
@@ -224,11 +292,19 @@ export async function renderJudgeDashboard() {
                 </div>
               </div>
 
-              <!-- Team's Fixed Solution -->
-              <div style="margin-bottom:14px;">
-                <div class="eyebrow" style="margin-bottom:4px; color:var(--cyan);">Team's Refactored Solution</div>
-                <div class="evidence-block" style="font-size:12.5px; max-height:160px; border-color:var(--cyan); background:rgba(0,243,255,0.04); color:var(--text); font-family:var(--mono);">
-                  ${escapeHtml(selectedSub.submitted_prompt || 'N/A')}
+              <!-- Team's Fixed Solution & Heuristic Radar -->
+              <div style="margin-bottom:14px; display:flex; gap:16px;">
+                <div style="flex: 1;">
+                  <div class="eyebrow" style="margin-bottom:4px; color:var(--cyan);">Team's Refactored Solution</div>
+                  <div class="evidence-block" style="font-size:12.5px; max-height:220px; border-color:var(--cyan); background:rgba(0,243,255,0.04); color:var(--text); font-family:var(--mono); overflow-y:auto;">
+                    ${escapeHtml(selectedSub.submitted_prompt || 'N/A')}
+                  </div>
+                </div>
+                <div style="width:240px; flex-shrink: 0;">
+                  <div class="eyebrow" style="margin-bottom:4px; color:var(--violet); text-align:center;">Heuristic Radar (Reference)</div>
+                  <div class="glass-card" style="padding:16px; display:flex; align-items:center; justify-content:center;">
+                    <div id="judgeRadarMount" style="width:100%; max-width:200px; aspect-ratio:1/1;"></div>
+                  </div>
                 </div>
               </div>
 
@@ -392,6 +468,14 @@ export async function renderJudgeDashboard() {
 
   // Attach Rubric Scoring Handlers
   setupRubricScoringHandlers(selectedSub);
+
+  // Mount the heuristic radar
+  const radarMount = document.getElementById('judgeRadarMount');
+  if (radarMount && selectedSub && selectedSub.submitted_prompt) {
+    const radar = mountRadar(radarMount, { tone: 'violet', title: 'Heuristic Draft Coverage' });
+    const scores = analyzePrompt(selectedSub.submitted_prompt);
+    radar.set(scores);
+  }
 }
 
 function calculateCurrentRubricTotal() {
@@ -412,10 +496,11 @@ function renderRubricCriterionRow(key, title, description, currentVal) {
           <div style="font-weight:600; font-size:13px; color:var(--text);">${escapeHtml(title)}</div>
           <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">${escapeHtml(description)}</div>
         </div>
-        <div class="rubric-score-pills" style="display:flex; gap:8px;">
+        <div id="pills-${key}" class="rubric-score-pills" style="display:flex; gap:8px;">
           ${[0, 10, 20].map(score => `
             <button class="rubric-pill ${score === Number(currentVal) ? 'selected' : ''}" 
                     type="button"
+                    data-val="${score}"
                     onclick="window.selectRubricPill('${key}', ${score})"
                     style="min-width:48px; padding:6px 14px; font-family:var(--mono); font-size:12px; font-weight:bold; cursor:pointer;">
               ${score}
@@ -429,7 +514,12 @@ function renderRubricCriterionRow(key, title, description, currentVal) {
 
 function setupRubricScoringHandlers(selectedSub) {
   window.selectArenaSub = (id) => {
-    selectedArenaSubId = id;
+    selectedArenaSubId = String(id);
+    const subs = judgeOverviewCache?.submissions || [];
+    const sub = subs.find(s => String(s.id) === selectedArenaSubId);
+    if (sub) {
+      window.openTeamAccordionIds.add(String(sub.team_id));
+    }
     renderJudgeDashboard();
   };
 
@@ -443,7 +533,16 @@ function setupRubricScoringHandlers(selectedSub) {
       totalReadout.textContent = `${calculateCurrentRubricTotal()} / 100`;
     }
 
-    renderJudgeDashboard();
+    const container = document.getElementById(`pills-${key}`);
+    if (container) {
+      container.querySelectorAll('.rubric-pill').forEach(btn => {
+        if (Number(btn.dataset.val) === val) {
+          btn.classList.add('selected');
+        } else {
+          btn.classList.remove('selected');
+        }
+      });
+    }
   };
 
   // Inspector Elimination action
@@ -743,4 +842,102 @@ function showSafetyConfirmModal(title, message, confirmBtnText, onConfirm) {
 function escapeHtml(str) {
   if (!str) return '';
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function setupJudgeAutoSync() {
+  if (judgeAutoSyncInterval) clearInterval(judgeAutoSyncInterval);
+  judgeAutoSyncInterval = setInterval(async () => {
+    if (window.location.pathname.indexOf('judge.html') === -1 && window.location.pathname.indexOf('admin.html') === -1) {
+      clearInterval(judgeAutoSyncInterval);
+      judgeAutoSyncInterval = null;
+      return;
+    }
+    const res = await store.getArenaJudgeOverview();
+    if (res.success) {
+      judgeOverviewCache = res;
+      updateQueueUI();
+    }
+  }, 3000); // 3-second auto-sync interval
+}
+
+function updateQueueUI() {
+  const qContainer = document.querySelector('.judge-queue-container');
+  if (!qContainer) return;
+  
+  const submissions = judgeOverviewCache?.submissions || [];
+  const metrics = judgeOverviewCache?.metrics || {
+    total_teams: 0, total_submissions: 0, evaluated_submissions: 0, pending_evaluations: 0, flagged_teams_count: 0
+  };
+
+  // 1. Update Metrics
+  const mBoxes = document.querySelectorAll('.glass-card .heading-md');
+  if (mBoxes.length >= 5) {
+    mBoxes[0].textContent = metrics.total_teams;
+    mBoxes[1].textContent = metrics.total_submissions;
+    mBoxes[2].textContent = metrics.evaluated_submissions;
+    mBoxes[3].textContent = metrics.pending_evaluations;
+    mBoxes[4].textContent = metrics.flagged_teams_count;
+  }
+
+  // 2. Update Queue Header Count
+  const eyebrow = document.querySelector('.queue-eyebrow');
+  if (eyebrow) eyebrow.textContent = `CHALLENGE SUBMISSIONS (${submissions.length})`;
+
+  // 3. Update the Queue HTML
+  qContainer.innerHTML = submissions.length === 0 ? `
+    <div style="color:var(--muted); font-size:12.5px; font-family:var(--mono); padding:20px; text-align:center;">
+      No submissions received yet. When teams submit challenges, they will appear here in real time.
+    </div>
+  ` : (() => {
+    const grouped = {};
+    submissions.forEach(sub => {
+      if (!grouped[sub.team_id]) {
+        grouped[sub.team_id] = { team_name: sub.team_name, latest_time: sub.submitted_at || '', subs: [] };
+      }
+      grouped[sub.team_id].subs.push(sub);
+    });
+    const sortedTeamIds = Object.keys(grouped).sort((a,b) => grouped[a].latest_time < grouped[b].latest_time ? 1 : -1);
+
+    return sortedTeamIds.map(tid => {
+      const group = grouped[tid];
+      const isOpen = window.openTeamAccordionIds.has(tid);
+      return `
+        <div class="team-accordion" style="margin-bottom:8px; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,0.015);">
+          <div style="padding:14px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="window.toggleTeamAccordion('${tid}')">
+            <strong style="font-family:var(--disp); font-size:14px; color:var(--text);">${escapeHtml(group.team_name)}</strong>
+            <span style="font-size:12px; color:var(--muted);">${isOpen ? '▲' : '▼'}</span>
+          </div>
+          ${isOpen ? `
+            <div style="padding:0 14px 14px 14px; display:flex; flex-direction:column; gap:8px;">
+              ${group.subs.map(sub => {
+                const isSelected = sub.id === selectedArenaSubId;
+                const isEvaluated = !!sub.has_evaluated;
+                let timeStr = sub.submitted_at || 'N/A';
+                if (timeStr.length > 10 && timeStr.includes('T')) {
+                  timeStr = new Date(timeStr).toLocaleTimeString();
+                }
+                return `
+                  <div class="judge-queue-card ${isSelected ? 'selected' : ''}" onclick="window.selectArenaSub('${sub.id}')" style="cursor:pointer; padding:12px; border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--line-subtle)'}; border-radius:4px; background:${isSelected ? 'rgba(0,243,255,0.06)' : 'rgba(255,255,255,0.02)'};">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                      <span class="chip chip-cyan" style="font-size:9.5px; padding:2px 6px;">QUESTION ${sub.challenge_index}</span>
+                      <span class="mono-text" style="font-size:10px; color:var(--muted);">${timeStr}</span>
+                    </div>
+                    <div class="mono-text" style="font-size:11px; color:var(--muted); margin-bottom:8px;">
+                      ${escapeHtml(sub.prompt_title || 'Prompt Fixing Challenge')}
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <span class="chip chip-${isEvaluated ? 'green' : 'amber'}" style="font-size:9px; padding:2px 6px;">
+                        ${isEvaluated ? '✓ SCORED (' + sub.evaluation.total_score + '/100)' : '⏳ PENDING'}
+                      </span>
+                      <span class="mono-text" style="font-size:10.5px; color:var(--cyan);">Inspect &rarr;</span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+  })();
 }

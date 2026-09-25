@@ -156,3 +156,36 @@ def export_results(
             for e in entries
         ]
     }
+
+@router.get("/spectator/runoff-stream")
+def get_spectator_runoff_stream(db: Session = Depends(get_db)):
+    """
+    Returns active runoff stream matrix data for the spectator UI.
+    Fetches the latest Round 2 submissions and evaluations.
+    """
+    from app.models.team import Team
+    from app.models.execution import Submission
+    from app.models.evaluation import Evaluation
+
+    teams = db.query(Team).all()
+    results = []
+
+    for t in teams:
+        # Find latest submission
+        sub = db.query(Submission).filter(Submission.team_id == t.id).order_by(Submission.created_at.desc()).first()
+        if not sub:
+            results.append({"team_name": t.name, "status": "idle", "pass_count": 0, "total_count": 3})
+            continue
+
+        eval_rec = db.query(Evaluation).filter(Evaluation.submission_id == sub.id, Evaluation.type == "automated").first()
+        if not eval_rec:
+            results.append({"team_name": t.name, "status": "testing", "pass_count": 0, "total_count": 3})
+        else:
+            results.append({
+                "team_name": t.name,
+                "status": "completed",
+                "pass_count": eval_rec.pass_count or 0,
+                "total_count": eval_rec.total_count or 3
+            })
+
+    return {"stream": results}

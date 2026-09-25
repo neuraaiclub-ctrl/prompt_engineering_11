@@ -39,32 +39,37 @@ export async function renderSpectatorView() {
         <div class="chip chip-cyan">LIVE SCORE REFRESH</div>
       </div>
 
-      <table class="lb-table">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Team Name</th>
-            <th>Solved</th>
-            <th>Case Score</th>
-            <th>Total Points</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${leaderboard.map((row, idx) => {
-            const rankStr = row.rank ? String(row.rank).padStart(2, '0') : '--';
-            const rankClass = row.podium === 'winner' ? 'gold' : row.podium === 'runner_up' ? 'silver' : row.podium === 'second_runner_up' ? 'bronze' : '';
-            return `
-              <tr class="${row.podium === 'winner' ? 'highlight-team' : ''} ${row.is_eliminated ? 'eliminated-team' : ''}">
-                <td class="lb-rank ${rankClass}">${rankStr} ${row.podium === 'winner' ? '👑' : ''}</td>
-                <td style="font-family:var(--disp); font-weight:700; font-size:15px; color:var(--text); ${row.is_eliminated ? 'text-decoration:line-through; opacity:0.5;' : ''}">${row.team_name} ${row.is_eliminated ? '<span style="color:var(--red); font-size:10px;">(ELIMINATED)</span>' : ''}</td>
-                <td style="font-family:var(--mono); color:var(--muted);">${row.completed_challenges}/5</td>
-                <td style="font-family:var(--mono); color:var(--cyan); font-weight:600;">${row.average_score.toFixed(1)} avg</td>
-                <td style="font-family:var(--disp); font-weight:700; font-size:18px; color:var(--cyan);">${row.total_score.toFixed(1)} PTS</td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+        ${leaderboard.map((row, idx) => {
+          const rankStr = row.rank ? String(row.rank).padStart(2, '0') : '--';
+          const rankClass = row.podium === 'winner' ? 'gold' : row.podium === 'runner_up' ? 'silver' : row.podium === 'second_runner_up' ? 'bronze' : '';
+          
+          // Separate color block for the first 10 teams
+          const blockStyle = idx < 10 
+            ? 'background: linear-gradient(135deg, rgba(71, 224, 255, 0.15) 0%, rgba(154, 123, 255, 0.1) 100%); border: 1px solid var(--cyan);' 
+            : 'background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);';
+
+          return `
+            <div style="padding: 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; ${blockStyle} ${row.is_eliminated ? 'opacity: 0.5;' : ''}">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="lb-rank ${rankClass}" style="font-size: 16px;">${rankStr} ${row.podium === 'winner' ? '👑' : ''}</span>
+                  <span style="font-family:var(--disp); font-weight:700; font-size:15px; color:var(--text); ${row.is_eliminated ? 'text-decoration:line-through;' : ''}">
+                    ${row.team_name} ${row.is_eliminated ? '<span style="color:var(--red); font-size:10px;">(ELIMINATED)</span>' : ''}
+                  </span>
+                </div>
+                <div style="font-family:var(--disp); font-weight:700; font-size:16px; color:var(--cyan);">
+                  ${row.total_score.toFixed(1)} PTS
+                </div>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-family:var(--mono);">
+                <span style="color:var(--muted);">Solved: ${row.completed_challenges}/5</span>
+                <span style="color:var(--cyan); font-weight:600;">Score: ${row.average_score.toFixed(1)} avg</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
     </div>
 
     <!-- Live Run-Off Simulation Matrix -->
@@ -120,43 +125,47 @@ export async function renderSpectatorView() {
   });
 }
 
-function initRunoffSimulation(teamCount) {
+async function initRunoffSimulation(teamCount) {
   if (runoffInterval) clearInterval(runoffInterval);
 
-  // Render initial idle
-  for (let r = 0; r < teamCount; r++) {
-    for (let c = 0; c < 3; c++) {
-      const cell = document.getElementById(`spec-cell-${r}-${c}`);
-      if (cell) {
-        cell.innerHTML = `<span class="status-dot idle"></span><span style="color:var(--muted);">IDLE</span>`;
-      }
-    }
-  }
-
-  // Staggered simulation run
-  let delay = 0;
-  for (let r = 0; r < teamCount; r++) {
-    for (let c = 0; c < 3; c++) {
-      const row = r;
-      const col = c;
-      const cell = document.getElementById(`spec-cell-${row}-${col}`);
+  // Poll the backend endpoint every 3 seconds for live execution status
+  const fetchAndRender = async () => {
+    try {
+      const resp = await fetch('/api/v1/spectator/runoff-stream', {
+        headers: { 'Authorization': `Bearer ${store.getToken()}` }
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
       
-      setTimeout(() => {
-        if (cell) cell.innerHTML = `<span class="status-dot running"></span><span style="color:var(--amber);">TESTING...</span>`;
-      }, delay);
+      const stream = data.stream || [];
+      stream.forEach((teamData, r) => {
+        for (let c = 0; c < 3; c++) {
+          const cell = document.getElementById(`spec-cell-${r}-${c}`);
+          if (!cell) continue;
 
-      setTimeout(() => {
-        if (cell) {
-          const isPass = Math.random() > 0.15; // 85% pass rate
-          if (isPass) {
-            cell.innerHTML = `<span class="status-dot pass"></span><span style="color:var(--green);">PASSED</span>`;
-          } else {
-            cell.innerHTML = `<span class="status-dot fail"></span><span style="color:var(--red);">FAILED</span>`;
+          if (teamData.status === 'idle') {
+            cell.innerHTML = `<span class="status-dot idle"></span><span style="color:var(--muted);">IDLE</span>`;
+          } else if (teamData.status === 'testing') {
+            cell.innerHTML = `<span class="status-dot running"></span><span style="color:var(--amber);">TESTING...</span>`;
+          } else if (teamData.status === 'completed') {
+            // Check if this case index falls under pass_count
+            const isPass = c < teamData.pass_count;
+            if (isPass) {
+              cell.innerHTML = `<span class="status-dot pass"></span><span style="color:var(--green);">PASSED</span>`;
+            } else {
+              cell.innerHTML = `<span class="status-dot fail"></span><span style="color:var(--red);">FAILED</span>`;
+            }
           }
         }
-      }, delay + 600);
-
-      delay += 140;
+      });
+    } catch (e) {
+      console.error('Runoff stream error', e);
     }
-  }
+  };
+
+  // Initial fetch
+  await fetchAndRender();
+
+  // Poll interval
+  runoffInterval = setInterval(fetchAndRender, 3000);
 }
