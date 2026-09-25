@@ -4,7 +4,9 @@
    interceptors, and standardized error parsing.
    ========================================================================== */
 
-export const API_BASE_URL = 'http://localhost:8000/api/v1';
+export const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:8000/api/v1'
+  : '/api/v1';
 
 export class ApiClient {
   constructor(baseUrl = API_BASE_URL) {
