@@ -342,11 +342,6 @@ function renderChallenge(container, res) {
                   <span class="ar-count" id="charCounter">0 / ${ARENA_UI.maxChars}</span>
                 </div>
               </div>
-
-              <div class="field ar-note">
-                <label for="diagnosisNotesInput">What was wrong, and what did you change? <span class="ar-optional">Optional, but judges read it</span></label>
-                <input type="text" id="diagnosisNotesInput" maxlength="255" placeholder="e.g. Added a JSON schema and told it what to do when the message is unclear.">
-              </div>
             </div>
 
             ${ARENA_UI.showCoverage ? `
@@ -368,8 +363,8 @@ function renderChallenge(container, res) {
           <footer class="ar-lockbar" style="display:flex; justify-content:space-between; align-items:center;">
             <p class="ar-lockbar-msg" id="lockHint">Locking is final and records your time.</p>
             <div style="display:flex; gap:12px;">
-              <button class="btn btn-lg" id="btnTestRun" style="background:var(--panel-2); color:var(--cyan); border-color:var(--cyan);">
-                🧪 TEST RUN
+              <button class="btn btn-lg" id="btnSaveDraft" style="background:var(--panel-2); color:var(--cyan); border-color:var(--cyan);">
+                💾 SAVE AS DRAFT
               </button>
               <button class="btn btn-primary btn-lg" id="btnSubmitChallenge">
                 ${isLast ? 'Lock final prompt' : `Lock prompt ${idx}`}
@@ -386,7 +381,7 @@ function renderChallenge(container, res) {
   const counter = container.querySelector('#charCounter');
   const meter = container.querySelector('#charMeter');
   const saveEl = container.querySelector('#autoSaveIndicator');
-  const btnTestRun = container.querySelector('#btnTestRun');
+  const btnSaveDraft = container.querySelector('#btnSaveDraft');
   const sandboxOutput = container.querySelector('#executionSandboxOutput');
   const sandboxText = container.querySelector('#sandboxText');
   const sandboxMetrics = container.querySelector('#sandboxMetrics');
@@ -395,7 +390,6 @@ function renderChallenge(container, res) {
   const coverHint = container.querySelector('#coverHint');
 
   textarea.value = savedDraft;
-  noteInput.value = savedNote;
 
   const radar = ARENA_UI.showCoverage ? mountRadar(container.querySelector('#radarMount')) : null;
   const HINTS = [
@@ -445,7 +439,6 @@ function renderChallenge(container, res) {
     lockHint.textContent = 'Locking is final and records your time.';
     lockHint.classList.remove('is-error');
   });
-  noteInput.addEventListener('input', () => { safeSet(noteKey, noteInput.value); markSaved(); });
 
   // Anti-cheat: log pastes into the editor, block copying the broken prompt
   textarea.addEventListener('paste', (e) => {
@@ -468,36 +461,11 @@ function renderChallenge(container, res) {
     Router.confirmLogout('Your draft stays on this device, so you can pick up where you left off.');
   });
 
-  /* ---- test run --------------------------------------------------------- */
-  btnTestRun?.addEventListener('click', async () => {
-    const fixed = textarea.value.trim();
-    if (!fixed) {
-      lockHint.textContent = 'Write your rewrite before testing.';
-      lockHint.classList.add('is-error');
-      return;
-    }
-    
-    btnTestRun.disabled = true;
-    btnTestRun.innerHTML = '<span class="status-dot running"></span> RUNNING...';
-    sandboxOutput.style.display = 'block';
-    sandboxText.textContent = 'Executing prompt on target model (gpt-4o-mini)...';
-    sandboxMetrics.textContent = '';
-    
-    // Auto-scroll to show sandbox
-    sandboxOutput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    
-    const res = await store.runTestExecution(fixed);
-    
-    btnTestRun.disabled = false;
-    btnTestRun.innerHTML = '🧪 TEST RUN';
-    
-    if (res.success) {
-      sandboxText.textContent = res.output_text;
-      sandboxMetrics.textContent = `${res.latency_ms}ms | ${res.token_count_prompt} in | ${res.token_count_output} out`;
-    } else {
-      sandboxText.textContent = 'ERROR: ' + (res.error || 'Execution failed');
-      sandboxText.style.color = 'var(--red)';
-    }
+  /* ---- save draft --------------------------------------------------------- */
+  btnSaveDraft?.addEventListener('click', () => {
+    safeSet(draftKey, textarea.value);
+    markSaved();
+    Router.showToast('Draft saved securely to local storage.', 'green');
   });
 
   /* ---- lock ------------------------------------------------------------- */
@@ -508,8 +476,7 @@ function renderChallenge(container, res) {
     if (!fixed) return complain('Write your rewrite before locking.');
     if (fixed.length < ARENA_UI.minChars) return complain('That’s too short to be a real prompt. Add the task, the format, and the rules.');
 
-    const note = noteInput.value.trim();
-    confirmLock({ idx, isLast, chars: fixed.length, hasNote: !!note }, async () => {
+    confirmLock({ idx, isLast, chars: fixed.length, hasNote: false }, async () => {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Locking…';
 
