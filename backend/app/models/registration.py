@@ -10,12 +10,17 @@ class Registration(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     external_registration_id = Column(String, unique=True, index=True, nullable=True)
     team_name = Column(String, nullable=False, index=True)
-    participant_name = Column(String, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=False)
-    phone = Column(String, nullable=True)
-    college = Column(String, nullable=True)
-    course = Column(String, nullable=True)
-    year = Column(String, nullable=True)
+
+    # Member details (max 2 members per team)
+    participant_name = Column(String, nullable=False)          # Member 1 (form submitter)
+    member2_name     = Column(String, nullable=True)           # Member 2 (optional)
+
+    email      = Column(String, unique=True, index=True, nullable=False)
+    phone      = Column(String, nullable=True)                 # Stripped (no +91/0 prefix)
+    department = Column(String, nullable=True)                 # Department / Branch
+    college    = Column(String, nullable=True)                 # College / Institution (kept for compatibility)
+    course     = Column(String, nullable=True)
+    year       = Column(String, nullable=True)                 # Year of Study
     member_number = Column(Integer, default=1)
     
     # Registration & Account Lifecycle States

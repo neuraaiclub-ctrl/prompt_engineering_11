@@ -51,6 +51,9 @@ class Settings:
     REGISTRATION_SYNC_ENABLED: bool = os.getenv("REGISTRATION_SYNC_ENABLED", "false").lower() == "true"
     REGISTRATION_SYNC_INTERVAL_SECONDS: int = int(os.getenv("REGISTRATION_SYNC_INTERVAL_SECONDS", "300"))
 
+    # Webhook shared secret — must match what the Apps Script sends in X-Webhook-Secret header
+    WEBHOOK_SECRET: str = os.getenv("WEBHOOK_SECRET", "neura-webhook-secret-change-me")
+
     # Configurable Registration Column Mapping
     REGISTRATION_COLUMN_MAP: dict = {
         "Timestamp": "submitted_at",
