@@ -440,6 +440,36 @@ class Store {
     }
   }
 
+  async getMyArenaResults() {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/arena/my-results`, {
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        return { success: true, ...data };
+      }
+      return { success: false, error: data.detail || 'Failed to fetch results' };
+    } catch (e) {
+      return { success: false, error: 'Connection error while fetching results' };
+    }
+  }
+
+  async getArenaReport() {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/arena/report`, {
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        return { success: true, ...data };
+      }
+      return { success: false, error: data.detail || 'Failed to fetch report' };
+    } catch (e) {
+      return { success: false, error: 'Connection error while fetching report' };
+    }
+  }
+
   async logSecurityEvent(eventType, metadata = {}) {
     try {
       const resp = await fetch(`${API_BASE_URL}/arena/security-event`, {
