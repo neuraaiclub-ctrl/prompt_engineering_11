@@ -157,7 +157,14 @@ def handle_form_submission(
     db.flush()
 
     # ── 2. Upsert Team ─────────────────────────────────────────
-    team = db.query(Team).filter(Team.name == payload.team_name.strip()).first()
+    if not is_new and reg.team_id:
+        team = db.query(Team).filter(Team.id == reg.team_id).first()
+        if team:
+            team.name = payload.team_name.strip()
+            team.college = payload.department or team.college
+    else:
+        team = db.query(Team).filter(Team.name == payload.team_name.strip()).first()
+
     if not team:
         hk    = db.query(Hackathon).first()
         hk_id = hk.id if hk else "hk-2026"
