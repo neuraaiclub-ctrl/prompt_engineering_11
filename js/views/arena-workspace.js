@@ -646,7 +646,7 @@ async function renderResults(container) {
         actions: '<button class="btn btn-primary" id="btnRecheck">Check now</button>'
       }), document.getElementById('btnRecheck')?.addEventListener('click', () => { renderedKey = null; refresh(container); });
     }
-    const r = rep.report;
+    const r = rep.report || rep;
     container.innerHTML = `
       <div class="ar-center"><div class="ar-panel">
         <h1 class="heading-lg">${escapeHtml(r.team_name)}</h1>
