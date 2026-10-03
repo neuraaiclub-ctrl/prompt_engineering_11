@@ -341,9 +341,11 @@ class Store {
       if (resp.ok) {
         return await resp.json();
       }
+      return { success: false, status: 'waiting', error: 'Server returned error status' };
     } catch (e) {
       return {
         success: false,
+        status: 'waiting',
         error: 'Connection error. Ensure backend is reachable.'
       };
     }
@@ -543,6 +545,7 @@ class Store {
         const json = await resp.json();
         return Array.isArray(json) ? json : (json.standings || []);
       }
+      return [];
     } catch (e) {
       return { success: false, error: 'Connection error. Ensure backend is reachable.', standings: [] };
     }
