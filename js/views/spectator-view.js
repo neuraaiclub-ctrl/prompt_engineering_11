@@ -36,7 +36,10 @@ export async function renderSpectatorView() {
       <span class="bl"></span><span class="br"></span>
       <div style="display:flex; justify-content:space-between; align-items:center;" class="mb-3">
         <div class="eyebrow">Official Standings</div>
-        <div class="chip chip-cyan">LIVE SCORE REFRESH</div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <button class="btn btn-sm btn-violet" id="btnLiveRefresh" style="padding:6px 14px; font-size:11px; font-weight:700;">🔄 REFRESH LIVEBOARD</button>
+          <div class="chip chip-cyan">LIVE SCORE REFRESH</div>
+        </div>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
@@ -122,6 +125,10 @@ export async function renderSpectatorView() {
 
   document.getElementById('btnTriggerRunoffSim')?.addEventListener('click', () => {
     initRunoffSimulation(teams.length);
+  });
+
+  document.getElementById('btnLiveRefresh')?.addEventListener('click', () => {
+    renderSpectatorView();
   });
 }
 

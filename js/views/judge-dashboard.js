@@ -141,6 +141,9 @@ export async function renderJudgeDashboard() {
             <button class="btn btn-sm btn-violet" id="btnJudgeReleaseResults" ${isResultsReleased ? 'disabled' : ''} style="padding:6px 14px; font-size:11px;">
               📢 RELEASE RESULTS
             </button>
+            <button class="btn btn-sm" id="btnJudgeRefresh" style="padding:6px 14px; font-size:11px; font-weight:700; margin-left:4px; background:rgba(255,255,255,0.05);">
+              🔄 REFRESH
+            </button>
             <button class="btn btn-sm btn-red" id="btnJudgeLogout" style="padding:6px 14px; font-size:11px; font-weight:700; margin-left:4px;">
               ⎋ LOGOUT
             </button>
@@ -639,7 +642,13 @@ function setupArenaOperationsHandlers(arenaStatus) {
     );
   });
 
-  // 4. LOGOUT
+  // 4. REFRESH DATA
+  document.getElementById('btnJudgeRefresh')?.addEventListener('click', async () => {
+    await renderJudgeDashboard();
+    Router.showToast('Data refreshed', 'green');
+  });
+
+  // 5. LOGOUT
   document.getElementById('btnJudgeLogout')?.addEventListener('click', () => {
     Router.confirmLogout('Logging out as Evaluation Judge will end your scoring and evaluation session.');
   });

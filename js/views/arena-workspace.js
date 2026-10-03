@@ -113,7 +113,17 @@ async function refresh(container, isBackground = false) {
     const cameFromStandby = renderedKey === 'standby';
     currentChallengeData = res;
 
-    if (cameFromStandby) await playStartCountdown();
+    // Show popup if judge ended it while we were live
+    if (competitionStatus === 'completed' && renderedKey && renderedKey.startsWith('live:')) {
+      showCustomAlert("Arena ended by the Judge. Please wait for the final results.");
+    }
+
+    if (cameFromStandby) {
+      if (!sessionStorage.getItem('arena_countdown_played')) {
+        await playStartCountdown();
+        sessionStorage.setItem('arena_countdown_played', 'true');
+      }
+    }
     show(container, key, () => renderChallenge(container, res), { focus: true, mood: 'focus' });
   } catch (err) {
     console.error('Error refreshing arena view:', err);
@@ -554,6 +564,16 @@ function startClock() {
     if (endsAt == null) { wrap.hidden = true; return; }
 
     const left = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+    
+    // Auto-transition to complete screen when timer runs out
+    if (left <= 0) {
+      if (renderedKey && renderedKey.startsWith('live:')) {
+        showCustomAlert("Time is up! The Arena has automatically closed.");
+        show(document.getElementById('page-arena-workspace'), 'done', () => renderCompleted(document.getElementById('page-arena-workspace'), { completed_at: new Date().toISOString() }));
+      }
+      return;
+    }
+
     const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), s = left % 60;
     text.textContent = h > 0
       ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
@@ -753,6 +773,22 @@ function triggerSecurityAlert(message) {
 /* ==========================================================================
    Helpers
    ========================================================================== */
+function showCustomAlert(msg) {
+  const overlay = document.createElement('div');
+  overlay.className = 'neura-modal-overlay';
+  overlay.style.zIndex = '9999';
+  overlay.style.backgroundColor = 'rgba(4, 5, 11, 0.95)';
+  overlay.innerHTML = `
+    <div class="neura-modal" style="max-width:500px; width:100%; padding:40px; text-align:center; border: 1px solid var(--amber);">
+      <h3 class="modal-title" style="color:var(--amber); font-size:26px; margin-bottom:16px;">🛑 Arena Closed</h3>
+      <p class="modal-body" style="font-size:18px; margin-bottom:0; color:var(--text);">
+        ${escapeHtml(msg)}
+      </p>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 5000);
+}
+
 function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 function safeGet(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch { /* storage full or blocked */ } }
