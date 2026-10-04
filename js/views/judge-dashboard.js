@@ -82,12 +82,13 @@ export async function renderJudgeDashboard() {
   const arenaStatus = judgeOverviewCache?.status || 'waiting';
   const isResultsReleased = judgeOverviewCache?.is_results_released || false;
   const submissions = judgeOverviewCache?.submissions || [];
-  const metrics = judgeOverviewCache?.metrics || {
-    total_teams: 0,
-    total_submissions: 0,
-    evaluated_submissions: 0,
-    pending_evaluations: 0,
-    flagged_teams_count: 0
+  const rawMetrics = judgeOverviewCache?.metrics || judgeOverviewCache?.stats || {};
+  const metrics = {
+    total_teams: Number(rawMetrics.total_teams) || 0,
+    total_submissions: Number(rawMetrics.total_submissions) !== undefined && !isNaN(Number(rawMetrics.total_submissions)) ? Number(rawMetrics.total_submissions) : submissions.length,
+    evaluated_submissions: Number(rawMetrics.evaluated_submissions) !== undefined && !isNaN(Number(rawMetrics.evaluated_submissions)) ? Number(rawMetrics.evaluated_submissions) : submissions.filter(s => s.is_evaluated || s.has_evaluated || s.evaluation).length,
+    pending_evaluations: Number(rawMetrics.pending_evaluations) !== undefined && !isNaN(Number(rawMetrics.pending_evaluations)) ? Number(rawMetrics.pending_evaluations) : (submissions.length - submissions.filter(s => s.is_evaluated || s.has_evaluated || s.evaluation).length),
+    flagged_teams_count: Number(rawMetrics.flagged_teams_count) || Number(rawMetrics.flagged_teams) || 0
   };
 
   // Select first submission if none selected or invalid
@@ -901,9 +902,10 @@ function updateQueueUI() {
   if (!qContainer) return;
   
   const submissions = judgeOverviewCache?.submissions || [];
-  const metrics = judgeOverviewCache?.metrics || {
-    total_teams: 0, total_submissions: 0, evaluated_submissions: 0, pending_evaluations: 0, flagged_teams_count: 0
-  };
+  const rawMetrics = judgeOverviewCache?.metrics || judgeOverviewCache?.stats || {};
+  const totalSubmissions = (rawMetrics.total_submissions !== undefined && rawMetrics.total_submissions !== null) ? rawMetrics.total_submissions : submissions.length;
+  const evaluatedSubmissions = (rawMetrics.evaluated_submissions !== undefined && rawMetrics.evaluated_submissions !== null) ? rawMetrics.evaluated_submissions : submissions.filter(s => s.is_evaluated || s.has_evaluated || s.evaluation).length;
+  const pendingEvaluations = (rawMetrics.pending_evaluations !== undefined && rawMetrics.pending_evaluations !== null) ? rawMetrics.pending_evaluations : (submissions.length - evaluatedSubmissions);
 
   // 1. Update Metrics
   const elTeams = document.querySelector('.metric-val-teams');
@@ -912,11 +914,11 @@ function updateQueueUI() {
   const elPending = document.querySelector('.metric-val-pending');
   const elFlagged = document.querySelector('.metric-val-flagged');
 
-  if (elTeams) elTeams.textContent = metrics.total_teams;
-  if (elTotal) elTotal.textContent = metrics.total_submissions;
-  if (elEval) elEval.textContent = metrics.evaluated_submissions;
-  if (elPending) elPending.textContent = metrics.pending_evaluations;
-  if (elFlagged) elFlagged.textContent = metrics.flagged_teams_count;
+  if (elTeams) elTeams.textContent = rawMetrics.total_teams !== undefined ? rawMetrics.total_teams : 0;
+  if (elTotal) elTotal.textContent = totalSubmissions;
+  if (elEval) elEval.textContent = evaluatedSubmissions;
+  if (elPending) elPending.textContent = pendingEvaluations;
+  if (elFlagged) elFlagged.textContent = rawMetrics.flagged_teams_count !== undefined ? rawMetrics.flagged_teams_count : (rawMetrics.flagged_teams !== undefined ? rawMetrics.flagged_teams : 0);
 
   // 2. Update Queue Header Count
   const eyebrow = document.querySelector('.queue-eyebrow');
