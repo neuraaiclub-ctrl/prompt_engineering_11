@@ -297,11 +297,92 @@ class ArenaService:
                 "message": "Waiting for the Judge to start the competition."
             }
 
-        prompt_ids = session.prompt_ids
+    @staticmethod
+    def parse_prompt_ids(raw_prompt_ids) -> List[str]:
+        if isinstance(raw_prompt_ids, str):
+            try:
+                import json
+                return json.loads(raw_prompt_ids)
+            except Exception:
+                return []
+        if isinstance(raw_prompt_ids, list):
+            return raw_prompt_ids
+        return []
+
+    @classmethod
+    def get_my_challenge(cls, db: Session, current_user: User) -> Dict[str, Any]:
+        team = cls.get_user_team(db, current_user)
+        if not team:
+            raise HTTPException(status_code=403, detail="User is not associated with an active participating team.")
+
+        conf = cls.get_or_create_config(db)
+
+        session = db.query(TeamArenaSession).filter(TeamArenaSession.team_id == team.id).first()
+        is_eliminated = (team.status == "eliminated" or (session and session.status == "eliminated"))
+        if is_eliminated:
+            return {
+                "competition_status": "eliminated",
+                "is_eliminated": True,
+                "is_completed": True,
+                "team_name": team.name,
+                "college": team.college,
+                "message": "Team has been eliminated by the competition adjudicator.",
+                "challenge": None
+            }
+
+        if not session:
+            try:
+                assigned_ids = cls.assign_unique_prompts_for_team(db, team)
+                session = TeamArenaSession(
+                    team_id=team.id,
+                    hackathon_id="hk-2026",
+                    prompt_ids=assigned_ids,
+                    current_challenge_index=1,
+                    status="active" if conf.status == "live" else "waiting",
+                    started_at=datetime.utcnow() if conf.status == "live" else None
+                )
+                db.add(session)
+                db.commit()
+                db.refresh(session)
+            except IntegrityError:
+                db.rollback()
+                session = db.query(TeamArenaSession).filter(TeamArenaSession.team_id == team.id).first()
+                if not session:
+                    raise HTTPException(status_code=500, detail="Failed to initialize arena session due to concurrent load.")
+
+        if session.current_challenge_index > conf.challenges_count:
+            return {
+                "competition_status": conf.status,
+                "is_completed": True,
+                "message": "All 5 challenges completed.",
+                "completed_at": session.completed_at.isoformat() if session.completed_at else None,
+                "results_available": conf.status == "results_available"
+            }
+
+        if conf.status == "waiting":
+            return {
+                "competition_status": "waiting",
+                "is_completed": False,
+                "current_challenge_index": session.current_challenge_index,
+                "total_challenges": conf.challenges_count,
+                "challenge": None,
+                "message": "Waiting for the Judge to start the competition."
+            }
+
+        prompt_ids = cls.parse_prompt_ids(session.prompt_ids)
+        if not prompt_ids or len(prompt_ids) < session.current_challenge_index:
+            prompt_ids = cls.assign_unique_prompts_for_team(db, team)
+            session.prompt_ids = prompt_ids
+            db.commit()
+            db.refresh(session)
+
         active_prompt_id = prompt_ids[session.current_challenge_index - 1]
         prompt_item = db.query(PromptBankItem).filter(PromptBankItem.id == active_prompt_id).first()
         if not prompt_item:
-            raise HTTPException(status_code=404, detail="Assigned prompt item not found in bank.")
+            # Fallback lookup by code or first available item if database was reseeded
+            prompt_item = db.query(PromptBankItem).filter(PromptBankItem.code == f"P00{session.current_challenge_index}").first() or db.query(PromptBankItem).first()
+            if not prompt_item:
+                raise HTTPException(status_code=404, detail="Assigned prompt item not found in bank.")
 
         return {
             "competition_status": conf.status,
@@ -368,15 +449,23 @@ class ArenaService:
         if existing:
             raise HTTPException(status_code=400, detail=f"Challenge {curr_idx} has already been submitted and is locked.")
 
-        if not session.prompt_ids or len(session.prompt_ids) < curr_idx:
-            session.prompt_ids = cls.assign_unique_prompts_for_team(db, team)
+        prompt_ids = cls.parse_prompt_ids(session.prompt_ids)
+        if not prompt_ids or len(prompt_ids) < curr_idx:
+            prompt_ids = cls.assign_unique_prompts_for_team(db, team)
+            session.prompt_ids = prompt_ids
             db.commit()
             db.refresh(session)
 
-        if not session.prompt_ids or len(session.prompt_ids) < curr_idx:
+        if not prompt_ids or len(prompt_ids) < curr_idx:
             raise HTTPException(status_code=400, detail=f"No assigned prompt found for challenge index {curr_idx}.")
 
-        prompt_id = session.prompt_ids[curr_idx - 1]
+        prompt_id = prompt_ids[curr_idx - 1]
+        prompt_item = db.query(PromptBankItem).filter(PromptBankItem.id == prompt_id).first()
+        if not prompt_item:
+            prompt_item = db.query(PromptBankItem).filter(PromptBankItem.code == f"P00{curr_idx}").first() or db.query(PromptBankItem).first()
+            if prompt_item:
+                prompt_id = prompt_item.id
+
         server_now = datetime.utcnow()
 
         # Phase 0 / Defect #13: Unicode normalization
