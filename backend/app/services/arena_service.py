@@ -136,8 +136,12 @@ class ArenaService:
         return response
 
     @classmethod
-    def start_competition(cls, db: Session, current_user: User) -> Dict[str, Any]:
+    def start_competition(cls, db: Session, current_user: User, force: bool = False) -> Dict[str, Any]:
         conf = cls.get_or_create_config(db)
+        
+        # Phase 0 / Defect #8: State machine guard
+        if conf.status != "waiting" and not force:
+            raise HTTPException(status_code=400, detail="Cannot start competition: Arena is not in 'waiting' state.")
 
         # Clear old arena data so only teams and prompt questions remain
         db.query(ArenaEvaluation).delete()
@@ -193,6 +197,11 @@ class ArenaService:
     @classmethod
     def release_results(cls, db: Session, current_user: User) -> Dict[str, Any]:
         conf = cls.get_or_create_config(db)
+        
+        # Phase 0 / Defect #7: State machine guard
+        if conf.status != "completed":
+            raise HTTPException(status_code=400, detail="Cannot release results: Arena is not in 'completed' state.")
+            
         now = datetime.utcnow()
         conf.status = "results_available"
         conf.results_released_at = now
@@ -301,6 +310,7 @@ class ArenaService:
 
     @classmethod
     def submit_challenge(cls, db: Session, current_user: User, payload: SubmitChallengeRequest) -> Dict[str, Any]:
+        import unicodedata # Phase 0 / Defect #13
         team = cls.get_user_team(db, current_user)
         if not team:
             raise HTTPException(status_code=403, detail="Unauthorized: User is not linked to an active team.")
@@ -347,13 +357,17 @@ class ArenaService:
         prompt_id = session.prompt_ids[curr_idx - 1]
         server_now = datetime.utcnow()
 
+        # Phase 0 / Defect #13: Unicode normalization
+        normalized_prompt = unicodedata.normalize("NFC", payload.prompt_text.strip())
+
         sub_id = str(uuid.uuid4())
         sub = ArenaSubmission(
             id=sub_id,
             team_id=team.id,
             prompt_bank_item_id=prompt_id,
             challenge_index=curr_idx,
-            submitted_prompt=payload.prompt_text.strip(),
+            submitted_prompt=normalized_prompt,
+            diagnosis_notes=payload.diagnosis_notes, # Phase 0 / Defect #4
             server_timestamp=server_now,
             status="locked"
         )
@@ -445,9 +459,9 @@ class ArenaService:
         for sub in submissions:
             t = sub.team
             p = sub.prompt_item
-            eval_record = db.query(ArenaEvaluation).filter(
-                ArenaEvaluation.submission_id == sub.id,
-                ArenaEvaluation.judge_user_id == current_user.id
+            from app.models.arena_scoring import ArenaFinalScore
+            eval_record = db.query(ArenaFinalScore).filter(
+                ArenaFinalScore.submission_id == sub.id
             ).first()
 
             sub_list.append({
@@ -461,16 +475,16 @@ class ArenaService:
                 "original_bad_prompt": p.original_bad_prompt if p else "",
                 "bad_output_evidence": p.bad_output_evidence if p else "",
                 "submitted_prompt": sub.submitted_prompt,
-                "submitted_at": sub.server_timestamp.strftime("%H:%M:%S"),
-                "has_evaluated": eval_record is not None,
+                "submitted_at": sub.server_timestamp.isoformat(), # Phase 0 / Defect #6: ISO-8601
+                "is_evaluated": eval_record is not None, # Phase 0 / Defect #6: UI expects is_evaluated
                 "evaluation": {
                     "clarity_score": eval_record.clarity_score,
                     "context_score": eval_record.context_score,
                     "specificity_score": eval_record.specificity_score,
-                    "output_structure_score": eval_record.output_structure_score,
-                    "relevance_score": eval_record.relevance_score,
-                    "total_score": eval_record.total_score,
-                    "judge_feedback": eval_record.judge_feedback
+                    "output_format_score": eval_record.output_format_score,
+                    "constraints_score": eval_record.constraints_score,
+                    "total_score": eval_record.total,
+                    "source": eval_record.source
                 } if eval_record else None
             })
 
@@ -483,19 +497,21 @@ class ArenaService:
                 "team_name": t.name if t else "Unknown",
                 "event_type": ev.event_type,
                 "violation_count": ev.violation_count,
-                "timestamp": ev.created_at.strftime("%H:%M:%S")
+                "metadata": ev.client_metadata, # Phase 0 / Defect #6: UI expects metadata
+                "timestamp": ev.created_at.isoformat() # Phase 0 / Defect #6: ISO-8601
             })
 
         return {
             "status": conf.status,
             "is_results_released": getattr(conf, 'is_results_released', False),
             "started_at": conf.started_at.isoformat() if conf.started_at else None,
-            "stats": {
+            "metrics": { # Phase 0 / Defect #6: UI expects 'metrics', not 'stats'
                 "total_teams": total_teams,
                 "waiting_teams": max(waiting_count, 0),
                 "active_teams": active_count,
                 "completed_teams": completed_count,
-                "flagged_teams": len(flagged_team_map)
+                "flagged_teams_count": len(flagged_team_map), # Phase 0 / Defect #6: UI expects flagged_teams_count
+                "flagged_teams": [{"team_id": tid, "team_name": next((t.name for t in teams if t.id == tid), "Unknown"), "violation_count": count} for tid, count in flagged_team_map.items()]
             },
             "submissions": sub_list,
             "security_events": events_list
@@ -540,7 +556,10 @@ class ArenaService:
         evaluation.constraints_score = constraints_val
         evaluation.relevance_score = constraints_val
         evaluation.total_score = round(total, 2)
-        evaluation.judge_feedback = payload.judge_feedback.strip() if payload.judge_feedback else ""
+        
+        # Phase 0 schema compat logic
+        fb = payload.feedback if payload.feedback is not None else payload.judge_feedback
+        evaluation.judge_feedback = fb.strip() if fb else ""
 
         db.add(AuditLog(
             actor_user_id=current_user.id,
@@ -679,7 +698,7 @@ class ArenaService:
             "team_name": team.name,
             "college": team.college,
             "total_score": round(total_team_score, 1),
-            "max_score": 50,
+            "max_score": 500, # Phase 0 / Defect #1: 5 challenges * 100 max = 500
             "dimension_totals": {
                 "clarity": round(sum_clarity, 1),
                 "context": round(sum_context, 1),
@@ -818,6 +837,22 @@ class ArenaService:
         my_standing = next((s for s in standings if s["team_id"] == team.id), None)
         rank = my_standing["rank"] if my_standing else None
 
+        # Phase 0 / Defect #11: Gate results securely until released
+        if conf.status != "results_available":
+            return {
+                "team_id": team.id,
+                "team_name": team.name,
+                "college": team.college or "N/A",
+                "is_eliminated": is_eliminated,
+                "status": "eliminated" if is_eliminated else (session.status if session else team.status),
+                "total_score": None, # Masked
+                "average_score": None, # Masked
+                "rank": None,
+                "completion_time": session.completed_at.isoformat() if (session and session.completed_at) else None,
+                "challenges": [], # Masked
+                "results_released": False
+            }
+
         return {
             "team_id": team.id,
             "team_name": team.name,
@@ -829,5 +864,5 @@ class ArenaService:
             "rank": rank,
             "completion_time": session.completed_at.isoformat() if (session and session.completed_at) else None,
             "challenges": challenges_report,
-            "results_released": conf.status == "results_available"
+            "results_released": True
         }

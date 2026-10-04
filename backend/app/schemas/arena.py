@@ -3,9 +3,11 @@ from typing import Optional, Dict, Any, List
 
 class StartArenaRequest(BaseModel):
     confirm: bool = True
+    force: bool = False
 
 class SubmitChallengeRequest(BaseModel):
     prompt_text: str = Field(..., min_length=15, max_length=5000)
+    diagnosis_notes: Optional[str] = Field(None, max_length=2000)
 
 class SecurityEventRequest(BaseModel):
     event_type: str = Field(..., description="tab_switch, window_blur, window_focus, fullscreen_exit, paste_attempt, copy_attempt, context_menu_attempt")
@@ -21,6 +23,7 @@ class JudgeScoreRequest(BaseModel):
     constraints_score: Optional[float] = Field(None, description="Constraints score (0, 10, or 20)")
     relevance_score: Optional[float] = Field(None, description="Legacy alias for Constraints")
     judge_feedback: Optional[str] = Field("", max_length=1000)
+    feedback: Optional[str] = Field(None, max_length=1000, description="Alias for judge_feedback")
 
     @field_validator(
         "clarity_score", "specificity_score", "context_score",

@@ -140,6 +140,7 @@ def init_db():
     import app.models.score
     import app.models.leaderboard
     import app.models.arena
+    import app.models.arena_scoring
     import app.models.registration
     Base.metadata.create_all(bind=engine)
 

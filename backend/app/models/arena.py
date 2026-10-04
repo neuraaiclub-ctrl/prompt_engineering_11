@@ -42,6 +42,8 @@ class ArenaSubmission(Base):
     prompt_bank_item_id = Column(String, ForeignKey("prompt_bank_items.id"), nullable=False)
     challenge_index = Column(Integer, nullable=False) # 1 to 5
     submitted_prompt = Column(String, nullable=False)
+    # Phase 0 / Defect #4: optional team diagnosis rationale
+    diagnosis_notes = Column(String, nullable=True)
     server_timestamp = Column(DateTime, default=datetime.utcnow, nullable=False) # Server authoritative
     status = Column(String, default="locked", nullable=False) # locked, immutable
 
@@ -104,7 +106,8 @@ class ArenaConfig(Base):
     
     # Configurable rules
     challenges_count = Column(Integer, default=5, nullable=False)
-    marks_per_challenge = Column(Integer, default=10, nullable=False)
+    # Phase 0 / Defect #1: 100 points per challenge (5 dims × 20), not 10
+    marks_per_challenge = Column(Integer, default=100, nullable=False)
     desktop_required = Column(Boolean, default=True, nullable=False)
     fullscreen_required = Column(Boolean, default=False, nullable=False)
     copy_paste_allowed = Column(Boolean, default=False, nullable=False)
@@ -112,3 +115,8 @@ class ArenaConfig(Base):
     max_allowed_violations = Column(Integer, default=3, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def is_results_released(self) -> bool:
+        """Phase 0 / Defect #6: computed property so overview can read it safely."""
+        return self.status == "results_available"

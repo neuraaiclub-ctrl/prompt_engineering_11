@@ -19,3 +19,9 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+
+# Temp / Debug assets
+*.png
+*.zip
+test_import.mjs
+

@@ -15,6 +15,7 @@ from app.schemas.arena import (
     ArenaConfigUpdateRequest
 )
 from app.services.arena_service import ArenaService
+from app.services.arena_scoring_service import ArenaScoringService
 
 # Backward-compatibility alias exports
 get_or_create_config = ArenaService.get_or_create_config
@@ -47,7 +48,7 @@ def start_arena(
     Judge/Admin authoritative start control.
     Sets status to LIVE with server timestamp and logs audit event.
     """
-    return ArenaService.start_competition(db, current_user)
+    return ArenaService.start_competition(db, current_user, force=payload.force)
 
 @router.post("/end")
 def end_arena(
@@ -154,6 +155,16 @@ def eliminate_team(
     Freezes further submissions, creates an audit record, and excludes the team from podium winners.
     """
     return ArenaService.eliminate_team(db, current_user, payload)
+
+@router.get("/judge/scoring/preflight")
+def get_scoring_preflight(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["admin", "judge"]))
+):
+    """
+    Phase 2: Preflight check before initiating automated scoring waves.
+    """
+    return ArenaScoringService.get_preflight_check(db)
 
 # ---------------------------------------------------------------------------
 # Results & Educational Report Endpoints
