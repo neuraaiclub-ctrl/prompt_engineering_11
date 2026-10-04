@@ -146,26 +146,40 @@ def init_db():
     import app.models.registration
     Base.metadata.create_all(bind=engine)
 
-    # Safe SQLite column migration for existing databases
+    # Safe SQLite and PostgreSQL column migration for existing databases
     try:
         from sqlalchemy import text
         with engine.connect() as conn:
-            result = conn.execute(text("PRAGMA table_info(teams);"))
-            cols = [row[1] for row in result.fetchall()]
-            if cols and "college" not in cols:
-                conn.execute(text("ALTER TABLE teams ADD COLUMN college VARCHAR;"))
-                conn.commit()
+            db_url = settings.DATABASE_URL.lower()
+            is_postgres = db_url.startswith("postgresql") or "postgres" in db_url
 
-            eval_res = conn.execute(text("PRAGMA table_info(arena_evaluations);"))
-            eval_cols = [row[1] for row in eval_res.fetchall()]
-            if eval_cols:
-                if "output_format_score" not in eval_cols:
-                    conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN output_format_score FLOAT DEFAULT 0.0;"))
-                if "constraints_score" not in eval_cols:
-                    conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN constraints_score FLOAT DEFAULT 0.0;"))
+            if is_postgres:
+                conn.execute(text("ALTER TABLE teams ADD COLUMN IF NOT EXISTS college VARCHAR;"))
+                conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN IF NOT EXISTS diagnosis_notes VARCHAR;"))
+                conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN IF NOT EXISTS output_format_score FLOAT DEFAULT 0.0;"))
+                conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN IF NOT EXISTS constraints_score FLOAT DEFAULT 0.0;"))
                 conn.commit()
-    except Exception:
-        pass
+            else:
+                result = conn.execute(text("PRAGMA table_info(teams);"))
+                cols = [row[1] for row in result.fetchall()]
+                if cols and "college" not in cols:
+                    conn.execute(text("ALTER TABLE teams ADD COLUMN college VARCHAR;"))
+
+                sub_res = conn.execute(text("PRAGMA table_info(arena_submissions);"))
+                sub_cols = [row[1] for row in sub_res.fetchall()]
+                if sub_cols and "diagnosis_notes" not in sub_cols:
+                    conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN diagnosis_notes VARCHAR;"))
+
+                eval_res = conn.execute(text("PRAGMA table_info(arena_evaluations);"))
+                eval_cols = [row[1] for row in eval_res.fetchall()]
+                if eval_cols:
+                    if "output_format_score" not in eval_cols:
+                        conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN output_format_score FLOAT DEFAULT 0.0;"))
+                    if "constraints_score" not in eval_cols:
+                        conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN constraints_score FLOAT DEFAULT 0.0;"))
+                conn.commit()
+    except Exception as e:
+        print(f"[DB Migration Notice]: {e}")
     seed_initial_data()
 
 # Auto-initialize tables on module import
