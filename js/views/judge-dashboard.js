@@ -924,19 +924,21 @@ function updateQueueUI() {
                   timeStr = new Date(timeStr).toLocaleTimeString();
                 }
                 return `
-                  <div class="judge-queue-card ${isSelected ? 'selected' : ''}" onclick="window.selectArenaSub('${sub.id}')" style="cursor:pointer; padding:12px; border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--line-subtle)'}; border-radius:4px; background:${isSelected ? 'rgba(0,243,255,0.06)' : 'rgba(255,255,255,0.02)'};">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                      <span class="chip chip-cyan" style="font-size:9.5px; padding:2px 6px;">QUESTION ${sub.challenge_index}</span>
-                      <span class="mono-text" style="font-size:10px; color:var(--muted);">${timeStr}</span>
+                  <div class="judge-queue-card ${isSelected ? 'selected' : ''}" onclick="window.selectArenaSub('${sub.id}')" style="cursor:pointer; padding:14px; border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--line-subtle)'}; border-radius:6px; background:${isSelected ? 'rgba(0,243,255,0.06)' : 'rgba(255,255,255,0.02)'}; transition:all 0.2s ease;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                      <span class="chip chip-cyan" style="font-size:10px; padding:3px 8px; font-weight:700;">QUESTION ${sub.challenge_index}</span>
+                      <span class="mono-text" style="font-size:11px; color:var(--muted);">${timeStr}</span>
                     </div>
-                    <div class="mono-text" style="font-size:11px; color:var(--muted); margin-bottom:8px;">
+                    <div class="mono-text" style="font-size:12px; color:var(--muted); margin-bottom:12px; font-weight:600;">
                       ${escapeHtml(sub.prompt_title || 'Prompt Fixing Challenge')}
                     </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                      <span class="chip chip-${isEvaluated ? 'green' : 'amber'}" style="font-size:9px; padding:2px 6px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                      <span class="chip chip-${isEvaluated ? 'green' : 'amber'}" style="font-size:10px; padding:3px 8px;">
                         ${isEvaluated ? '✓ SCORED (' + sub.evaluation.total_score + '/100)' : '⏳ PENDING'}
                       </span>
-                      <span class="mono-text" style="font-size:10.5px; color:var(--cyan);">Inspect &rarr;</span>
+                      <button class="btn btn-sm" style="font-size:13.5px; font-weight:700; padding:8px 20px; border-radius:6px; background:${isSelected ? 'linear-gradient(135deg, #a855f7, #6366f1)' : 'rgba(168, 85, 247, 0.2)'}; color:${isSelected ? '#ffffff' : '#d8b4fe'}; border:1.5px solid ${isSelected ? '#c084fc' : 'rgba(168, 85, 247, 0.5)'}; cursor:pointer; transition:all 0.2s ease; box-shadow:${isSelected ? '0 4px 14px rgba(168,85,247,0.4)' : '0 2px 8px rgba(168,85,247,0.2)'}; display:inline-flex; align-items:center; gap:6px;" onclick="event.stopPropagation(); window.selectArenaSub('${sub.id}');">
+                        Inspect &rarr;
+                      </button>
                     </div>
                   </div>
                 `;
