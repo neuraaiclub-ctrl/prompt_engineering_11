@@ -1,6 +1,6 @@
 """
 NEURA Prompt Fixing Arena - Seed Prompt Bank Data
-100 Diverse, Real-World Flawed Prompts for Controlled Dynamic Assignment
+125 Diverse, Real-World Flawed Prompts for Controlled Dynamic Assignment
 """
 
 ARENA_PROMPT_BANK = [
@@ -1902,6 +1902,481 @@ ARENA_PROMPT_BANK = [
             "Paste the code under test and specify the language, version, and framework (e.g. Python 3.11 with pytest).",
             "Require coverage of normal cases, boundary values, invalid input, and exception paths, with descriptive test names in the pattern test_<behavior>_<condition>.",
             "Specify mocking rules for external calls, use of parametrized tests where appropriate, and a short list of any behavior that is ambiguous in the code and was therefore not tested."
+        ]
+    },
+    {
+        "code": "P101",
+        "category": "coding",
+        "title": "Prime Checker With No Edge Cases or Performance Needs",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a function to check if a number is prime.",
+        "bad_output_evidence": "def is_prime(n):\n    for i in range(2, n):\n        if n % i == 0:\n            return False\n    return True\n\nThe function returns True for 0, 1, and negative numbers, loops up to n (very slow for large values), and does not validate that the input is an integer.",
+        "flawed_reasons": [
+            "No language or version is specified.",
+            "No edge-case rules for 0, 1, negative numbers, or non-integer input.",
+            "No performance expectations or input range, so a naive O(n) loop was produced.",
+            "No test cases or output type requirements."
+        ],
+        "expected_improvements": [
+            "State the language and version, the input type (integers up to 10^12), and the return type.",
+            "Define behavior for 0, 1, negatives, and non-integers (return False or raise ValueError).",
+            "Require an efficient approach (trial division up to the square root or Miller-Rabin) and a small set of test cases."
+        ]
+    },
+    {
+        "code": "P102",
+        "category": "coding",
+        "title": "Bulk File Rename Script With No Safety Rules",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a Python script to rename all the files in a folder.",
+        "bad_output_evidence": "import os\nfor i, f in enumerate(os.listdir('.')):\n    os.rename(f, f'file_{i}.txt')\n\nThe script renames every file (including the script itself) to .txt regardless of the original extension, overwrites files on name collisions, and has no dry run or undo.",
+        "flawed_reasons": [
+            "No naming rule is defined, so the model invented one that destroys extensions.",
+            "No safeguards for a destructive operation (dry run, collision checks, backup, undo log).",
+            "No scope control (which folder, file types, recursion, exclusions).",
+            "No handling for permission errors, hidden files, or the script's own file."
+        ],
+        "expected_improvements": [
+            "Define the exact naming pattern (e.g. YYYY-MM-DD_originalname.ext), the target folder via a CLI argument, and the file types included.",
+            "Require a --dry-run mode that prints planned renames, collision detection that skips or appends a suffix, and an undo log written before renaming.",
+            "Specify that extensions are preserved, hidden files and the script itself are excluded, and errors are logged without stopping the run."
+        ]
+    },
+    {
+        "code": "P103",
+        "category": "coding",
+        "title": "Password Storage Request Using the Wrong Concept",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write code to encrypt user passwords and store them in my database so I can decrypt them later if users forget.",
+        "bad_output_evidence": "from Crypto.Cipher import AES\nKEY = b'mysecretkey12345'\ndef encrypt(pw):\n    return AES.new(KEY, AES.MODE_ECB).encrypt(pw.ljust(16).encode())\ndef decrypt(ct):\n    return AES.new(KEY, AES.MODE_ECB).decrypt(ct).decode().strip()\n\nThe key is hardcoded, ECB mode leaks patterns, passwords are recoverable by anyone with the key, and the approach is fundamentally unsafe.",
+        "flawed_reasons": [
+            "The requirement to 'decrypt later' bakes in an insecure design; passwords should be hashed, not recoverable.",
+            "No algorithm, library, or threat model is specified, so the model produced insecure primitives.",
+            "No requirements for salting, work factor, secret management, or a reset flow.",
+            "No language, framework, or database is named, and no testing or validation requirements."
+        ],
+        "expected_improvements": [
+            "Reframe the goal: store passwords as salted hashes using a slow algorithm (Argon2id or bcrypt) and implement a token-based password reset instead of decryption.",
+            "Specify the language, framework, and database, and require a per-user salt, a configurable work factor, and constant-time verification.",
+            "Add constraints: no hardcoded secrets, no reversible encryption or MD5/SHA-1, and include a short explanation of why recoverable passwords are a vulnerability plus unit tests for hash and verify."
+        ]
+    },
+    {
+        "code": "P104",
+        "category": "extraction",
+        "title": "Price Extraction With Mixed Currencies and Discounts",
+        "difficulty": "easy",
+        "original_bad_prompt": "Get the prices from this product listing.",
+        "bad_output_evidence": "Prices: Rs. 1,999, $24.99, 20% off, 1499/-, EMI from 333.\n\nThe output mixes currencies and a percentage, includes an EMI amount as if it were a price, and does not say which price belongs to which product.",
+        "flawed_reasons": [
+            "No schema linking each price to a product.",
+            "No distinction between list price, sale price, discount, and installment values.",
+            "No currency or number normalization rule.",
+            "No handling for missing prices or ranges."
+        ],
+        "expected_improvements": [
+            "Define fields: product_name, list_price, sale_price, currency, discount_percent.",
+            "Add normalization: numeric values without symbols or commas, ISO 4217 currency codes, and exclusion of EMI amounts.",
+            "Require a JSON array output with null for any missing field and no inferred values."
+        ]
+    },
+    {
+        "code": "P105",
+        "category": "extraction",
+        "title": "Action Items With No Owner or Date Normalization",
+        "difficulty": "medium",
+        "original_bad_prompt": "Pull out the action items from these meeting notes.",
+        "bad_output_evidence": "- Update the deck\n- Rahul to check with vendor\n- Follow up on budget soon\n- Priya will send it by Friday\n- Someone should look at the bug\n\nOwners and deadlines are inconsistent, 'by Friday' is unresolved, and vague items are mixed with real commitments.",
+        "flawed_reasons": [
+            "No schema separating task, owner, and due date.",
+            "No reference date for resolving relative deadlines like 'by Friday'.",
+            "No rule for tasks without an owner or for vague, non-committal statements.",
+            "No distinction between decisions and tasks."
+        ],
+        "expected_improvements": [
+            "Define a JSON schema: {task, owner, due_date, source_quote, status}.",
+            "Provide the meeting date and require ISO 8601 due dates, resolving relative terms against it.",
+            "Use null for a missing owner or date, extract only explicit commitments, and place vague items in a separate 'unclear_items' array."
+        ]
+    },
+    {
+        "code": "P106",
+        "category": "summarization",
+        "title": "Neutral Summary Mixed With Opinion and Persuasion",
+        "difficulty": "hard",
+        "original_bad_prompt": "Summarize this news article neutrally and objectively, but make it really persuasive for readers and add your own opinion on whether the policy is good.",
+        "bad_output_evidence": "The government has introduced a new subsidy scheme. Frankly, this is a brilliant policy that every citizen should support, because it will obviously transform the economy. Anyone who disagrees simply does not understand how markets work.\n\nThe summary abandons neutrality, includes unsupported claims, and omits the article's stated criticisms.",
+        "flawed_reasons": [
+            "Contradictory instructions: 'neutral and objective' versus 'persuasive' and 'add your opinion'.",
+            "No audience or purpose is given, so the model resolved the conflict by dropping neutrality.",
+            "No requirement to represent all viewpoints or ground claims in the article.",
+            "No format or length, and no separation between facts and any commentary."
+        ],
+        "expected_improvements": [
+            "Resolve the conflict: request a neutral summary, and, if commentary is wanted, a separate clearly labeled section.",
+            "Require the summary to cover the policy's details, supporters' arguments, and critics' arguments in proportion to the article, with no claims beyond the text.",
+            "Specify the format (120 words in three labeled parts: What, Supporters Say, Critics Say) and forbid loaded language and unsupported predictions."
+        ]
+    },
+    {
+        "code": "P107",
+        "category": "summarization",
+        "title": "Chat Log Summary Without Participants or Outcomes",
+        "difficulty": "medium",
+        "original_bad_prompt": "Summarize this team chat log.",
+        "bad_output_evidence": "The team talked about a bug in the app, what to eat for lunch, and the upcoming release. There was some back and forth about timelines. They will probably fix it soon.",
+        "flawed_reasons": [
+            "No instruction to filter casual chatter from work-relevant content.",
+            "Speakers are not identified, so ownership and accountability are lost.",
+            "No required separation of decisions, blockers, and next steps.",
+            "'They will probably fix it soon' is speculation not supported by the log."
+        ],
+        "expected_improvements": [
+            "State the purpose and reader (an engineering manager catching up after a day away).",
+            "Require sections: Issues Discussed, Decisions, Blockers, Next Steps (with the person named), and exclude social chatter.",
+            "Forbid speculation: if no resolution or owner is stated, write 'Not resolved' or 'No owner stated'."
+        ]
+    },
+    {
+        "code": "P108",
+        "category": "marketing",
+        "title": "Headphone Description With No Specs or Audience",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a product description for my headphones.",
+        "bad_output_evidence": "Experience the best sound ever with our amazing headphones. They are comfortable, stylish, and deliver incredible audio quality. Perfect for music lovers everywhere. Buy now!",
+        "flawed_reasons": [
+            "No product specs (battery life, drivers, noise cancellation, price tier), so claims are generic.",
+            "No target customer or use case.",
+            "Unsupported superlatives like 'best sound ever'.",
+            "No length, structure, or channel (marketplace listing, website) is defined."
+        ],
+        "expected_improvements": [
+            "Supply the verified specs and name the target user (commuters who need noise cancellation).",
+            "Forbid unsupported superlatives and require every benefit to tie to a spec.",
+            "Set the format: a 10-word headline, 4 benefit bullets under 15 words each, and a 40-word description."
+        ]
+    },
+    {
+        "code": "P109",
+        "category": "marketing",
+        "title": "Google Ads Copy Ignoring Character Limits",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write Google Ads copy for our online accounting software.",
+        "bad_output_evidence": "Headline: Discover The Most Powerful And Easy To Use Online Accounting Software For Your Business Today\nDescription: Our software helps you manage your finances, track expenses, send invoices, and grow your business with powerful tools designed for you.\n\nThe headline is far over the 30-character limit and the output is a single ad with no variations or keywords.",
+        "flawed_reasons": [
+            "No platform constraints (30-character headlines, 90-character descriptions).",
+            "No target keywords, audience, or offer.",
+            "No request for multiple variants for testing.",
+            "No compliance or claim guardrails, and no CTA specification."
+        ],
+        "expected_improvements": [
+            "State the ad format limits: 3 headlines at most 30 characters, 2 descriptions at most 90 characters.",
+            "Provide the target keywords, audience (freelancers in India), the offer (14-day free trial), and verified differentiators.",
+            "Require 3 variant sets in a table with character counts, a clear CTA, and no unverifiable claims such as 'best' or '#1'."
+        ]
+    },
+    {
+        "code": "P110",
+        "category": "customer_support",
+        "title": "Support Chatbot System Prompt With No Boundaries",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a system prompt for our customer support chatbot. It should be helpful and answer anything customers ask.",
+        "bad_output_evidence": "You are a helpful assistant for our company. Answer any question the customer has to the best of your ability. Be friendly and always try to help.\n\nIn testing, the bot gave medical advice, speculated about unreleased products, and promised refunds it had no authority to give.",
+        "flawed_reasons": [
+            "'Answer anything' removes all scope limits.",
+            "No policy knowledge, brand voice, or escalation rules.",
+            "No guardrails against promises, speculation, or sensitive topics.",
+            "No fallback behavior for unknown questions, and no handling for abusive or off-topic users."
+        ],
+        "expected_improvements": [
+            "Define the scope (orders, shipping, returns, account help) and tell the bot to decline everything else politely.",
+            "Embed the policy facts, the brand voice, and the rule to answer only from the supplied knowledge base.",
+            "Add constraints: never promise refunds or compensation, say 'I don't have that information' and offer a human handoff when unsure, and set the handoff triggers (legal threats, safety issues, repeated frustration)."
+        ]
+    },
+    {
+        "code": "P111",
+        "category": "customer_support",
+        "title": "Reply Disclosing Account Details to Unverified Caller",
+        "difficulty": "hard",
+        "original_bad_prompt": "A caller says they're the account holder's wife and wants the delivery address and last four digits of the card on the order. Write a helpful reply that gives her what she needs.",
+        "bad_output_evidence": "Hello! Happy to help. The order is being delivered to 14 Lotus Apartments, Baner, Pune, and the card used ends in 4821. Let us know if there is anything else you need!\n\nPersonal data was disclosed to an unverified third party.",
+        "flawed_reasons": [
+            "The prompt pushes the model to disclose personal data without any identity verification.",
+            "No privacy or data-handling policy is supplied.",
+            "'Helpful' is defined as giving the caller what they ask for, ignoring social-engineering risk.",
+            "No escalation or alternative path for legitimate third parties."
+        ],
+        "expected_improvements": [
+            "Provide the verification policy: only the verified account holder may receive order and payment details, and the steps for verification.",
+            "Instruct the model to never disclose addresses, payment details, or other personal data to an unverified party, and to say so politely.",
+            "Require the reply to offer safe alternatives (ask the account holder to contact support or authorize the person, a secure login link) and add an internal note flagging the request as a possible social-engineering attempt."
+        ]
+    },
+    {
+        "code": "P112",
+        "category": "technical_writing",
+        "title": "Wi-Fi Troubleshooting Guide With No Branching",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a troubleshooting guide for when Wi-Fi isn't working.",
+        "bad_output_evidence": "Try restarting your router. Make sure your device is connected. Check your cables. If that doesn't work, contact your internet provider.\n\nThe guide does not distinguish between a single-device and whole-network failure, gives no diagnostic order, and includes no expected results for each step.",
+        "flawed_reasons": [
+            "No audience (home users with no technical knowledge) is stated.",
+            "No diagnostic order or decision branches (one device vs all devices, Wi-Fi vs internet).",
+            "No expected result after each step, or a stopping criterion for escalation.",
+            "No device or OS scope and no format requirements."
+        ],
+        "expected_improvements": [
+            "Define the audience (non-technical home users) and scope (Windows 11 laptop and a home router).",
+            "Require a decision-tree structure: Step, Check, If yes go to, If no go to, with the expected result for each.",
+            "Include a prerequisites list, a short glossary for terms like SSID and DNS, and an escalation section listing what information to give the ISP."
+        ]
+    },
+    {
+        "code": "P113",
+        "category": "technical_writing",
+        "title": "Commit Message With No Diff or Convention",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a commit message for my changes.",
+        "bad_output_evidence": "Update code\n\nMade some changes to improve things and fix issues.\n\nThe message is generic and says nothing about what changed or why. The diff was never provided.",
+        "flawed_reasons": [
+            "The changes (diff) are not included.",
+            "No commit convention is specified (Conventional Commits, subject length).",
+            "No instruction to explain the 'why' as well as the 'what'.",
+            "No guidance for multi-purpose changes."
+        ],
+        "expected_improvements": [
+            "Paste the diff and name the convention (Conventional Commits).",
+            "Require a subject under 72 characters in the imperative mood, plus a short body explaining the motivation.",
+            "Add a rule: if the diff contains unrelated changes, recommend splitting the commit and say if the diff is missing instead of guessing."
+        ]
+    },
+    {
+        "code": "P114",
+        "category": "hallucination_guard",
+        "title": "Latest Framework Version Asked Without a Source",
+        "difficulty": "medium",
+        "original_bad_prompt": "What is the latest version of React and what are its new features?",
+        "bad_output_evidence": "The latest version of React is 18.2, which introduced Concurrent Rendering, automatic batching, and the new useTransition hook.\n\nThe answer presents knowledge from training data as current, with no caveat that newer releases may exist.",
+        "flawed_reasons": [
+            "Asks for 'latest' information that changes over time, with no source or date.",
+            "No instruction to flag the knowledge date or uncertainty.",
+            "No request for official sources such as release notes.",
+            "No separation of confirmed features from assumptions."
+        ],
+        "expected_improvements": [
+            "Provide the current release notes or enable web search, and instruct the model to rely only on that material.",
+            "Add the constraint: if no source is provided, state the limits of the model's knowledge and do not present version numbers as current.",
+            "Require the answer to include the source link or note, the version, the release date, and the feature list tied to the source text."
+        ]
+    },
+    {
+        "code": "P115",
+        "category": "hallucination_guard",
+        "title": "Biography of a Little-Known Person",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write a detailed biography of Dr. Anil Deshmukh, a researcher at a university in Maharashtra, including his education, publications, and awards.",
+        "bad_output_evidence": "Dr. Anil Deshmukh (born 1968) earned his PhD from IIT Bombay in 1996 and is currently a professor of materials science at Savitribai Phule Pune University. He has published over 80 papers, including 'Nanostructured Alloys for Energy Storage' (2014), and received the Shanti Swarup Bhatnagar Award in 2012.\n\nThere is no verification that this person, these details, or the award exist as stated, and the response is plausible fiction presented as a real person's biography.",
+        "flawed_reasons": [
+            "The subject is a common name with no identifying details, no field, and no source material.",
+            "Demands specific verifiable facts (education, publications, awards) with no supplied sources.",
+            "No instruction to refuse or flag uncertainty about identity, and no negative constraint against inventing details.",
+            "Fabricated claims about a real individual can cause reputational harm."
+        ],
+        "expected_improvements": [
+            "Provide verified source material (CV, university profile, publication list) and tell the model to use only that content.",
+            "Add explicit constraints: do not invent any education, publication, or award; write 'Not in the provided sources' for missing sections.",
+            "Require a response to state when the person cannot be uniquely identified, ask for clarifying details, and cite the source passage for each fact."
+        ]
+    },
+    {
+        "code": "P116",
+        "category": "database",
+        "title": "Index Recommendations With No Workload Information",
+        "difficulty": "medium",
+        "original_bad_prompt": "What indexes should I add to my orders table?",
+        "bad_output_evidence": "You should add indexes on customer_id, order_date, status, total_amount, and created_at. Indexes improve query performance.\n\nThe suggestion indexes nearly every column, ignores write overhead, and is not based on any query patterns.",
+        "flawed_reasons": [
+            "No table schema, row count, or database engine.",
+            "No query workload (the most frequent and slowest queries) to base index choices on.",
+            "No read vs write ratio or storage constraints.",
+            "No request for composite index ordering or justification."
+        ],
+        "expected_improvements": [
+            "Provide the DDL, approximate row count, engine and version, and the top 5 queries with their frequency.",
+            "Ask for a minimal set of indexes with a justification mapped to each query, including composite column order.",
+            "Require the trade-offs for each (write cost, storage), the CREATE INDEX statements, and a way to verify the impact with EXPLAIN."
+        ]
+    },
+    {
+        "code": "P117",
+        "category": "database",
+        "title": "Join Query With Unspecified Join Type",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write SQL to join the customers and orders tables.",
+        "bad_output_evidence": "SELECT * FROM customers JOIN orders ON customers.id = orders.id;\n\nThe join condition uses the wrong key (orders.id instead of a customer foreign key), SELECT * returns duplicate column names, and customers without orders are silently dropped.",
+        "flawed_reasons": [
+            "No schema, so key columns were guessed.",
+            "The join type (INNER, LEFT) is not specified, so customers with no orders are lost.",
+            "No columns, filters, or ordering are requested.",
+            "No SQL dialect specified."
+        ],
+        "expected_improvements": [
+            "Provide both table definitions including the foreign key and the dialect.",
+            "State the goal (list all customers with their order count, including customers with no orders) so the join type follows.",
+            "Specify the output columns and aliases and request the query alone in a code block."
+        ]
+    },
+    {
+        "code": "P118",
+        "category": "localization",
+        "title": "Legal Terms Translation to Arabic Without RTL or Review Rules",
+        "difficulty": "medium",
+        "original_bad_prompt": "Translate our terms and conditions into Arabic.",
+        "bad_output_evidence": "The translation reads as word-for-word text, mixes Modern Standard Arabic with colloquial phrasing, flattens a limitation-of-liability clause into a vague statement, and the numbering and English product names appear scrambled in the right-to-left layout.",
+        "flawed_reasons": [
+            "No target variant or register (Modern Standard Arabic, formal legal tone).",
+            "No instruction to preserve legal precision, clause numbering, and defined terms.",
+            "No handling for right-to-left layout, mixed-direction text, numbers, and brand names.",
+            "No requirement for flagging untranslatable legal concepts or review by a legal translator."
+        ],
+        "expected_improvements": [
+            "Specify Modern Standard Arabic in a formal legal register and the target jurisdiction (e.g. UAE).",
+            "Require clause numbers, defined terms, and product names to remain consistent, with a glossary for key terms.",
+            "Request flagged notes where a concept has no direct equivalent, correct RTL markup instructions, and a statement that a qualified legal translator must review before publication."
+        ]
+    },
+    {
+        "code": "P119",
+        "category": "localization",
+        "title": "Chinese Translation With No Script or Dialect",
+        "difficulty": "easy",
+        "original_bad_prompt": "Translate this to Chinese: 'Your order has shipped and will arrive in 2-3 days.'",
+        "bad_output_evidence": "\u60a8\u7684\u8ba2\u5355\u5df2\u53d1\u8d27,\u9884\u8ba12-3\u5929\u5185\u9001\u8fbe\u3002\n\nThe output uses Simplified Chinese, but the customers are in Taiwan, where Traditional Chinese and different phrasing are expected.",
+        "flawed_reasons": [
+            "No script (Simplified or Traditional) or region (Mainland China, Taiwan, Hong Kong) is specified.",
+            "No register or brand tone is given.",
+            "No glossary for terms like 'order' and 'shipped' that differ by region.",
+            "No pinyin or notes for verification."
+        ],
+        "expected_improvements": [
+            "State the target region and script (Taiwan, Traditional Chinese) and the audience (online shoppers).",
+            "Specify a polite but friendly register and the preferred regional terminology.",
+            "Request the translation only, plus one short note on any region-specific word choices."
+        ]
+    },
+    {
+        "code": "P120",
+        "category": "brainstorming",
+        "title": "Product Names With No Naming Criteria",
+        "difficulty": "medium",
+        "original_bad_prompt": "Come up with names for my new product.",
+        "bad_output_evidence": "1. ProMax\n2. NextGen\n3. SmartPlus\n4. UltraTech\n5. InnovateX\n\nThe names are generic, likely trademarked by others, and unrelated to the product, which was never described.",
+        "flawed_reasons": [
+            "The product, audience, and positioning are not described.",
+            "No naming criteria (length, pronunciation, tone, language).",
+            "No instruction to avoid existing brands or consider trademarks and domains.",
+            "No format or rationale, so the options cannot be evaluated."
+        ],
+        "expected_improvements": [
+            "Describe the product, its target customers, its brand personality, and the markets it will be sold in.",
+            "Set naming criteria: 2 syllables or fewer than 10 characters, easy to pronounce in English and Hindi, no generic suffixes like 'Pro' or 'Tech'.",
+            "Require 10 names in a table with columns: Name, Meaning, Tone, and a note to check trademark databases and domain availability before use."
+        ]
+    },
+    {
+        "code": "P121",
+        "category": "brainstorming",
+        "title": "Competitor Takedown Tactics With No Ethical Bounds",
+        "difficulty": "hard",
+        "original_bad_prompt": "Brainstorm aggressive tactics to take down our main competitor's business.",
+        "bad_output_evidence": "1. Post negative reviews of their products from multiple accounts.\n2. Spread rumors about quality issues on social media.\n3. Poach their key staff and ask them for client lists.\n4. Report them to authorities with exaggerated claims.\n\nThe ideas include fake reviews, defamation, and misuse of confidential information.",
+        "flawed_reasons": [
+            "'Take down' and 'aggressive' with no ethical or legal limits invite deceptive and unlawful tactics.",
+            "No definition of the real business goal (market share, customer acquisition).",
+            "No budget, market context, or competitive analysis input.",
+            "No evaluation criteria such as legality, brand risk, and measurable impact."
+        ],
+        "expected_improvements": [
+            "Reframe the goal to winning customers and gaining market share through legitimate competitive strategy, and describe the business and the competitor's positioning.",
+            "Add explicit constraints: only lawful, honest tactics, with no fake reviews, defamation, or use of confidential information.",
+            "Require a table: Tactic, Target Segment, Cost, Expected Impact, Legal/Brand Risk, plus a measurement plan for the top 3."
+        ]
+    },
+    {
+        "code": "P122",
+        "category": "classification",
+        "title": "Email Importance With No Criteria",
+        "difficulty": "easy",
+        "original_bad_prompt": "Is this email important?",
+        "bad_output_evidence": "Yes, this email seems important.\n\nNo reasoning is given. The email was a routine newsletter that contained the word 'urgent' in the subject line.",
+        "flawed_reasons": [
+            "'Important' is undefined, so the model relied on surface cues like the word 'urgent'.",
+            "No recipient role or priorities to judge against.",
+            "Binary output with no reasoning or confidence.",
+            "No criteria or categories for newsletters, promotions, and action-required mail."
+        ],
+        "expected_improvements": [
+            "Define importance for the reader (e.g. needs a reply or action within 48 hours from a client or manager) and list low-priority types.",
+            "Use labels such as action_required, fyi, promotional, and low_priority.",
+            "Require JSON output: {label, reason, deadline_if_any}, ignoring urgency words that are not backed by a real deadline or request."
+        ]
+    },
+    {
+        "code": "P123",
+        "category": "classification",
+        "title": "Ticket Language Tagging on Mixed-Language Text",
+        "difficulty": "medium",
+        "original_bad_prompt": "Tag each support ticket with its language.",
+        "bad_output_evidence": "Ticket 1: English\nTicket 2: Hindi\nTicket 3: English\nTicket 4: Hindi\n\nTicket 2 was written in Romanized Hindi (Hinglish), Ticket 3 was mostly Marathi with English product terms, and Ticket 4 was a one-word message that cannot be reliably identified.",
+        "flawed_reasons": [
+            "No label set, so Romanized scripts and code-mixing cannot be represented.",
+            "No handling for very short or ambiguous text.",
+            "No confidence output and no rule for multiple languages in one ticket.",
+            "No output format for automated routing."
+        ],
+        "expected_improvements": [
+            "Define the labels using ISO 639-1 codes plus 'hinglish', 'mixed', and 'unknown', with an example of each.",
+            "Add rules: label by the dominant language of the customer's message, ignore product names and code snippets, and return 'unknown' for texts under 3 words.",
+            "Require JSON per ticket: {id, language, secondary_language, confidence}, with no text outside the JSON."
+        ]
+    },
+    {
+        "code": "P124",
+        "category": "legal_finance",
+        "title": "Privacy Policy Summary That Hides Risks",
+        "difficulty": "medium",
+        "original_bad_prompt": "Summarize this privacy policy for me.",
+        "bad_output_evidence": "The company values your privacy and collects some information to improve its services. It may share data with partners. You have rights regarding your data.\n\nThe summary omits that data is sold to advertisers, retained indefinitely, and that deletion requests take up to 90 days.",
+        "flawed_reasons": [
+            "No reader perspective (a consumer deciding whether to sign up), so risks are not prioritized.",
+            "No instruction to extract specifics such as data types, third-party sharing, retention, and user rights.",
+            "Vague language mirrors the policy's own wording and hides material facts.",
+            "No structure or flagging of concerning clauses."
+        ],
+        "expected_improvements": [
+            "State the reader and purpose (a consumer deciding whether to create an account) and the jurisdiction of interest.",
+            "Require sections: Data Collected, Purposes, Sharing and Selling, Retention, Your Rights and How to Use Them, Concerning Clauses.",
+            "Add rules: quote or reference the policy section for each point, write 'Not stated' for missing items, and note that this is a summary and not legal advice."
+        ]
+    },
+    {
+        "code": "P125",
+        "category": "legal_finance",
+        "title": "Loan Decision With Protected Attributes and No Policy",
+        "difficulty": "hard",
+        "original_bad_prompt": "Here is an applicant's profile: 29-year-old unmarried woman, lives in a rented flat in a low-income area, works as a freelance designer. Decide if we should approve her for a 5 lakh loan and explain why.",
+        "bad_output_evidence": "Decision: Reject. As a young, unmarried freelancer living in a low-income neighborhood, she is likely to be financially unstable and may default. Approving her would be too risky.\n\nThe rejection relies on gender, marital status, age, and neighborhood rather than creditworthiness data.",
+        "flawed_reasons": [
+            "No credit policy or objective criteria (income, credit history, debt obligations).",
+            "The profile includes protected or proxy attributes (gender, marital status, location), and the model used them as reasons.",
+            "Automated final decision on a high-impact financial matter with no human review.",
+            "No structure for the explanation, and no requirement to cite the data behind each factor."
+        ],
+        "expected_improvements": [
+            "Provide the lending policy with objective criteria (verified income, debt-to-income ratio, credit score, repayment history) and the data for the applicant.",
+            "Instruct the model to ignore gender, marital status, age, religion, and neighborhood, and to base the assessment only on policy-defined financial factors.",
+            "Require structured output: {criteria_results, missing_information, recommendation: 'approve|refer_to_underwriter|decline_with_policy_reason'} and a note that a human underwriter makes the final decision."
         ]
     }
 ]
