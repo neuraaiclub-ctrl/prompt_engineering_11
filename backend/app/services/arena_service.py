@@ -351,6 +351,14 @@ class ArenaService:
         if existing:
             raise HTTPException(status_code=400, detail=f"Challenge {curr_idx} has already been submitted and is locked.")
 
+        if not session.prompt_ids or len(session.prompt_ids) < curr_idx:
+            session.prompt_ids = cls.assign_unique_prompts_for_team(db, team)
+            db.commit()
+            db.refresh(session)
+
+        if not session.prompt_ids or len(session.prompt_ids) < curr_idx:
+            raise HTTPException(status_code=400, detail=f"No assigned prompt found for challenge index {curr_idx}.")
+
         prompt_id = session.prompt_ids[curr_idx - 1]
         server_now = datetime.utcnow()
 

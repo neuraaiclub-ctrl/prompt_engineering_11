@@ -16,8 +16,15 @@ from app.schemas.team import CreateTeamSchema, JoinTeamSchema, AdminRegisterTeam
 
 class TeamService:
     @staticmethod
-    def generate_invite_code() -> str:
-        return "NR-" + "".join(random.choices(string.digits, k=4))
+    def generate_invite_code(db: Optional[Session] = None) -> str:
+        for _ in range(100):
+            code = "NR-" + "".join(random.choices(string.digits, k=6))
+            if db:
+                if not db.query(Team).filter(Team.invite_code == code).first():
+                    return code
+            else:
+                return code
+        return "NR-" + "".join(random.choices(string.digits, k=8))
 
     @staticmethod
     def sanitize_email_slug(name: str) -> str:
@@ -58,7 +65,7 @@ class TeamService:
             hackathon_id=payload.hackathon_id,
             name=payload.name,
             college=payload.college,
-            invite_code=cls.generate_invite_code(),
+            invite_code=cls.generate_invite_code(db),
             status="forming"
         )
         db.add(team)
