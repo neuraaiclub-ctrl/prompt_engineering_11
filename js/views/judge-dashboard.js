@@ -352,16 +352,19 @@ export async function renderJudgeDashboard() {
                 ${renderRubricCriterionRow('constraints_score', '5. Constraints & Negative Guardrails', 'Strict guardrails against hallucinations, forbidden content, and drift.', currentRubric.constraints_score)}
               </div>
 
-              <!-- Constructive Judge Feedback -->
-              <div class="field" style="margin-bottom:20px;">
-                <label>Constructive Judge Feedback <span style="color:var(--muted); font-weight:normal;">(Included in participant's official score dashboard)</span></label>
-                <textarea id="judgeFeedbackInput" rows="3" placeholder="Highlight key strengths and specific improvement recommendations...">${escapeHtml(currentRubric.feedback)}</textarea>
+              <!-- Constructive Judge Feedback (Optional) -->
+              <div class="field" style="margin-bottom:16px;">
+                <label style="font-family:var(--disp); font-size:13px; font-weight:700; color:var(--text); display:flex; justify-content:space-between; align-items:center;">
+                  <span>Overall Team Feedback <span style="color:var(--muted); font-weight:normal; font-size:12px;">(Optional)</span></span>
+                  <span class="chip chip-violet" style="font-size:9.5px; padding:2px 8px;">OPTIONAL FOR JUDGES</span>
+                </label>
+                <textarea id="judgeFeedbackInput" rows="3" placeholder="Provide optional qualitative recommendations or observations for the team..." style="font-size:12.5px;">${escapeHtml(currentRubric.feedback)}</textarea>
               </div>
 
-              <!-- Save Score Action -->
+              <!-- Action: Send Overall Feedback -->
               <div style="display:flex; justify-content:flex-end;">
-                <button class="btn btn-primary" id="btnSaveRubricScore" style="padding:10px 24px;">
-                  ${selectedSub.is_evaluated ? 'CONFIRM ENGINE EVALUATION' : 'CONFIRM & LOCK ENGINE SCORES →'}
+                <button class="btn btn-primary" id="btnSendOverallFeedback" style="padding:8px 22px; font-weight:700; font-size:12.5px; border-radius:6px;">
+                  SEND OVERALL FEEDBACK 💬
                 </button>
               </div>
 
@@ -555,11 +558,11 @@ function setupRubricScoringHandlers(selectedSub) {
     showEliminationConfirmationModal(selectedSub.team_id, selectedSub.team_name);
   });
 
-  document.getElementById('btnSaveRubricScore')?.addEventListener('click', async (e) => {
+  document.getElementById('btnSendOverallFeedback')?.addEventListener('click', async (e) => {
     if (!selectedSub) return;
     const btn = e.currentTarget;
     btn.disabled = true;
-    btn.textContent = 'SAVING SCORE...';
+    btn.textContent = 'TRANSMITTING FEEDBACK...';
 
     const feedback = document.getElementById('judgeFeedbackInput')?.value.trim() || null;
     currentRubric.feedback = feedback;
@@ -578,12 +581,12 @@ function setupRubricScoringHandlers(selectedSub) {
 
     const res = await store.scoreArenaSubmission(payload);
     if (res.success) {
-      Router.showToast(`Challenge evaluation saved (${calculateCurrentRubricTotal()}/100)!`, 'green');
+      Router.showToast(feedback ? 'Overall feedback sent successfully!' : 'Feedback saved.', 'green');
       await renderJudgeDashboard();
     } else {
       btn.disabled = false;
-      btn.textContent = 'SUBMIT & LOCK EVALUATION →';
-      Router.showToast(res.error || 'Failed to save evaluation', 'red');
+      btn.textContent = 'SEND OVERALL FEEDBACK 💬';
+      Router.showToast(res.error || 'Failed to send feedback', 'red');
     }
   });
 }
