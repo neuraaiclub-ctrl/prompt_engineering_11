@@ -1,6 +1,6 @@
 """
 NEURA Prompt Fixing Arena - Seed Prompt Bank Data
-125 Diverse, Real-World Flawed Prompts for Controlled Dynamic Assignment
+150 Diverse, Real-World Flawed Prompts for Controlled Dynamic Assignment
 """
 
 ARENA_PROMPT_BANK = [
@@ -2377,6 +2377,481 @@ ARENA_PROMPT_BANK = [
             "Provide the lending policy with objective criteria (verified income, debt-to-income ratio, credit score, repayment history) and the data for the applicant.",
             "Instruct the model to ignore gender, marital status, age, religion, and neighborhood, and to base the assessment only on policy-defined financial factors.",
             "Require structured output: {criteria_results, missing_information, recommendation: 'approve|refer_to_underwriter|decline_with_policy_reason'} and a note that a human underwriter makes the final decision."
+        ]
+    },
+    {
+        "code": "P126",
+        "category": "coding",
+        "title": "Palindrome Checker With No Normalization Rules",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a function to check if a string is a palindrome.",
+        "bad_output_evidence": "def is_palindrome(s):\n    return s == s[::-1]\n\nThe function fails on 'A man, a plan, a canal: Panama' because of case and punctuation, raises a TypeError on None, and the language was guessed.",
+        "flawed_reasons": [
+            "No language or version is specified.",
+            "No normalization rules for case, spaces, punctuation, or Unicode.",
+            "No behavior defined for empty strings, None, or non-string input.",
+            "No test cases or return type requirements."
+        ],
+        "expected_improvements": [
+            "State the language and version and the function signature.",
+            "Define the matching rules: case-insensitive, ignore non-alphanumeric characters, and Unicode normalization (NFKC).",
+            "Specify behavior for empty input (True), None or non-string input (raise TypeError), and request test cases including mixed punctuation."
+        ]
+    },
+    {
+        "code": "P127",
+        "category": "coding",
+        "title": "API Fetch Script Ignoring Pagination and Rate Limits",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a script to download all the records from our REST API.",
+        "bad_output_evidence": "import requests\nr = requests.get('https://api.example.com/records')\ndata = r.json()\nprint(len(data))\n\nThe script fetches only the first page (100 of 48,000 records), has no authentication, no timeout, no retry after HTTP 429 responses, and keeps everything in memory.",
+        "flawed_reasons": [
+            "No API details (auth method, pagination style, rate limits, response shape).",
+            "'All the records' implies pagination handling, which was not stated or handled.",
+            "No error-handling requirements for timeouts, 429, or 5xx responses.",
+            "No output target or format and no memory or resumability constraints."
+        ],
+        "expected_improvements": [
+            "Provide the endpoint docs: auth header, pagination parameters (cursor or page), rate limit, and a sample response.",
+            "Require pagination until exhaustion, exponential backoff on 429 and 5xx, request timeouts, and a maximum retry count.",
+            "Specify the output (streamed to a JSONL file), a checkpoint for resuming, and secrets read from environment variables rather than hardcoded."
+        ]
+    },
+    {
+        "code": "P128",
+        "category": "coding",
+        "title": "Comment Sanitizer Built With Naive Regex",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write a function that removes any dangerous HTML or scripts from user comments before showing them on my website. Use regex, it should be short.",
+        "bad_output_evidence": "function sanitize(html) {\n  return html.replace(/<script.*?>.*?<\\/script>/gi, '');\n}\n\nThis is bypassed by <img src=x onerror=alert(1)>, <svg onload=...>, javascript: URLs, and nested or malformed tags such as <scr<script>ipt>. The claim of safety is false.",
+        "flawed_reasons": [
+            "Prescribes regex for HTML sanitization, which is a known unsafe approach, and 'short' pushes toward incomplete rules.",
+            "'Dangerous' is undefined: no allowed tags, attributes, or URL schemes are specified.",
+            "No output context (HTML body, attribute, or URL) or framework is given.",
+            "No test requirements with known attack payloads, and no mention of defense in depth (CSP, output encoding)."
+        ],
+        "expected_improvements": [
+            "State the language and context, and require a vetted sanitizer library (e.g. DOMPurify) with an explicit allow-list (b, i, a[href], p) instead of regex.",
+            "Define the policy: only http, https, and mailto URL schemes, strip all event-handler attributes, and decide whether to escape or strip disallowed tags.",
+            "Require tests covering common XSS payloads, a note on adding a Content-Security-Policy, and a recommendation to store raw input and sanitize or encode on output."
+        ]
+    },
+    {
+        "code": "P129",
+        "category": "extraction",
+        "title": "Name Extraction With Titles and Duplicates",
+        "difficulty": "easy",
+        "original_bad_prompt": "List all the names in this text.",
+        "bad_output_evidence": "Names: Dr. Mehta, Rohan, Mr. Rohan Kapoor, Mehta, she, Priya, Ms. Priya Nair, the manager.\n\nThe list contains titles, partial duplicates, a pronoun, and a role.",
+        "flawed_reasons": [
+            "No instruction to normalize titles and merge references to the same person.",
+            "No distinction between people, organizations, and roles.",
+            "No output format or required fields.",
+            "No handling for texts with no names."
+        ],
+        "expected_improvements": [
+            "Define the output as a deduplicated list of full names, with titles stored in a separate optional field.",
+            "Instruct the model to exclude pronouns, roles without names, and organizations.",
+            "Require a JSON array of {full_name, title, mentions}, returning an empty array when there are no names."
+        ]
+    },
+    {
+        "code": "P130",
+        "category": "extraction",
+        "title": "Job Posting Extraction With Ranges and Optional Fields",
+        "difficulty": "medium",
+        "original_bad_prompt": "Extract the key details from these job postings.",
+        "bad_output_evidence": "Job 1: Software Engineer, good salary, needs Python, remote.\nJob 2: Data Analyst, 8-12 LPA, SQL and Excel, Pune/hybrid.\nJob 3: Designer, competitive pay, Figma.\n\nSalary is unstructured, 'remote' vs 'hybrid' is not standardized, and required skills are mixed with nice-to-haves.",
+        "flawed_reasons": [
+            "'Key details' is undefined, so the fields differ per posting.",
+            "No schema or normalization for salary ranges, currency, and period.",
+            "No separation of required and preferred skills.",
+            "No rule for vague phrases like 'competitive pay' and no fixed work-mode vocabulary."
+        ],
+        "expected_improvements": [
+            "Define a JSON schema: {title, company, location, work_mode: remote|hybrid|onsite, salary_min, salary_max, currency, salary_period, required_skills[], preferred_skills[], experience_years_min}.",
+            "Add normalization rules: convert LPA to annual INR numbers, use lowercase canonical skill names, and use null for non-numeric salary phrases.",
+            "Forbid inference of unstated values, and add an 'unparsed_notes' field for useful text that does not fit the schema."
+        ]
+    },
+    {
+        "code": "P131",
+        "category": "extraction",
+        "title": "Receipt Extraction With Conflicting Totals",
+        "difficulty": "hard",
+        "original_bad_prompt": "Extract the items, prices, tax, and total from this OCR text of a receipt and give me clean JSON I can import into accounting software.",
+        "bad_output_evidence": "{\"items\": [{\"name\": \"Coffee Beans 1kg\", \"price\": 640}, {\"name\": \"Mlik\", \"price\": 56}], \"tax\": 18, \"total\": 714}\n\nThe OCR text contained 'Milk' misspelled, a 5% tax line, a discount line that was dropped, and a stated total of 695. The model silently produced a different total and a wrong tax value without flagging the mismatch.",
+        "flawed_reasons": [
+            "No schema, types, or required fields for accounting import.",
+            "No instruction on OCR noise, so typos propagate into item names.",
+            "No validation requirement: items, discounts, and tax should reconcile with the stated total.",
+            "No rule for conflicting or missing values, so the model silently invented or recalculated numbers."
+        ],
+        "expected_improvements": [
+            "Define a strict JSON schema with typed fields: items[{name, quantity, unit_price, line_total}], discounts[], tax[{rate, amount}], subtotal, total_stated, currency.",
+            "Instruct the model to copy values exactly as they appear, with a separate 'normalized_name' field for obvious OCR corrections.",
+            "Require a reconciliation check: compute the expected total, compare it with the stated total, and report mismatches in a 'validation' object ({matches: bool, difference}); never overwrite stated values, and use null for unreadable fields."
+        ]
+    },
+    {
+        "code": "P132",
+        "category": "summarization",
+        "title": "Textbook Chapter Summary With No Learner Level",
+        "difficulty": "easy",
+        "original_bad_prompt": "Summarize this chapter for students.",
+        "bad_output_evidence": "This chapter covers many important concepts. Students should learn the main ideas and understand how they apply. It is important to review the chapter carefully before the exam.",
+        "flawed_reasons": [
+            "'Students' is vague: grade level and prior knowledge are not stated.",
+            "No length or structure, so the model produced filler.",
+            "No instruction to include key terms, definitions, or examples.",
+            "No study purpose (exam revision or first introduction)."
+        ],
+        "expected_improvements": [
+            "State the learner level and subject (Class 10 science students revising for boards).",
+            "Require a structure: 5 key concepts with a one-line explanation each, a glossary of key terms, and one worked example.",
+            "Set a limit of 200 words and forbid generic statements such as 'it is important to review'."
+        ]
+    },
+    {
+        "code": "P133",
+        "category": "summarization",
+        "title": "Sales Call Summary for CRM With No Fields",
+        "difficulty": "medium",
+        "original_bad_prompt": "Summarize this sales call transcript for the CRM.",
+        "bad_output_evidence": "The salesperson spoke with the prospect about their needs. The prospect seemed interested in the product. They agreed to talk again.\n\nBudget, decision makers, objections, and the agreed next step are missing, and 'seemed interested' is the model's guess.",
+        "flawed_reasons": [
+            "No CRM field structure, so key sales information is absent.",
+            "No instruction to separate stated facts from the model's interpretation.",
+            "No required details such as budget, timeline, competitors, and next-step date.",
+            "No length limit or format for pasting into a CRM."
+        ],
+        "expected_improvements": [
+            "Define the fields: Prospect Pain Points, Budget, Decision Makers, Timeline, Objections, Competitors Mentioned, Next Step with date and owner.",
+            "Instruct the model to record only what was stated and write 'Not discussed' for missing fields, with no inferred interest levels.",
+            "Set the format: concise bullets, under 120 words in total, and one verbatim customer quote for the top objection."
+        ]
+    },
+    {
+        "code": "P134",
+        "category": "marketing",
+        "title": "Event Tweet With No Details or Constraints",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a tweet about our event.",
+        "bad_output_evidence": "Excited to announce our upcoming event! Don't miss out, it's going to be amazing! #event #excited #fun",
+        "flawed_reasons": [
+            "No event details (name, date, venue, audience, registration link).",
+            "No tone or brand voice.",
+            "No character limit or hashtag guidance.",
+            "No specific CTA."
+        ],
+        "expected_improvements": [
+            "Provide the event name, date, location, target audience, and registration link.",
+            "Define the voice (energetic but professional), a limit of 240 characters, at most 2 hashtags, and 1 emoji.",
+            "Request 3 variants with different hooks (benefit-led, question-led, urgency-led based only on the real deadline)."
+        ]
+    },
+    {
+        "code": "P135",
+        "category": "marketing",
+        "title": "Competitor Comparison Page With Unverified Claims",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a comparison page showing why our tool is better than Trellix.",
+        "bad_output_evidence": "Our tool is 3x faster, 50% cheaper, and has more features than Trellix. Trellix users suffer from frequent downtime and poor support. Switch today for a better experience.\n\nAll numbers and claims about the competitor are fabricated.",
+        "flawed_reasons": [
+            "No verified data about either product, so the model invents figures.",
+            "'Better' is undefined and the comparison criteria are not given.",
+            "Disparaging claims about a named competitor create legal risk.",
+            "No tone, structure, or required evidence sources."
+        ],
+        "expected_improvements": [
+            "Supply a verified feature and pricing comparison with sources and dates, and list the criteria that matter to the target buyer.",
+            "Require a fair, factual tone and forbid unsupported or disparaging claims about the competitor.",
+            "Specify a structure: summary, a feature comparison table, where each product is stronger, and a CTA, with [VERIFY] markers on any claim lacking a supplied source."
+        ]
+    },
+    {
+        "code": "P136",
+        "category": "customer_support",
+        "title": "Outage Apology With No Facts or Commitments",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write an apology message for the outage.",
+        "bad_output_evidence": "We apologize for any inconvenience caused. The issue was due to unforeseen circumstances and has been fixed. We assure you this will never happen again.\n\nThe cause, duration, and impact are not stated, and the guarantee is one the company cannot make.",
+        "flawed_reasons": [
+            "No incident facts (what happened, when, duration, who was affected).",
+            "No instruction about what can and cannot be promised.",
+            "'Any inconvenience' sounds dismissive and gives no empathy.",
+            "No next steps, compensation policy, or channel and audience for the message."
+        ],
+        "expected_improvements": [
+            "Provide the incident facts: start and end times, affected services, and the cause as approved for sharing.",
+            "Forbid guarantees like 'never again' and state the prevention steps actually planned.",
+            "Require a structure: acknowledgment, what happened, current status, what we are doing, how to get help, in under 120 words with a specific tone (calm, accountable)."
+        ]
+    },
+    {
+        "code": "P137",
+        "category": "customer_support",
+        "title": "Cancellation Reply That Uses Dark Patterns",
+        "difficulty": "medium",
+        "original_bad_prompt": "A customer wants to cancel their subscription. Write a reply that makes it hard for them to cancel and convinces them to stay.",
+        "bad_output_evidence": "We're so sad to see you go! Before we can process your request, please complete our 20-question survey and call our retention line between 9 and 10 AM on weekdays. You'll lose all your data forever if you leave.\n\nThe reply obstructs cancellation, adds friction, and makes an exaggerated claim about data loss.",
+        "flawed_reasons": [
+            "Instructs the model to obstruct a legitimate request, which is a dark pattern and may violate consumer-protection rules.",
+            "No cancellation policy or facts are supplied, so the claims (data loss, timing) are invented.",
+            "No tone guidance for a respectful retention attempt.",
+            "No required clear cancellation path or confirmation."
+        ],
+        "expected_improvements": [
+            "Reframe the goal: process the cancellation clearly, with at most one optional, honest retention offer.",
+            "Provide the real policy (cancellation steps, effective date, data retention period, any approved offer) and forbid misleading or pressure statements.",
+            "Require a structure: confirmation of the request, the exact steps or confirmation of cancellation, what happens to data and billing, one optional offer, and a courteous close in under 100 words."
+        ]
+    },
+    {
+        "code": "P138",
+        "category": "technical_writing",
+        "title": "Password Reset Instructions With Missing Context",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write instructions for users to reset their password.",
+        "bad_output_evidence": "Go to the login page and click the reset link. Enter your information. Follow the instructions you receive. Your password will be reset.\n\nThe steps do not name the buttons, the email requirement, link expiry, or password rules.",
+        "flawed_reasons": [
+            "No product or UI details, so the steps are generic.",
+            "No audience or channel (help center article, in-app tooltip) is specified.",
+            "No mention of requirements such as link expiry and password policy.",
+            "No troubleshooting for common failures (email not received)."
+        ],
+        "expected_improvements": [
+            "Provide the actual UI labels, the flow (email link, 30-minute expiry), and the password rules.",
+            "Specify the audience (non-technical customers) and the format: numbered steps, each one action, in under 150 words.",
+            "Add a short troubleshooting section for the email not arriving (spam folder, correct address, resend) and a support contact."
+        ]
+    },
+    {
+        "code": "P139",
+        "category": "technical_writing",
+        "title": "Incident Postmortem With Blame and No Timeline",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a postmortem for yesterday's production outage.",
+        "bad_output_evidence": "Yesterday the site went down because a developer pushed bad code. The team fixed it eventually. We should be more careful in the future.\n\nThe postmortem assigns blame, has no timeline, root cause analysis, or concrete action items.",
+        "flawed_reasons": [
+            "No incident data (timeline, metrics, logs, impact) is supplied, so the model fills gaps with guesses.",
+            "No blameless-postmortem guidance, so an individual is blamed.",
+            "No required structure (impact, timeline, root cause, detection, resolution, actions).",
+            "'Be more careful' is not an actionable item, and there is no audience or severity level."
+        ],
+        "expected_improvements": [
+            "Provide the incident timeline, the impact figures, the logs or alerts, and the audience (engineering and leadership).",
+            "Require a blameless format focused on systems and processes, with sections: Summary, Impact, Timeline, Root Cause, Detection, Resolution, What Went Well and Poorly, Action Items.",
+            "Require action items with an owner, due date, and measurable outcome, and 'Unknown - needs investigation' for facts that were not supplied."
+        ]
+    },
+    {
+        "code": "P140",
+        "category": "hallucination_guard",
+        "title": "Exact Quote Requested From Memory",
+        "difficulty": "easy",
+        "original_bad_prompt": "Give me the exact quote Einstein said about the definition of insanity, with the source.",
+        "bad_output_evidence": "Einstein said: 'Insanity is doing the same thing over and over again and expecting different results.' Source: a 1946 speech at Princeton University.\n\nThe attribution is widely considered to be false, and the source was invented.",
+        "flawed_reasons": [
+            "Asks for an exact quote and source from memory, which encourages confident misattribution.",
+            "No instruction to say when attribution is uncertain or disputed.",
+            "No requirement to cite a verifiable primary source.",
+            "No fallback if the quote cannot be confirmed."
+        ],
+        "expected_improvements": [
+            "Ask whether there is a verified source for the quote and its attribution, rather than assuming one exists.",
+            "Instruct the model to state clearly when an attribution is disputed or unverified, and never invent a speech, date, or publication.",
+            "Require the answer to separate verified facts from common claims, and to suggest reliable quote-verification sources."
+        ]
+    },
+    {
+        "code": "P141",
+        "category": "hallucination_guard",
+        "title": "Presentation Statistics With No Sources",
+        "difficulty": "medium",
+        "original_bad_prompt": "Give me 5 impressive statistics about remote work productivity for my presentation, with sources.",
+        "bad_output_evidence": "1. Remote workers are 47% more productive (Stanford, 2021).\n2. Companies save $11,000 per remote employee annually (Global Workplace Analytics).\n3. 83% of employees prefer hybrid work (Gartner, 2022).\n\nThe figures are blended from memory, may be misquoted, and have no links.",
+        "flawed_reasons": [
+            "'Impressive' encourages selecting dramatic figures over accurate ones.",
+            "No supplied source material, so numbers and citations are generated from memory.",
+            "No instruction to give the original study details or to flag uncertainty.",
+            "No negative constraint against fabricated or rounded statistics."
+        ],
+        "expected_improvements": [
+            "Ask for balanced, well-supported findings, and provide source documents or enable search.",
+            "Require each statistic to include the study name, year, sample or method, and the exact figure as published, using only supplied sources.",
+            "Add the fallback: if a statistic cannot be verified from the sources, write 'unverified' and omit it, and note any conflicting findings."
+        ]
+    },
+    {
+        "code": "P142",
+        "category": "database",
+        "title": "Row Count Query With No Table or Filter",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a query to count how many users we have.",
+        "bad_output_evidence": "SELECT COUNT(*) FROM users;\n\nThe count includes deleted and test accounts, 'users' may mean registered or active users, and the table name was assumed.",
+        "flawed_reasons": [
+            "No schema, so the table and status columns are guessed.",
+            "'Users' is ambiguous (registered, verified, active in the last 30 days).",
+            "No filters for deleted or test accounts.",
+            "No dialect or output alias."
+        ],
+        "expected_improvements": [
+            "Provide the table definition and state the SQL dialect.",
+            "Define the metric (users with is_deleted = false, is_test = false, and a login in the last 30 days).",
+            "Request a single query with a clear column alias, in a code block with no explanation."
+        ]
+    },
+    {
+        "code": "P143",
+        "category": "database",
+        "title": "Oracle to PostgreSQL Conversion With No Context",
+        "difficulty": "medium",
+        "original_bad_prompt": "Convert this Oracle SQL to PostgreSQL.",
+        "bad_output_evidence": "SELECT NVL(salary, 0), SYSDATE FROM employees WHERE ROWNUM <= 10;\n\nThe model left Oracle-specific NVL, SYSDATE, and ROWNUM unchanged and simply renamed nothing, so the query fails on PostgreSQL.",
+        "flawed_reasons": [
+            "No PostgreSQL version, so feature availability is unknown.",
+            "No instruction to list the Oracle-specific constructs converted.",
+            "No expectation for semantic equivalence checks (NULL handling, date types, sequences).",
+            "No requirement for testing guidance or flagging constructs with no direct equivalent."
+        ],
+        "expected_improvements": [
+            "State the target version (PostgreSQL 15) and provide the full SQL including DDL if relevant.",
+            "Require every Oracle-specific construct (NVL, SYSDATE, ROWNUM, DUAL, sequences) to be converted, with a table mapping original to converted syntax.",
+            "Require flagging semantic differences (empty string vs NULL, date precision) and constructs without a direct equivalent, plus a verification query to compare results."
+        ]
+    },
+    {
+        "code": "P144",
+        "category": "localization",
+        "title": "Date and Time Strings Not Adapted to Locale",
+        "difficulty": "easy",
+        "original_bad_prompt": "Make our app's date and time messages work for users in France.",
+        "bad_output_evidence": "Your appointment is on 03/04/2026 at 3:30 PM.\n\nThe format is unchanged (month-first and 12-hour clock), which French users would read as 3 April or 4 March incorrectly.",
+        "flawed_reasons": [
+            "No target locale code (fr-FR) or formatting rules.",
+            "No instruction on date order, 24-hour clock, or month names.",
+            "No requirement to use locale libraries instead of hardcoded strings.",
+            "No examples or the original strings to adapt."
+        ],
+        "expected_improvements": [
+            "Specify the locale (fr-FR), the formats (DD/MM/YYYY and 24-hour time), and the language of the surrounding text.",
+            "Recommend using the platform's locale-aware formatting API (Intl.DateTimeFormat) rather than hand-built strings.",
+            "Request before and after examples for 3 sample strings, including a written-month format ('3 avril 2026 \u00e0 15:30')."
+        ]
+    },
+    {
+        "code": "P145",
+        "category": "localization",
+        "title": "Multi-Region Campaign Localization Ignoring Cultural Fit",
+        "difficulty": "hard",
+        "original_bad_prompt": "Take our US Thanksgiving sale campaign (turkey emojis, 'Black Friday doorbusters', a thumbs-up hand gesture, and green and white colors) and localize it for India, Saudi Arabia, and Japan. Keep it the same everywhere so it is consistent.",
+        "bad_output_evidence": "India: Happy Thanksgiving! Black Friday doorbusters on now! \ud83e\udd83\ud83d\udc4d\nSaudi Arabia: Happy Thanksgiving! Black Friday doorbusters on now! \ud83e\udd83\ud83d\udc4d\nJapan: Happy Thanksgiving! Black Friday doorbusters on now! \ud83e\udd83\ud83d\udc4d\n\nThe copy is merely translated or unchanged, ignoring that Thanksgiving is not celebrated in these regions, the thumbs-up gesture can be offensive in parts of the Middle East, and the pork-adjacent or turkey imagery may not suit all audiences.",
+        "flawed_reasons": [
+            "'Keep it the same everywhere' contradicts true localization and produces culturally irrelevant content.",
+            "No instruction to assess holidays, gestures, colors, and imagery for each market.",
+            "No regional commercial context (local sale events, payment habits, languages, business days).",
+            "No review or sensitivity flags, and no output structure per market."
+        ],
+        "expected_improvements": [
+            "Reframe the goal as 'consistent brand message, locally relevant execution', and list the sale dates and offers per market.",
+            "Require a cultural audit for each market: replacement of the Thanksgiving theme with local events (e.g. Diwali sales in India, Ramadan or White Friday in Saudi Arabia, a seasonal sale in Japan), and review of emojis, gestures, colors, and imagery.",
+            "Specify output per market as a table: Headline, Body, Visual and Emoji Guidance, Cultural Notes, Items Flagged for Native-Speaker Review, with languages and scripts stated (Hindi/English, Arabic, Japanese)."
+        ]
+    },
+    {
+        "code": "P146",
+        "category": "brainstorming",
+        "title": "Gift Ideas With No Recipient or Budget",
+        "difficulty": "easy",
+        "original_bad_prompt": "What should I get as a gift?",
+        "bad_output_evidence": "You could get flowers, chocolates, a gift card, a watch, or a book. A personalized item is also a nice choice.",
+        "flawed_reasons": [
+            "No recipient details (relationship, age, interests).",
+            "No occasion or budget.",
+            "Generic options that fit no one in particular.",
+            "No format or ranking."
+        ],
+        "expected_improvements": [
+            "State the recipient, relationship, interests, the occasion, and the budget range.",
+            "Ask for ideas in 3 categories (practical, experiential, sentimental) and exclude items already ruled out.",
+            "Require a table of 6 options with price estimate, why it fits, and where to buy in India."
+        ]
+    },
+    {
+        "code": "P147",
+        "category": "classification",
+        "title": "News Topic Tagging With Single Label Only",
+        "difficulty": "medium",
+        "original_bad_prompt": "Classify these news headlines by topic.",
+        "bad_output_evidence": "Headline 1: Business\nHeadline 2: Politics\nHeadline 3: Other\n\nHeadline 1 ('Central bank cuts rates ahead of elections') is both business and politics, and 'Other' was used for a science story because no topic list was given.",
+        "flawed_reasons": [
+            "No topic taxonomy, so labels are inconsistent.",
+            "Single-label output cannot represent multi-topic stories.",
+            "No guidance for ambiguous or low-information headlines.",
+            "No machine-readable output."
+        ],
+        "expected_improvements": [
+            "Provide the taxonomy (Politics, Business, Science, Health, Sports, Entertainment, World) with brief definitions.",
+            "Allow up to 2 topics per headline, ordered by relevance, with a confidence score.",
+            "Require JSON: {id, topics: [], confidence}, with 'uncategorized' only when no topic applies, and no text outside the JSON."
+        ]
+    },
+    {
+        "code": "P148",
+        "category": "classification",
+        "title": "PII Detection That Repeats the Sensitive Data",
+        "difficulty": "hard",
+        "original_bad_prompt": "Check these customer messages and tell me which ones contain personal information, and show me what it is.",
+        "bad_output_evidence": "Message 2 contains PII: name Rahul Verma, phone 98765 43210, and Aadhaar 1234 5678 9012.\nMessage 5 contains PII: card number 4111 1111 1111 1111.\n\nThe output reproduces the sensitive data in full, misses an email address written as 'rahul at gmail dot com', and has no consistent categories.",
+        "flawed_reasons": [
+            "Asks to 'show' the PII, so the output spreads sensitive data into logs and reports.",
+            "No PII taxonomy (identifiers, financial, government IDs, contact details) or sensitivity levels.",
+            "No handling for obfuscated PII (spelled-out emails, spaced digits) or false positives (order numbers).",
+            "No structured output, and no rule for how detected values must be represented."
+        ],
+        "expected_improvements": [
+            "Define the PII categories and severity (government ID, payment card, contact detail, name) and give examples of obfuscated forms to catch.",
+            "Require masked output only (e.g. last 2 characters or a [REDACTED:type] token) and forbid reproducing any detected value in full.",
+            "Require JSON per message: {id, contains_pii, findings:[{type, start_offset, end_offset, severity}], confidence}, with a rule that unclear cases are marked 'needs_review' instead of guessed."
+        ]
+    },
+    {
+        "code": "P149",
+        "category": "legal_finance",
+        "title": "GDPR Compliance Checklist With No Business Context",
+        "difficulty": "medium",
+        "original_bad_prompt": "Give me a GDPR compliance checklist.",
+        "bad_output_evidence": "1. Get consent. 2. Have a privacy policy. 3. Protect data. 4. Respond to data requests. 5. Report breaches.\n\nThe checklist is too generic to act on and does not reflect the company's data or role under GDPR.",
+        "flawed_reasons": [
+            "No business context (what data, where users are, controller or processor role).",
+            "No indication of the legal basis used for processing.",
+            "Items lack deadlines, owners, and evidence needed to show compliance.",
+            "No disclaimer that this is not legal advice."
+        ],
+        "expected_improvements": [
+            "Describe the business: a SaaS company in India with EU customers, the data collected, the vendors involved, and the controller or processor role.",
+            "Require a table: Requirement, GDPR Article, What to Do, Evidence to Keep, Owner, Priority.",
+            "Cover specifics (lawful basis, DPA with processors, data subject request timelines, 72-hour breach notification, cross-border transfer mechanism), and end with a note to review the plan with qualified counsel."
+        ]
+    },
+    {
+        "code": "P150",
+        "category": "legal_finance",
+        "title": "Crypto Investment Pitch With Guaranteed Returns",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write an investor pitch for our new crypto token that tells people they'll get guaranteed 30% monthly returns with no risk. Make it sound official and trustworthy so people invest quickly.",
+        "bad_output_evidence": "Introducing NovaCoin: the secure, regulator-approved investment with guaranteed 30% monthly returns and zero risk. Join thousands of satisfied investors today. Limited tokens available, invest now and watch your wealth grow!\n\nThe pitch makes false guarantees, invents regulatory approval and social proof, and uses scarcity pressure.",
+        "flawed_reasons": [
+            "Instructs the model to promise guaranteed returns and 'no risk', which is deceptive and typically unlawful in securities and advertising rules.",
+            "'Sound official' leads the model to fabricate regulatory approval and customer numbers.",
+            "No real project facts, token economics, or risk disclosures are supplied.",
+            "No jurisdiction or compliance framework, and urgency tactics push people to invest without due diligence."
+        ],
+        "expected_improvements": [
+            "Reframe the task as a factual, compliant project overview, and supply verified details (team, product, tokenomics, legal status, jurisdiction).",
+            "Forbid guaranteed or implied returns, risk-free claims, invented approvals or testimonials, and pressure tactics; require prominent risk disclosures (loss of capital, volatility, regulatory uncertainty).",
+            "Require a structure: Overview, How It Works, Token Details, Risks, Legal and Regulatory Status, Disclaimer, with [VERIFY] markers on every factual claim and a note that the material must be reviewed by legal counsel before distribution."
         ]
     }
 ]
