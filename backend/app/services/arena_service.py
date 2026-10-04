@@ -628,11 +628,18 @@ class ArenaService:
                 "timestamp": ev.created_at.isoformat() # Phase 0 / Defect #6: ISO-8601
             })
         flagged_list = [{"team_id": tid, "team_name": next((t.name for t in teams if t.id == tid), "Unknown"), "violation_count": count} for tid, count in flagged_team_map.items()]
+        total_submissions_count = len(sub_list)
+        evaluated_submissions_count = sum(1 for s in sub_list if s.get("is_evaluated"))
+        pending_evaluations_count = total_submissions_count - evaluated_submissions_count
+
         metrics_dict = {
             "total_teams": total_teams,
             "waiting_teams": max(waiting_count, 0),
             "active_teams": active_count,
             "completed_teams": completed_count,
+            "total_submissions": total_submissions_count,
+            "evaluated_submissions": evaluated_submissions_count,
+            "pending_evaluations": pending_evaluations_count,
             "flagged_teams_count": len(flagged_team_map),
             "flagged_teams": len(flagged_team_map),
             "flagged_teams_list": flagged_list

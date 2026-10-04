@@ -178,23 +178,23 @@ export async function renderJudgeDashboard() {
       <div class="judge-metrics-grid">
         <div class="glass-card" style="padding:10px 14px; text-align:center;">
           <div class="mono-text" style="font-size:10.5px; color:var(--muted);">TEAMS</div>
-          <div class="heading-md" style="color:var(--cyan); margin-top:2px;">${metrics.total_teams}</div>
+          <div class="heading-md metric-val-teams" style="color:var(--cyan); margin-top:2px;">${metrics.total_teams}</div>
         </div>
         <div class="glass-card" style="padding:10px 14px; text-align:center;">
           <div class="mono-text" style="font-size:10.5px; color:var(--muted);">TOTAL SUBMISSIONS</div>
-          <div class="heading-md" style="color:var(--text); margin-top:2px;">${metrics.total_submissions}</div>
+          <div class="heading-md metric-val-total" style="color:var(--text); margin-top:2px;">${metrics.total_submissions}</div>
         </div>
         <div class="glass-card" style="padding:10px 14px; text-align:center;">
           <div class="mono-text" style="font-size:10.5px; color:var(--muted);">EVALUATED</div>
-          <div class="heading-md" style="color:var(--green); margin-top:2px;">${metrics.evaluated_submissions}</div>
+          <div class="heading-md metric-val-eval" style="color:var(--green); margin-top:2px;">${metrics.evaluated_submissions}</div>
         </div>
         <div class="glass-card" style="padding:10px 14px; text-align:center;">
           <div class="mono-text" style="font-size:10.5px; color:var(--muted);">PENDING</div>
-          <div class="heading-md" style="color:var(--amber); margin-top:2px;">${metrics.pending_evaluations}</div>
+          <div class="heading-md metric-val-pending" style="color:var(--amber); margin-top:2px;">${metrics.pending_evaluations}</div>
         </div>
         <div class="glass-card" style="padding:10px 14px; text-align:center;">
           <div class="mono-text" style="font-size:10.5px; color:var(--muted);">FLAGGED TEAMS</div>
-          <div class="heading-md" style="color:${metrics.flagged_teams_count > 0 ? 'var(--red)' : 'var(--text)'}; margin-top:2px;">
+          <div class="heading-md metric-val-flagged" style="color:${metrics.flagged_teams_count > 0 ? 'var(--red)' : 'var(--text)'}; margin-top:2px;">
             ${metrics.flagged_teams_count}
           </div>
         </div>
@@ -906,14 +906,17 @@ function updateQueueUI() {
   };
 
   // 1. Update Metrics
-  const mBoxes = document.querySelectorAll('.glass-card .heading-md');
-  if (mBoxes.length >= 5) {
-    mBoxes[0].textContent = metrics.total_teams;
-    mBoxes[1].textContent = metrics.total_submissions;
-    mBoxes[2].textContent = metrics.evaluated_submissions;
-    mBoxes[3].textContent = metrics.pending_evaluations;
-    mBoxes[4].textContent = metrics.flagged_teams_count;
-  }
+  const elTeams = document.querySelector('.metric-val-teams');
+  const elTotal = document.querySelector('.metric-val-total');
+  const elEval = document.querySelector('.metric-val-eval');
+  const elPending = document.querySelector('.metric-val-pending');
+  const elFlagged = document.querySelector('.metric-val-flagged');
+
+  if (elTeams) elTeams.textContent = metrics.total_teams;
+  if (elTotal) elTotal.textContent = metrics.total_submissions;
+  if (elEval) elEval.textContent = metrics.evaluated_submissions;
+  if (elPending) elPending.textContent = metrics.pending_evaluations;
+  if (elFlagged) elFlagged.textContent = metrics.flagged_teams_count;
 
   // 2. Update Queue Header Count
   const eyebrow = document.querySelector('.queue-eyebrow');
