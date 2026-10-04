@@ -486,6 +486,88 @@ class ArenaService:
             db.add(sub)
             db.flush()
 
+            # Compute instant Evaluation Engine scores (5 dimensions: 0, 10, 20 marks each)
+            def _analyze_text(txt):
+                if not txt or len(txt.strip()) < 8:
+                    return [0, 0, 0, 0, 0]
+                lower = txt.lower()
+                words = len(txt.split())
+                lines = len([l for l in txt.split('\n') if l.strip()])
+                import re
+                
+                # Clarity
+                clarity = 0
+                if re.search(r'\b(write|draft|extract|classify|summarize|summarise|generate|return|list|convert|translate|identify|analyze|analyse|produce|create|answer|rewrite|turn|respond|reply|explain|compare|decide|output)\b', lower):
+                    clarity += 0.4
+                clarity += 0.3 if words >= 30 else (0.18 if words >= 14 else 0.06)
+                if lines >= 2 or len(re.findall(r'[.!?](\s|$)', txt)) >= 2:
+                    clarity += 0.15
+                if re.search(r'\b(so that|in order to|goal|objective|purpose|because|to help|used for|will be used)\b', lower):
+                    clarity += 0.15
+
+                # Specificity
+                specificity = 0
+                if re.search(r'\d', txt):
+                    specificity += 0.3
+                if re.search(r'\b(exactly|at most|at least|no more than|no fewer than|maximum|minimum|under|between|within|up to)\b', lower):
+                    specificity += 0.25
+                if re.search(r'\b(e\.g\.|for example|such as|like:)\b|"[^"]{3,}"', txt):
+                    specificity += 0.25
+                if re.search(r'^\s*([-*•]|\d+[.)])\s+', txt, re.M):
+                    specificity += 0.2
+
+                # Context
+                context = 0
+                if re.search(r'\b(you are|act as|your role|as an? [a-z-]+ (?:expert|analyst|engineer|assistant|editor|writer|strategist|agent|reviewer))\b', lower):
+                    context += 0.4
+                if re.search(r'\b(audience|reader|readers|customer|customers|user|users|manager|managers|student|students|beginner|team)\b', lower):
+                    context += 0.3
+                if re.search(r'\b(context|background|scenario|given|input|the following|below|based on|using only)\b', lower):
+                    context += 0.3
+
+                # Output format
+                fmt = 0
+                if re.search(r'\b(json|xml|yaml|csv|markdown|table|schema|sql|list|bullet|bullets|key|keys|value|values|object|array|string|number|boolean)\b', lower):
+                    fmt += 0.35
+                if re.search(r'\b(field|fields|column|columns|heading|headings|section|sections|paragraph|paragraphs|response|structure|structured|template)\b', lower):
+                    fmt += 0.35
+                if re.search(r'\b(format|form|layout|pattern|delimiter|delimiters|wrapper|valid|strictly|only|no preamble|no conversational|no extra|return only|output only|respond only)\b', lower):
+                    fmt += 0.35
+                if re.search(r'[:{}\[\]```\-*#]', txt):
+                    fmt += 0.25
+
+                # Constraints
+                constraints = 0
+                if re.search(r'\b(must|never|do not|don\'t|cannot|cant|avoid|only|always|forbid|forbidden|prohibit|prohibited|ensure|restrict|restricted|prevent)\b', lower):
+                    constraints += 0.35
+                if re.search(r'\b(if|when|unless|otherwise|fallback|null|n\/a|unknown|missing|invalid|empty|unclear|ambiguous|edge case|error|exception|exceptionally)\b', lower):
+                    constraints += 0.35
+                if re.search(r'\b(tone|style|length|word|words|character|characters|sentence|sentences|limit|limits|max|maximum|min|minimum|rule|rules|guideline|guidelines|guardrail|guardrails|do not hallucinate|no hallucination|factual|fact-based)\b', lower):
+                    constraints += 0.35
+
+                def map_s(v):
+                    v_cap = min(1.0, max(0.0, v))
+                    return 20.0 if v_cap >= 0.65 else (10.0 if v_cap >= 0.25 else 0.0)
+
+                return [map_s(clarity), map_s(specificity), map_s(context), map_s(fmt), map_s(constraints)]
+
+            scores = _analyze_text(normalized_prompt)
+            tot = sum(scores)
+
+            from app.models.arena_scoring import ArenaFinalScore
+            final_eval = ArenaFinalScore(
+                id=str(uuid.uuid4()),
+                submission_id=sub.id,
+                clarity_score=scores[0],
+                specificity_score=scores[1],
+                context_score=scores[2],
+                output_format_score=scores[3],
+                constraints_score=scores[4],
+                total=round(tot, 2),
+                source="engine"
+            )
+            db.add(final_eval)
+
             session.current_challenge_index += 1
             is_now_completed = session.current_challenge_index > conf.challenges_count
 
