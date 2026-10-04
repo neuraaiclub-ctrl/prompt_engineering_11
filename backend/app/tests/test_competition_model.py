@@ -220,6 +220,9 @@ def test_five_characteristic_scoring_model_0_10_20():
         assert data["success"] is True
         assert data["total_score"] == 80.0
 
+        # Release results so my-results endpoint returns scores
+        client.post("/api/v1/arena/release-results", json={"confirm": True}, headers={"Authorization": f"Bearer {judge_token}"})
+
         # Check participant score dashboard endpoint
         dash_resp = client.get("/api/v1/arena/my-results", headers={"Authorization": f"Bearer {token}"})
         assert dash_resp.status_code == 200
@@ -352,13 +355,13 @@ def test_eliminated_team_excluded_from_podium():
     """Eliminated team cannot occupy Rank 1, 2, or 3 even if its raw score was higher."""
     db = SessionLocal()
     try:
-        judge_token = get_judge_token()
-        client.post("/api/v1/arena/start", json={"confirm": True}, headers={"Authorization": f"Bearer {judge_token}"})
-
         # Team High (Eliminated)
         team_high, _, token_high = create_competition_team(db, f"High Cheater_{int(time.time()*1000)}", f"high_{int(time.time()*1000)}@neura.io", "HC-9090", ["H1", "H2"])
         # Team Honest (Active)
         team_honest, _, token_honest = create_competition_team(db, f"Honest Victor_{int(time.time()*1000)}", f"honest_{int(time.time()*1000)}@neura.io", "HV-8080", ["V1", "V2"])
+
+        judge_token = get_judge_token()
+        client.post("/api/v1/arena/start", json={"confirm": True}, headers={"Authorization": f"Bearer {judge_token}"})
 
         # Submit challenges
         client.post("/api/v1/arena/submit-challenge", json={"prompt_text": "High score prompt submission."}, headers={"Authorization": f"Bearer {token_high}"})

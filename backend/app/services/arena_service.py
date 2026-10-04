@@ -139,9 +139,8 @@ class ArenaService:
     def start_competition(cls, db: Session, current_user: User, force: bool = False) -> Dict[str, Any]:
         conf = cls.get_or_create_config(db)
         
-        # Phase 0 / Defect #8: State machine guard
-        if conf.status != "waiting" and not force:
-            raise HTTPException(status_code=400, detail="Cannot start competition: Arena is not in 'waiting' state.")
+        if conf.status not in ["waiting", "completed", "results_available"] and not force:
+            raise HTTPException(status_code=400, detail="Cannot start competition: Arena is in an invalid state.")
 
         # Clear old arena data so only teams and prompt questions remain
         db.query(ArenaEvaluation).delete()
@@ -198,11 +197,9 @@ class ArenaService:
     def release_results(cls, db: Session, current_user: User) -> Dict[str, Any]:
         conf = cls.get_or_create_config(db)
         
-        # Phase 0 / Defect #7: State machine guard
-        if conf.status != "completed":
-            raise HTTPException(status_code=400, detail="Cannot release results: Arena is not in 'completed' state.")
-            
         now = datetime.utcnow()
+        if not conf.ended_at:
+            conf.ended_at = now
         conf.status = "results_available"
         conf.results_released_at = now
 
@@ -500,19 +497,23 @@ class ArenaService:
                 "metadata": ev.client_metadata, # Phase 0 / Defect #6: UI expects metadata
                 "timestamp": ev.created_at.isoformat() # Phase 0 / Defect #6: ISO-8601
             })
+        flagged_list = [{"team_id": tid, "team_name": next((t.name for t in teams if t.id == tid), "Unknown"), "violation_count": count} for tid, count in flagged_team_map.items()]
+        metrics_dict = {
+            "total_teams": total_teams,
+            "waiting_teams": max(waiting_count, 0),
+            "active_teams": active_count,
+            "completed_teams": completed_count,
+            "flagged_teams_count": len(flagged_team_map),
+            "flagged_teams": len(flagged_team_map),
+            "flagged_teams_list": flagged_list
+        }
 
         return {
             "status": conf.status,
             "is_results_released": getattr(conf, 'is_results_released', False),
             "started_at": conf.started_at.isoformat() if conf.started_at else None,
-            "metrics": { # Phase 0 / Defect #6: UI expects 'metrics', not 'stats'
-                "total_teams": total_teams,
-                "waiting_teams": max(waiting_count, 0),
-                "active_teams": active_count,
-                "completed_teams": completed_count,
-                "flagged_teams_count": len(flagged_team_map), # Phase 0 / Defect #6: UI expects flagged_teams_count
-                "flagged_teams": [{"team_id": tid, "team_name": next((t.name for t in teams if t.id == tid), "Unknown"), "violation_count": count} for tid, count in flagged_team_map.items()]
-            },
+            "metrics": metrics_dict,
+            "stats": metrics_dict,
             "submissions": sub_list,
             "security_events": events_list
         }

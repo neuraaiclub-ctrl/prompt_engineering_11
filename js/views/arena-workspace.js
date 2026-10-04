@@ -639,12 +639,17 @@ async function renderResults(container) {
   if (!(res.success && res.challenges && res.challenges.length)) {
     const rep = await store.getArenaReport();
     if (!rep.success) {
-      return panel(container, {
+      panel(container, {
         tone: 'violet',
         title: 'Scores are being finalised',
         body: 'The panel is finishing its scoring. This page updates on its own.',
         actions: '<button class="btn btn-primary" id="btnRecheck">Check now</button>'
-      }), document.getElementById('btnRecheck')?.addEventListener('click', () => { renderedKey = null; refresh(container); });
+      });
+      document.getElementById('btnRecheck')?.addEventListener('click', async () => {
+        renderedKey = null;
+        await refresh(container);
+      });
+      return;
     }
     const r = rep.report || rep;
     container.innerHTML = `

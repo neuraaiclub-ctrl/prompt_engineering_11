@@ -32,6 +32,8 @@ def seed_initial_data():
         # 1. Seed 1 Admin Account (Strictly isolated admin account)
         admin_accounts = [
             (settings.ADMIN1_NAME, settings.ADMIN1_EMAIL, settings.ADMIN1_PASSWORD),
+            (settings.ADMIN2_NAME, settings.ADMIN2_EMAIL, settings.ADMIN2_PASSWORD),
+            (settings.ADMIN3_NAME, settings.ADMIN3_EMAIL, settings.ADMIN3_PASSWORD),
         ]
         for name, email, raw_pwd in admin_accounts:
             existing = db.query(User).filter(User.email == email.lower()).first()
