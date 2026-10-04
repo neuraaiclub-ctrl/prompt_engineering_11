@@ -249,6 +249,32 @@ body.focus-mode .ar-center { min-height: 100vh; }
 /* Preview-mode flag */
 .demo-flag { position: fixed; left: 16px; bottom: 16px; z-index: 950; padding: 5px 12px; font-size: 12px; color: var(--amber); border: 1px solid rgba(255, 194, 92, 0.4); border-radius: 999px; background: rgba(8, 10, 24, 0.85); }
 
+/* -------------------- Anti-Screenshot & Screen Guard -------------------- */
+.ar-no-screenshot, .ar-live, .ar-case, #flawedPromptBox {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.ar-screenshot-protected {
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+body.screenshot-blurred .ar-screenshot-protected,
+body.screenshot-blurred .ar-live {
+  filter: blur(25px) opacity(0.05) grayscale(100%) !important;
+  pointer-events: none !important;
+}
+
+@media print {
+  html, body, #page-arena-workspace, .ar-live, .ar-case, #flawedPromptBox {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+}
+
 /* -------------------- Responsive -------------------- */
 @media (max-width: 1240px) {
   .ar-editor-body.has-radar { grid-template-columns: minmax(0, 1fr); }

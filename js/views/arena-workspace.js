@@ -746,21 +746,95 @@ function isLiveNow() {
 function setupAntiCheatListeners() {
   const flag = (type, message) => {
     securityViolationCount++;
-    store.logSecurityEvent(type, { challenge_index: currentChallengeData.challenge_index, violation_count: securityViolationCount });
+    store.logSecurityEvent(type, { challenge_index: currentChallengeData?.challenge_index || 0, violation_count: securityViolationCount });
     triggerSecurityAlert(message);
+  };
+
+  const triggerBlurGuard = (reason) => {
+    document.body.classList.add('screenshot-blurred');
+    // Clear clipboard content if possible
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText('').catch(() => {});
+    }
+    flag('SCREENSHOT_ATTEMPT', reason || 'Screenshot/Screen recording attempt detected.');
+    setTimeout(() => {
+      document.body.classList.remove('screenshot-blurred');
+    }, 2000);
   };
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && isLiveNow()) flag('TAB_SWITCH', 'You switched tabs.');
   });
+
   window.addEventListener('blur', () => {
-    if (isLiveNow()) flag('WINDOW_BLUR', 'The arena window lost focus.');
+    if (isLiveNow()) {
+      document.body.classList.add('screenshot-blurred');
+      flag('WINDOW_BLUR', 'The arena window lost focus / screen capture detected.');
+    }
   });
+
+  window.addEventListener('focus', () => {
+    setTimeout(() => {
+      document.body.classList.remove('screenshot-blurred');
+    }, 300);
+  });
+
   document.addEventListener('fullscreenchange', () => {
     if (!document.fullscreenElement && isLiveNow()) flag('FULLSCREEN_EXIT', 'You left fullscreen.');
   });
+
   document.addEventListener('contextmenu', (e) => {
     if (isLiveNow() && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
+  });
+
+  // Intercept screenshot and print key combinations
+  window.addEventListener('keyup', (e) => {
+    if (!isLiveNow()) return;
+    if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
+      e.preventDefault();
+      triggerBlurGuard('PrintScreen key pressed.');
+    }
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (!isLiveNow()) return;
+
+    // PrintScreen
+    if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
+      e.preventDefault();
+      triggerBlurGuard('PrintScreen shortcut key combination pressed.');
+      return;
+    }
+
+    // Windows Snipping Tool: Win + Shift + S
+    if (e.key === 'S' || e.key === 's') {
+      if (e.shiftKey && (e.metaKey || e.osKey)) {
+        e.preventDefault();
+        triggerBlurGuard('Snipping Tool shortcut (Win+Shift+S) detected.');
+        return;
+      }
+    }
+
+    // Mac Screenshots: Cmd + Shift + 3 / 4 / 5
+    if (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) {
+      e.preventDefault();
+      triggerBlurGuard('macOS Screenshot shortcut (Cmd+Shift+' + e.key + ') detected.');
+      return;
+    }
+
+    // Save Page / Print Page: Ctrl+S, Cmd+S, Ctrl+P, Cmd+P
+    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.key === 'p' || e.key === 'P')) {
+      e.preventDefault();
+      triggerBlurGuard('Saving/Printing disabled during challenge.');
+      return;
+    }
+
+    // Developer Tools F12 or Ctrl+Shift+I / Cmd+Option+I
+    if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'C' || e.key === 'c'))) {
+      e.preventDefault();
+      flag('DEV_TOOLS_ATTEMPT', 'Developer Tools shortcut detected.');
+      return;
+    }
   });
 }
 
