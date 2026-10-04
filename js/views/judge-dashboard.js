@@ -28,6 +28,8 @@ if (!window.openTeamAccordionIds) {
 }
 window.toggleTeamAccordion = (teamId) => {
   const tIdStr = String(teamId);
+  const accordionEl = document.querySelector(`.team-accordion[data-team-id="${tIdStr}"]`);
+  
   if (window.openTeamAccordionIds.has(tIdStr)) {
     window.openTeamAccordionIds.delete(tIdStr);
     if (selectedArenaSubId && judgeOverviewCache?.submissions) {
@@ -39,7 +41,28 @@ window.toggleTeamAccordion = (teamId) => {
   } else {
     window.openTeamAccordionIds.add(tIdStr);
   }
-  renderJudgeDashboard();
+
+  // Fast localized DOM toggle if element exists
+  if (accordionEl) {
+    const isOpen = window.openTeamAccordionIds.has(tIdStr);
+    const contentEl = accordionEl.querySelector('.accordion-content');
+    const toggleBtn = accordionEl.querySelector('.accordion-toggle-btn');
+    if (contentEl) {
+      if (isOpen) {
+        contentEl.classList.add('open');
+      } else {
+        contentEl.classList.remove('open');
+      }
+    }
+    if (toggleBtn) {
+      toggleBtn.style.background = isOpen ? 'rgba(0,243,255,0.12)' : 'rgba(255,255,255,0.04)';
+      toggleBtn.style.color = isOpen ? 'var(--cyan)' : 'var(--muted)';
+      toggleBtn.style.borderColor = isOpen ? 'rgba(0,243,255,0.35)' : 'var(--line-subtle)';
+      toggleBtn.innerHTML = `<span>${isOpen ? 'COLLAPSE' : 'EXPAND'}</span><span style="font-size:10px;">${isOpen ? '▲' : '▼'}</span>`;
+    }
+  } else {
+    renderJudgeDashboard();
+  }
 };
 
 export async function renderJudgeDashboard() {
@@ -224,16 +247,16 @@ export async function renderJudgeDashboard() {
                 const group = grouped[tid];
                 const isOpen = window.openTeamAccordionIds.has(String(tid));
                 return `
-                  <div class="team-accordion" style="margin-bottom:8px; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,0.015);">
+                  <div class="team-accordion" data-team-id="${tid}" style="margin-bottom:8px; border:1px solid var(--line); border-radius:6px; background:rgba(255,255,255,0.015);">
                     <div style="padding:14px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="window.toggleTeamAccordion('${tid}')">
                       <strong style="font-family:var(--disp); font-size:14.5px; color:var(--text);">${escapeHtml(group.team_name)}</strong>
-                      <button class="btn btn-sm" style="font-size:11.5px; font-weight:700; padding:6px 16px; border-radius:6px; background:${isOpen ? 'rgba(0,243,255,0.12)' : 'rgba(255,255,255,0.04)'}; color:${isOpen ? 'var(--cyan)' : 'var(--muted)'}; border:1px solid ${isOpen ? 'rgba(0,243,255,0.35)' : 'var(--line-subtle)'}; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:all 0.2s ease;">
+                      <button class="btn btn-sm accordion-toggle-btn" style="font-size:11.5px; font-weight:700; padding:6px 16px; border-radius:6px; background:${isOpen ? 'rgba(0,243,255,0.12)' : 'rgba(255,255,255,0.04)'}; color:${isOpen ? 'var(--cyan)' : 'var(--muted)'}; border:1px solid ${isOpen ? 'rgba(0,243,255,0.35)' : 'var(--line-subtle)'}; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
                         <span>${isOpen ? 'COLLAPSE' : 'EXPAND'}</span>
                         <span style="font-size:10px;">${isOpen ? '▲' : '▼'}</span>
                       </button>
                     </div>
-                    ${isOpen ? `
-                      <div style="padding:0 14px 14px 14px; display:flex; flex-direction:column; gap:8px;">
+                    <div class="accordion-content ${isOpen ? 'open' : ''}">
+                      <div class="accordion-inner" style="padding:0 14px 14px 14px;">
                         ${group.subs.map(sub => {
                           const isSelected = String(sub.id) === String(selectedArenaSubId);
                           const isEvaluated = !!sub.has_evaluated;
@@ -242,7 +265,7 @@ export async function renderJudgeDashboard() {
                             timeStr = new Date(timeStr).toLocaleTimeString();
                           }
                           return `
-                            <div class="judge-queue-card ${isSelected ? 'selected' : ''}" onclick="window.selectArenaSub('${sub.id}')" style="cursor:pointer; padding:14px; border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--line-subtle)'}; border-radius:6px; background:${isSelected ? 'rgba(0,243,255,0.06)' : 'rgba(255,255,255,0.02)'}; transition:all 0.2s ease;">
+                            <div class="judge-queue-card ${isSelected ? 'selected' : ''}" onclick="window.selectArenaSub('${sub.id}')" style="cursor:pointer; padding:14px; border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--line-subtle)'}; border-radius:6px; background:${isSelected ? 'rgba(0,243,255,0.06)' : 'rgba(255,255,255,0.02)'};">
                               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                                 <span class="chip chip-cyan" style="font-size:10px; padding:3px 8px; font-weight:700;">QUESTION ${sub.challenge_index}</span>
                                 <span class="mono-text" style="font-size:11px; color:var(--muted);">${timeStr}</span>
@@ -254,7 +277,7 @@ export async function renderJudgeDashboard() {
                                 <span class="chip chip-${isEvaluated ? 'green' : 'amber'}" style="font-size:10px; padding:3px 8px;">
                                   ${isEvaluated ? '✓ SCORED (' + sub.evaluation.total_score + '/100)' : '⏳ PENDING'}
                                 </span>
-                                <button class="btn btn-sm" style="font-size:13.5px; font-weight:700; padding:8px 20px; border-radius:6px; background:${isSelected ? 'linear-gradient(135deg, #a855f7, #6366f1)' : 'rgba(168, 85, 247, 0.2)'}; color:${isSelected ? '#ffffff' : '#d8b4fe'}; border:1.5px solid ${isSelected ? '#c084fc' : 'rgba(168, 85, 247, 0.5)'}; cursor:pointer; transition:all 0.2s ease; box-shadow:${isSelected ? '0 4px 14px rgba(168,85,247,0.4)' : '0 2px 8px rgba(168,85,247,0.2)'}; display:inline-flex; align-items:center; gap:6px;" onclick="event.stopPropagation(); window.selectArenaSub('${sub.id}');">
+                                <button class="btn btn-sm inspect-btn" style="font-size:13.5px; font-weight:700; padding:8px 20px; border-radius:6px; background:${isSelected ? 'linear-gradient(135deg, #a855f7, #6366f1)' : 'rgba(168, 85, 247, 0.2)'}; color:${isSelected ? '#ffffff' : '#d8b4fe'}; border:1.5px solid ${isSelected ? '#c084fc' : 'rgba(168, 85, 247, 0.5)'}; cursor:pointer; box-shadow:${isSelected ? '0 4px 14px rgba(168,85,247,0.4)' : '0 2px 8px rgba(168,85,247,0.2)'}; display:inline-flex; align-items:center; gap:6px;" onclick="event.stopPropagation(); window.selectArenaSub('${sub.id}');">
                                   Inspect &rarr;
                                 </button>
                               </div>
@@ -262,7 +285,7 @@ export async function renderJudgeDashboard() {
                           `;
                         }).join('')}
                       </div>
-                    ` : ''}
+                    </div>
                   </div>
                 `;
               }).join('');
@@ -275,7 +298,7 @@ export async function renderJudgeDashboard() {
           <div style="display:flex; flex-direction:column; gap:20px; max-height:740px; overflow-y:auto; padding-right:12px;">
             
             <!-- Solution Inspection Panel -->
-            <div class="glass bracket-frame" style="padding:24px;">
+            <div class="glass bracket-frame inspector-fade-in" style="padding:24px;">
               <span class="bl"></span><span class="br"></span>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
                 <div>
@@ -913,27 +936,27 @@ function updateQueueUI() {
 
     return sortedTeamIds.map(tid => {
       const group = grouped[tid];
-      const isOpen = window.openTeamAccordionIds.has(tid);
+      const isOpen = window.openTeamAccordionIds.has(String(tid));
       return `
-        <div class="team-accordion" style="margin-bottom:8px; border:1px solid var(--line); border-radius:6px; background:rgba(255,255,255,0.015);">
+        <div class="team-accordion" data-team-id="${tid}" style="margin-bottom:8px; border:1px solid var(--line); border-radius:6px; background:rgba(255,255,255,0.015);">
           <div style="padding:14px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="window.toggleTeamAccordion('${tid}')">
             <strong style="font-family:var(--disp); font-size:14.5px; color:var(--text);">${escapeHtml(group.team_name)}</strong>
-            <button class="btn btn-sm" style="font-size:11.5px; font-weight:700; padding:6px 16px; border-radius:6px; background:${isOpen ? 'rgba(0,243,255,0.12)' : 'rgba(255,255,255,0.04)'}; color:${isOpen ? 'var(--cyan)' : 'var(--muted)'}; border:1px solid ${isOpen ? 'rgba(0,243,255,0.35)' : 'var(--line-subtle)'}; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:all 0.2s ease;">
+            <button class="btn btn-sm accordion-toggle-btn" style="font-size:11.5px; font-weight:700; padding:6px 16px; border-radius:6px; background:${isOpen ? 'rgba(0,243,255,0.12)' : 'rgba(255,255,255,0.04)'}; color:${isOpen ? 'var(--cyan)' : 'var(--muted)'}; border:1px solid ${isOpen ? 'rgba(0,243,255,0.35)' : 'var(--line-subtle)'}; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
               <span>${isOpen ? 'COLLAPSE' : 'EXPAND'}</span>
               <span style="font-size:10px;">${isOpen ? '▲' : '▼'}</span>
             </button>
           </div>
-          ${isOpen ? `
-            <div style="padding:0 14px 14px 14px; display:flex; flex-direction:column; gap:8px;">
+          <div class="accordion-content ${isOpen ? 'open' : ''}">
+            <div class="accordion-inner" style="padding:0 14px 14px 14px;">
               ${group.subs.map(sub => {
-                const isSelected = sub.id === selectedArenaSubId;
+                const isSelected = String(sub.id) === String(selectedArenaSubId);
                 const isEvaluated = !!sub.has_evaluated;
                 let timeStr = sub.submitted_at || 'N/A';
                 if (timeStr.length > 10 && timeStr.includes('T')) {
                   timeStr = new Date(timeStr).toLocaleTimeString();
                 }
                 return `
-                  <div class="judge-queue-card ${isSelected ? 'selected' : ''}" onclick="window.selectArenaSub('${sub.id}')" style="cursor:pointer; padding:14px; border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--line-subtle)'}; border-radius:6px; background:${isSelected ? 'rgba(0,243,255,0.06)' : 'rgba(255,255,255,0.02)'}; transition:all 0.2s ease;">
+                  <div class="judge-queue-card ${isSelected ? 'selected' : ''}" onclick="window.selectArenaSub('${sub.id}')" style="cursor:pointer; padding:14px; border:1px solid ${isSelected ? 'var(--cyan)' : 'var(--line-subtle)'}; border-radius:6px; background:${isSelected ? 'rgba(0,243,255,0.06)' : 'rgba(255,255,255,0.02)'};">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                       <span class="chip chip-cyan" style="font-size:10px; padding:3px 8px; font-weight:700;">QUESTION ${sub.challenge_index}</span>
                       <span class="mono-text" style="font-size:11px; color:var(--muted);">${timeStr}</span>
@@ -945,7 +968,7 @@ function updateQueueUI() {
                       <span class="chip chip-${isEvaluated ? 'green' : 'amber'}" style="font-size:10px; padding:3px 8px;">
                         ${isEvaluated ? '✓ SCORED (' + sub.evaluation.total_score + '/100)' : '⏳ PENDING'}
                       </span>
-                      <button class="btn btn-sm" style="font-size:13.5px; font-weight:700; padding:8px 20px; border-radius:6px; background:${isSelected ? 'linear-gradient(135deg, #a855f7, #6366f1)' : 'rgba(168, 85, 247, 0.2)'}; color:${isSelected ? '#ffffff' : '#d8b4fe'}; border:1.5px solid ${isSelected ? '#c084fc' : 'rgba(168, 85, 247, 0.5)'}; cursor:pointer; transition:all 0.2s ease; box-shadow:${isSelected ? '0 4px 14px rgba(168,85,247,0.4)' : '0 2px 8px rgba(168,85,247,0.2)'}; display:inline-flex; align-items:center; gap:6px;" onclick="event.stopPropagation(); window.selectArenaSub('${sub.id}');">
+                      <button class="btn btn-sm inspect-btn" style="font-size:13.5px; font-weight:700; padding:8px 20px; border-radius:6px; background:${isSelected ? 'linear-gradient(135deg, #a855f7, #6366f1)' : 'rgba(168, 85, 247, 0.2)'}; color:${isSelected ? '#ffffff' : '#d8b4fe'}; border:1.5px solid ${isSelected ? '#c084fc' : 'rgba(168, 85, 247, 0.5)'}; cursor:pointer; box-shadow:${isSelected ? '0 4px 14px rgba(168,85,247,0.4)' : '0 2px 8px rgba(168,85,247,0.2)'}; display:inline-flex; align-items:center; gap:6px;" onclick="event.stopPropagation(); window.selectArenaSub('${sub.id}');">
                         Inspect &rarr;
                       </button>
                     </div>
@@ -953,7 +976,7 @@ function updateQueueUI() {
                 `;
               }).join('')}
             </div>
-          ` : ''}
+          </div>
         </div>
       `;
     }).join('');
