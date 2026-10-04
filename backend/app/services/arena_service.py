@@ -61,6 +61,23 @@ class ArenaService:
     def assign_unique_prompts_for_team(db: Session, team: Team) -> List[str]:
         all_prompts = db.query(PromptBankItem).order_by(PromptBankItem.code.asc()).all()
         if not all_prompts:
+            from app.core.arena_seed_data import ARENA_PROMPT_BANK
+            for p_data in ARENA_PROMPT_BANK:
+                item = PromptBankItem(
+                    code=p_data["code"],
+                    category=p_data["category"],
+                    title=p_data["title"],
+                    difficulty=p_data["difficulty"],
+                    original_bad_prompt=p_data["original_bad_prompt"],
+                    bad_output_evidence=p_data["bad_output_evidence"],
+                    flawed_reasons=p_data["flawed_reasons"],
+                    expected_improvements=p_data["expected_improvements"]
+                )
+                db.add(item)
+            db.commit()
+            all_prompts = db.query(PromptBankItem).order_by(PromptBankItem.code.asc()).all()
+
+        if not all_prompts:
             raise HTTPException(status_code=500, detail="Prompt bank is empty. Seed initial prompt data.")
         
         total = len(all_prompts)
@@ -365,49 +382,65 @@ class ArenaService:
         # Phase 0 / Defect #13: Unicode normalization
         normalized_prompt = unicodedata.normalize("NFC", payload.prompt_text.strip())
 
-        sub_id = str(uuid.uuid4())
-        sub = ArenaSubmission(
-            id=sub_id,
-            team_id=team.id,
-            prompt_bank_item_id=prompt_id,
-            challenge_index=curr_idx,
-            submitted_prompt=normalized_prompt,
-            diagnosis_notes=payload.diagnosis_notes, # Phase 0 / Defect #4
-            server_timestamp=server_now,
-            status="locked"
-        )
-        db.add(sub)
-        db.flush()
+        try:
+            sub_id = str(uuid.uuid4())
+            sub = ArenaSubmission(
+                id=sub_id,
+                team_id=team.id,
+                prompt_bank_item_id=prompt_id,
+                challenge_index=curr_idx,
+                submitted_prompt=normalized_prompt,
+                diagnosis_notes=payload.diagnosis_notes, # Phase 0 / Defect #4
+                server_timestamp=server_now,
+                status="locked"
+            )
+            db.add(sub)
+            db.flush()
 
-        session.current_challenge_index += 1
-        is_now_completed = session.current_challenge_index > conf.challenges_count
+            session.current_challenge_index += 1
+            is_now_completed = session.current_challenge_index > conf.challenges_count
 
-        if is_now_completed:
-            session.status = "completed"
-            session.completed_at = server_now
-            team.status = "completed"
-            
+            if is_now_completed:
+                session.status = "completed"
+                session.completed_at = server_now
+                team.status = "completed"
+                
+                db.add(AuditLog(
+                    actor_user_id=current_user.id,
+                    action="arena.team_completed",
+                    target_type="Team",
+                    target_id=team.id,
+                    audit_metadata={"completed_at": server_now.isoformat(), "team_name": team.name}
+                ))
+
             db.add(AuditLog(
                 actor_user_id=current_user.id,
-                action="arena.team_completed",
-                target_type="Team",
-                target_id=team.id,
-                audit_metadata={"completed_at": server_now.isoformat(), "team_name": team.name}
+                action="arena.submit_challenge",
+                target_type="ArenaSubmission",
+                target_id=sub.id,
+                audit_metadata={
+                    "challenge_index": curr_idx,
+                    "team_id": team.id,
+                    "server_timestamp": server_now.isoformat()
+                }
             ))
 
-        db.add(AuditLog(
-            actor_user_id=current_user.id,
-            action="arena.submit_challenge",
-            target_type="ArenaSubmission",
-            target_id=sub.id,
-            audit_metadata={
-                "challenge_index": curr_idx,
-                "team_id": team.id,
-                "server_timestamp": server_now.isoformat()
-            }
-        ))
-
-        db.commit()
+            db.commit()
+        except IntegrityError as ie:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Submission conflict: Challenge {curr_idx} has already been submitted for your team."
+            )
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database submission failed: {str(e)}"
+            )
 
         return {
             "success": True,
