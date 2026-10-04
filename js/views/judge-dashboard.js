@@ -224,10 +224,12 @@ export async function renderJudgeDashboard() {
                 const group = grouped[tid];
                 const isOpen = window.openTeamAccordionIds.has(String(tid));
                 return `
-                  <div class="team-accordion" style="margin-bottom:8px; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,0.015);">
-                    <div style="padding:14px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="window.toggleTeamAccordion('${tid}')">
-                      <strong style="font-family:var(--disp); font-size:14px; color:var(--text);">${escapeHtml(group.team_name)}</strong>
-                      <span style="font-size:12px; color:var(--muted);">${isOpen ? '▲' : '▼'}</span>
+                    <div style="padding:14px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="window.toggleTeamAccordion('${tid}')">
+                      <strong style="font-family:var(--disp); font-size:14.5px; color:var(--text);">${escapeHtml(group.team_name)}</strong>
+                      <button class="btn btn-sm" style="font-size:11.5px; font-weight:700; padding:6px 16px; border-radius:6px; background:${isOpen ? 'rgba(0,243,255,0.12)' : 'rgba(255,255,255,0.04)'}; color:${isOpen ? 'var(--cyan)' : 'var(--muted)'}; border:1px solid ${isOpen ? 'rgba(0,243,255,0.35)' : 'var(--line-subtle)'}; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:all 0.2s ease;">
+                        <span>${isOpen ? 'COLLAPSE' : 'EXPAND'}</span>
+                        <span style="font-size:10px;">${isOpen ? '▲' : '▼'}</span>
+                      </button>
                     </div>
                     ${isOpen ? `
                       <div style="padding:0 14px 14px 14px; display:flex; flex-direction:column; gap:8px;">
@@ -909,10 +911,13 @@ function updateQueueUI() {
       const group = grouped[tid];
       const isOpen = window.openTeamAccordionIds.has(tid);
       return `
-        <div class="team-accordion" style="margin-bottom:8px; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,0.015);">
-          <div style="padding:14px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="window.toggleTeamAccordion('${tid}')">
-            <strong style="font-family:var(--disp); font-size:14px; color:var(--text);">${escapeHtml(group.team_name)}</strong>
-            <span style="font-size:12px; color:var(--muted);">${isOpen ? '▲' : '▼'}</span>
+        <div class="team-accordion" style="margin-bottom:8px; border:1px solid var(--line); border-radius:6px; background:rgba(255,255,255,0.015);">
+          <div style="padding:14px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="window.toggleTeamAccordion('${tid}')">
+            <strong style="font-family:var(--disp); font-size:14.5px; color:var(--text);">${escapeHtml(group.team_name)}</strong>
+            <button class="btn btn-sm" style="font-size:11.5px; font-weight:700; padding:6px 16px; border-radius:6px; background:${isOpen ? 'rgba(0,243,255,0.12)' : 'rgba(255,255,255,0.04)'}; color:${isOpen ? 'var(--cyan)' : 'var(--muted)'}; border:1px solid ${isOpen ? 'rgba(0,243,255,0.35)' : 'var(--line-subtle)'}; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:all 0.2s ease;">
+              <span>${isOpen ? 'COLLAPSE' : 'EXPAND'}</span>
+              <span style="font-size:10px;">${isOpen ? '▲' : '▼'}</span>
+            </button>
           </div>
           ${isOpen ? `
             <div style="padding:0 14px 14px 14px; display:flex; flex-direction:column; gap:8px;">
