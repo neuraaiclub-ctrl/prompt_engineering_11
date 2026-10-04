@@ -329,11 +329,11 @@ export async function renderJudgeDashboard() {
               <span class="bl"></span><span class="br"></span>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <div>
-                  <div class="eyebrow" style="margin-bottom:2px;">OFFICIAL 5-CHARACTERISTIC EVALUATION RUBRIC</div>
-                  <div class="heading-md" style="font-size:15px;">SCORE SCALE (0, 10, 20 MARKS PER CHARACTERISTIC)</div>
+                  <div class="eyebrow" style="margin-bottom:2px; color:var(--cyan);">AUTOMATED EVALUATION ENGINE MARKS</div>
+                  <div class="heading-md" style="font-size:15px;">ENGINE ALLOCATED SCORES (0, 10, 20 MARKS PER CHARACTERISTIC)</div>
                 </div>
                 <div class="glass-card" style="padding:8px 16px; text-align:center; border-color:var(--cyan);">
-                  <div class="eyebrow" style="margin-bottom:2px;">QUESTION TOTAL</div>
+                  <div class="eyebrow" style="margin-bottom:2px;">ENGINE TOTAL</div>
                   <div class="heading-md" style="color:var(--cyan); font-size:22px;" id="rubricTotalReadout">
                     ${calculateCurrentRubricTotal()} / 100
                   </div>
@@ -358,7 +358,7 @@ export async function renderJudgeDashboard() {
               <!-- Save Score Action -->
               <div style="display:flex; justify-content:flex-end;">
                 <button class="btn btn-primary" id="btnSaveRubricScore" style="padding:10px 24px;">
-                  ${selectedSub.is_evaluated ? 'UPDATE EVALUATION (LOCK)' : 'SUBMIT & LOCK EVALUATION →'}
+                  ${selectedSub.is_evaluated ? 'CONFIRM ENGINE EVALUATION' : 'CONFIRM & LOCK ENGINE SCORES →'}
                 </button>
               </div>
 
@@ -494,23 +494,19 @@ function calculateCurrentRubricTotal() {
 }
 
 function renderRubricCriterionRow(key, title, description, currentVal) {
+  const valNum = Number(currentVal) || 0;
+  const chipColor = valNum === 20 ? 'green' : valNum === 10 ? 'cyan' : 'amber';
   return `
-    <div class="rubric-card" style="padding:14px; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,0.015);">
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <div class="rubric-card" style="padding:16px 20px; border:1px solid var(--line); border-radius:6px; background:rgba(255,255,255,0.015); transition:all 0.2s ease;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
         <div style="max-width:68%;">
-          <div style="font-weight:600; font-size:13px; color:var(--text);">${escapeHtml(title)}</div>
-          <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">${escapeHtml(description)}</div>
+          <div style="font-weight:700; font-size:14px; color:var(--text); font-family:var(--disp);">${escapeHtml(title)}</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:3px; line-height:1.4;">${escapeHtml(description)}</div>
         </div>
-        <div id="pills-${key}" class="rubric-score-pills" style="display:flex; gap:8px;">
-          ${[0, 10, 20].map(score => `
-            <button class="rubric-pill ${score === Number(currentVal) ? 'selected' : ''}" 
-                    type="button"
-                    data-val="${score}"
-                    onclick="window.selectRubricPill('${key}', ${score})"
-                    style="min-width:48px; padding:6px 14px; font-family:var(--mono); font-size:12px; font-weight:bold; cursor:pointer;">
-              ${score}
-            </button>
-          `).join('')}
+        <div class="engine-score-display" style="display:flex; align-items:center; gap:8px;">
+          <span class="chip chip-${chipColor}" style="font-family:var(--disp), var(--mono); font-size:15px; font-weight:800; padding:8px 18px; border-radius:6px; letter-spacing:0.02em; border:1px solid rgba(255,255,255,0.1); min-width:110px; text-align:center;">
+            ${valNum} / 20 MARKS
+          </span>
         </div>
       </div>
     </div>
