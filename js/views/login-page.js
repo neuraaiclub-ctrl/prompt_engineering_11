@@ -40,7 +40,13 @@ export function renderLoginPage(targetContainer) {
           </div>
           <div class="field">
             <label for="authTeamPassword">Password</label>
-            <input type="password" id="authTeamPassword" autocomplete="current-password">
+            <div class="pw-input-wrap">
+              <input type="password" id="authTeamPassword" autocomplete="current-password">
+              <button type="button" class="pw-toggle-btn" id="btnToggleTeamPw" aria-label="Toggle password visibility">
+                <svg class="eye-open" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="eye-closed" viewBox="0 0 24 24" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
           </div>
           <button class="btn btn-primary btn-lg gw-submit" id="btnPerformTeamLogin" type="submit">
             <span class="gw-submit-label">Sign in</span>
@@ -57,6 +63,15 @@ export function renderLoginPage(targetContainer) {
   const btn = container.querySelector('#btnPerformTeamLogin');
   const label = btn.querySelector('.gw-submit-label');
   const errBox = container.querySelector('#teamLoginError');
+  const pwInput = container.querySelector('#authTeamPassword');
+  const toggleBtn = container.querySelector('#btnToggleTeamPw');
+
+  toggleBtn?.addEventListener('click', () => {
+    const isPassword = pwInput.type === 'password';
+    pwInput.type = isPassword ? 'text' : 'password';
+    toggleBtn.querySelector('.eye-open').style.display = isPassword ? 'none' : 'block';
+    toggleBtn.querySelector('.eye-closed').style.display = isPassword ? 'block' : 'none';
+  });
 
   const fail = (msg) => {
     errBox.textContent = msg;

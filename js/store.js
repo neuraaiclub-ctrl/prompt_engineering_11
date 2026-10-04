@@ -432,13 +432,14 @@ class Store {
         headers: this.getAuthHeaders(),
         body: JSON.stringify(payload)
       });
-      const data = await resp.json();
+      const data = await resp.json().catch(() => ({}));
       if (resp.ok) {
         return { success: true, ...data };
       }
-      return { success: false, error: data.detail || 'Failed to submit challenge' };
+      return { success: false, error: data.detail || data.message || `Submission failed (${resp.status})` };
     } catch (e) {
-      return { success: false, error: 'Connection error while submitting challenge' };
+      console.warn('[submitArenaChallenge Error]:', e);
+      return { success: false, error: e.message || 'Connection error while submitting challenge' };
     }
   }
 

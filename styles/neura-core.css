@@ -244,6 +244,46 @@ a, button { font-family: inherit; cursor: pointer; text-decoration: none; }
   outline: none;
 }
 
+/* Password Input Eye Toggle */
+.pw-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.pw-input-wrap input {
+  width: 100%;
+  padding-right: 42px !important;
+}
+.pw-toggle-btn {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--muted-2);
+  cursor: pointer;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  transition: color 0.2s var(--ease), background 0.2s var(--ease);
+  user-select: none;
+}
+.pw-toggle-btn:hover {
+  color: var(--cyan);
+  background: rgba(255, 255, 255, 0.06);
+}
+.pw-toggle-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* --------------------------------------------------------------------------
    Misc
    -------------------------------------------------------------------------- */

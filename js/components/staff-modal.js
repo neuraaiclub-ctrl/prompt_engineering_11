@@ -53,6 +53,17 @@ export function setupStaffModal(callbacks = {}) {
   const passInput = document.getElementById('staffPasswordInput');
   const submitBtn = document.getElementById('btnPerformStaffLogin');
   const errBox = document.getElementById('staffLoginError');
+  const toggleBtn = document.getElementById('btnToggleStaffPw');
+
+  toggleBtn?.addEventListener('click', () => {
+    if (!passInput) return;
+    const isPassword = passInput.type === 'password';
+    passInput.type = isPassword ? 'text' : 'password';
+    const eyeOpen = toggleBtn.querySelector('.eye-open');
+    const eyeClosed = toggleBtn.querySelector('.eye-closed');
+    if (eyeOpen) eyeOpen.style.display = isPassword ? 'none' : 'block';
+    if (eyeClosed) eyeClosed.style.display = isPassword ? 'block' : 'none';
+  });
 
   // Discreet unadvertised keyboard shortcuts: Ctrl+Shift+S or Alt+A
   window.addEventListener('keydown', (e) => {
