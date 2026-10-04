@@ -113,7 +113,7 @@ export async function renderJudgeDashboard() {
       let c_score = 0, s_score = 0, x_score = 0, f_score = 0, n_score = 0;
       if (selectedSub && selectedSub.submitted_prompt) {
         const scores = analyzePrompt(selectedSub.submitted_prompt);
-        const mapScore = (v) => v >= 0.8 ? 20 : (v >= 0.4 ? 10 : 0);
+        const mapScore = (v) => v >= 0.65 ? 20 : (v >= 0.25 ? 10 : 0);
         c_score = mapScore(scores[0]);
         s_score = mapScore(scores[1]);
         x_score = mapScore(scores[2]);

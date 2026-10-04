@@ -40,17 +40,18 @@ export function analyzePrompt(raw) {
   if (has(/\b(audience|reader|readers|customer|customers|user|users|manager|managers|student|students|beginner|team)\b/, lower)) context += 0.3;
   if (has(/\b(context|background|scenario|given|input|the following|below|based on|using only)\b/, lower)) context += 0.3;
 
-  /* Output format: named structure and "only that" language */
+  /* Output format: named structure, layout delimiters, or schema directives */
   let format = 0;
-  if (has(/\b(json|xml|yaml|csv|markdown|table|schema|sql)\b/, lower)) format += 0.45;
-  if (has(/\b(keys?|fields?|columns?|headings?|bullets?|numbered|sections?|one-line|one sentence|paragraphs?|format)\b/, lower)) format += 0.35;
-  if (has(/\b(return only|output only|respond only|only return|no extra|no preamble|nothing else)\b/, lower)) format += 0.2;
+  if (has(/\b(json|xml|yaml|csv|markdown|table|schema|sql|list|bullet|bullets|key|keys|value|values|object|array|string|number|boolean)\b/, lower)) format += 0.35;
+  if (has(/\b(field|fields|column|columns|heading|headings|section|sections|paragraph|paragraphs|response|structure|structured|template)\b/, lower)) format += 0.35;
+  if (has(/\b(format|form|layout|pattern|delimiter|delimiters|wrapper|valid|strictly|only|no preamble|no conversational|no extra|return only|output only|respond only)\b/, lower)) format += 0.35;
+  if (has(/[:{}\[\]```\-*#]/, text)) format += 0.25;
 
-  /* Constraints: rules, edge-case handling, tone/length guardrails */
+  /* Constraints: rules, prohibitions, guardrails, fallback instructions */
   let constraints = 0;
-  if (has(/\b(must|never|do not|don't|avoid|only|always|forbid)\b/, lower)) constraints += 0.3;
-  if (has(/\b(if .{0,40}(missing|unknown|not found|empty|unclear|ambiguous|invalid)|otherwise|fallback|null|n\/a|edge case|when .{0,30}not)\b/, lower)) constraints += 0.4;
-  if (has(/\b(tone|style|length|words|characters|tokens|sentences|limit)\b/, lower)) constraints += 0.3;
+  if (has(/\b(must|never|do not|don't|cannot|cant|avoid|only|always|forbid|forbidden|prohibit|prohibited|ensure|restrict|restricted|prevent)\b/, lower)) constraints += 0.35;
+  if (has(/\b(if|when|unless|otherwise|fallback|null|n\/a|unknown|missing|invalid|empty|unclear|ambiguous|edge case|error|exception|exceptionally)\b/, lower)) constraints += 0.35;
+  if (has(/\b(tone|style|length|word|words|character|characters|sentence|sentences|limit|limits|max|maximum|min|minimum|rule|rules|guideline|guidelines|guardrail|guardrails|do not hallucinate|no hallucination|factual|fact-based)\b/, lower)) constraints += 0.35;
 
   return [clarity, specificity, context, format, constraints].map(cap);
 }
