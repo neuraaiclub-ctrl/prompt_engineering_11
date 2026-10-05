@@ -1,6 +1,6 @@
 """
 NEURA Prompt Fixing Arena - Seed Prompt Bank Data
-150 Diverse, Real-World Flawed Prompts for Controlled Dynamic Assignment
+200 Diverse, Real-World Flawed Prompts for Controlled Dynamic Assignment
 """
 
 ARENA_PROMPT_BANK = [
@@ -2852,6 +2852,956 @@ ARENA_PROMPT_BANK = [
             "Reframe the task as a factual, compliant project overview, and supply verified details (team, product, tokenomics, legal status, jurisdiction).",
             "Forbid guaranteed or implied returns, risk-free claims, invented approvals or testimonials, and pressure tactics; require prominent risk disclosures (loss of capital, volatility, regulatory uncertainty).",
             "Require a structure: Overview, How It Works, Token Details, Risks, Legal and Regulatory Status, Disclaimer, with [VERIFY] markers on every factual claim and a note that the material must be reviewed by legal counsel before distribution."
+        ]
+    },
+    {
+        "code": "P151",
+        "category": "coding",
+        "title": "Average Function With No Empty-Input Handling",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a function to calculate the average of a list of numbers.",
+        "bad_output_evidence": "def average(nums):\n    return sum(nums) / len(nums)\n\nThe function raises ZeroDivisionError on an empty list and TypeError on None or strings, accepts booleans silently, and the language was guessed. No tests or docstring were included.",
+        "flawed_reasons": [
+            "No language or version is specified.",
+            "No behavior is defined for an empty list, None, or non-numeric elements.",
+            "No rule for rounding, return type, or handling of very large lists.",
+            "No test cases or documentation requirements."
+        ],
+        "expected_improvements": [
+            "State the language and version and the exact function signature and return type.",
+            "Define behavior for an empty list (return None or raise ValueError), non-numeric items (raise TypeError), and NaN values.",
+            "Request a docstring and tests covering normal, empty, single-element, negative, and mixed-type inputs."
+        ]
+    },
+    {
+        "code": "P152",
+        "category": "coding",
+        "title": "CSV to JSON Converter With Naive Parsing",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a script to convert a CSV file to JSON.",
+        "bad_output_evidence": "import json\nrows = [line.strip().split(',') for line in open('data.csv')]\nheader, data = rows[0], rows[1:]\njson.dump([dict(zip(header, r)) for r in data], open('out.json', 'w'))\n\nThe split breaks on quoted commas ('Smith, John'), all values stay strings, the file is loaded fully into memory, encoding is assumed, and rows with missing columns are silently truncated.",
+        "flawed_reasons": [
+            "No language, library constraints, or file size is given.",
+            "No rules for quoting, delimiters, encodings, or header presence.",
+            "No type-conversion requirements (numbers, booleans, dates, empty cells).",
+            "No error handling for malformed rows and no CLI or path requirements."
+        ],
+        "expected_improvements": [
+            "State the language and version, allowed libraries (standard library csv module), and expected file size.",
+            "Specify the delimiter, encoding (UTF-8 with BOM handling), header behavior, and the type-inference rules with null for empty cells.",
+            "Require streaming output for large files, reporting of malformed rows with line numbers, command-line arguments for input and output paths, and tests for quoted commas and missing columns."
+        ]
+    },
+    {
+        "code": "P153",
+        "category": "coding",
+        "title": "Rate Limiter With No Algorithm or Deployment Context",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write a rate limiter for our API.",
+        "bad_output_evidence": "requests = {}\ndef is_allowed(ip):\n    requests[ip] = requests.get(ip, 0) + 1\n    return requests[ip] <= 100\n\nThe counter never resets, the dictionary grows without bound, there is no thread safety, and it cannot work across multiple servers. It also limits by IP only, so users behind one NAT block each other.",
+        "flawed_reasons": [
+            "No algorithm is specified (fixed window, sliding window, token bucket), so the result has no time component.",
+            "No deployment context (single process vs multiple instances, shared store, framework).",
+            "No limits, identity key (IP, API key, user), or response behavior (HTTP 429, Retry-After header).",
+            "No concurrency, memory, or testing requirements."
+        ],
+        "expected_improvements": [
+            "Specify the language and framework, the algorithm (token bucket), the limits (100 requests per minute per API key with a burst of 20), and the response behavior (429 with a Retry-After header).",
+            "State the deployment (4 instances behind a load balancer, Redis available) and require an atomic implementation (Lua script or Redis commands) so the limit holds across instances.",
+            "Require key expiry to bound memory, a fail-open or fail-closed decision when Redis is down, and tests for bursts, window rollover, and concurrent requests."
+        ]
+    },
+    {
+        "code": "P154",
+        "category": "extraction",
+        "title": "Keyword Extraction With Stopwords and No Count",
+        "difficulty": "easy",
+        "original_bad_prompt": "Get the keywords from this article.",
+        "bad_output_evidence": "Keywords: article, important, many, company, the, new, also, growth\n\nThe list includes stopwords and generic words, has no multi-word phrases, and the number of keywords is arbitrary.",
+        "flawed_reasons": [
+            "'Keywords' is undefined (topics, entities, search terms).",
+            "No count, ranking, or inclusion of multi-word phrases.",
+            "No rule to exclude stopwords and generic terms.",
+            "No output format."
+        ],
+        "expected_improvements": [
+            "State the purpose (SEO tags for a blog post) and the number of keywords (exactly 8).",
+            "Require lowercase noun phrases of one to three words that appear in or are directly supported by the text, excluding stopwords and generic words.",
+            "Request a JSON array ordered by relevance, with no commentary."
+        ]
+    },
+    {
+        "code": "P155",
+        "category": "extraction",
+        "title": "Pros and Cons From Reviews Without Attribution or Counts",
+        "difficulty": "medium",
+        "original_bad_prompt": "Find the pros and cons in these product reviews.",
+        "bad_output_evidence": "Pros: good quality, works well, nice.\nCons: some issues, could be better, shipping.\n\nThe pros and cons are vague, duplicates are merged without counts, and a complaint about shipping (not the product) is listed as a product con.",
+        "flawed_reasons": [
+            "No schema, so pros and cons are loose phrases without evidence.",
+            "No frequency counts, so strong signals look the same as one-off remarks.",
+            "No distinction between product issues and service or delivery issues.",
+            "No rule for contradictory reviews or for ambiguous statements."
+        ],
+        "expected_improvements": [
+            "Define the JSON output: {aspect, sentiment: pro|con, mentions, example_quote} grouped by aspect (battery, build quality, price, delivery).",
+            "Require normalized aspect names, counts of reviews mentioning each, and one short verbatim quote per item.",
+            "Add rules: separate product aspects from logistics aspects, list contradictions explicitly, and exclude statements that do not clearly express a positive or negative view."
+        ]
+    },
+    {
+        "code": "P156",
+        "category": "extraction",
+        "title": "Scanned Form Extraction That Fills In Missing Values",
+        "difficulty": "hard",
+        "original_bad_prompt": "Here is OCR text from a handwritten registration form. Fill in all the fields as JSON: name, date of birth, phone, address, signature. I need complete records for the database.",
+        "bad_output_evidence": "{\"name\": \"Ramesh Patil\", \"dob\": \"1992-05-17\", \"phone\": \"9823456780\", \"address\": \"Flat 12, Shivaji Nagar, Pune\", \"signature\": \"present\"}\n\nThe OCR text read 'Ramesh Pat?l', 'DOB: 1?/05/19?2', 'Phone: 98234 5678_', and the address line was blank. The model completed the date, the phone number, and the address with invented values.",
+        "flawed_reasons": [
+            "'Complete records' pressures the model to fill gaps instead of reporting missing or unreadable data.",
+            "No rule for uncertain OCR characters or for blank fields.",
+            "No confidence or provenance information, so invented values look identical to read ones.",
+            "No field-level validation (phone length, date plausibility) and no flag for human review."
+        ],
+        "expected_improvements": [
+            "Define a schema where every field is an object {value, confidence, status: read|partial|missing} and instruct the model to use null for anything illegible or blank.",
+            "Add explicit negative constraints: never guess missing characters or complete partial values, and copy uncertain characters as '?' in a 'raw_text' field.",
+            "Require validation rules (10-digit phone, plausible date) with failures listed in a 'needs_review' array, and a top-level 'record_complete' boolean computed only from fields with status 'read'."
+        ]
+    },
+    {
+        "code": "P157",
+        "category": "brainstorming",
+        "title": "YouTube Channel Ideas With No Niche or Resources",
+        "difficulty": "easy",
+        "original_bad_prompt": "Give me ideas for a YouTube channel.",
+        "bad_output_evidence": "1. A vlog channel. 2. A gaming channel. 3. A cooking channel. 4. A tech review channel. 5. A comedy channel.",
+        "flawed_reasons": [
+            "No creator interests, skills, or equipment.",
+            "No target audience or content frequency.",
+            "No constraints such as budget, face-on-camera comfort, or language.",
+            "The ideas are broad categories rather than concrete channel concepts."
+        ],
+        "expected_improvements": [
+            "State the creator's skills and interests, available equipment, weekly time, and language.",
+            "Ask for specific channel concepts with a clear angle and first 3 video titles each.",
+            "Require a table: Concept, Target Viewer, Differentiator, Production Effort, Monetization Path."
+        ]
+    },
+    {
+        "code": "P158",
+        "category": "summarization",
+        "title": "Interview Synthesis That Erases Minority Views",
+        "difficulty": "medium",
+        "original_bad_prompt": "Summarize these 10 customer interview transcripts.",
+        "bad_output_evidence": "Customers generally like the product and want a few improvements. They find it useful for their work. Some mentioned pricing.\n\nThe synthesis has no themes, no counts, and no quotes, and it hides the fact that 3 of 10 customers said they are planning to cancel.",
+        "flawed_reasons": [
+            "No instruction to identify themes and how many interviewees support each.",
+            "Averaging language ('generally') erases minority and high-impact views such as churn risk.",
+            "No evidence requirement (quotes or interview references).",
+            "No audience, structure, or length."
+        ],
+        "expected_improvements": [
+            "State the audience (the product team planning next quarter) and the research question (why customers stay or leave).",
+            "Require 4-6 themes, each with the number of interviewees (n of 10), a representative short quote, and the interview IDs.",
+            "Add a dedicated section for minority or outlier views and churn signals, forbid generalizations without counts, and flag themes supported by fewer than 3 interviewees as low-confidence."
+        ]
+    },
+    {
+        "code": "P159",
+        "category": "summarization",
+        "title": "Medical Paper Summary That Gives Treatment Advice",
+        "difficulty": "hard",
+        "original_bad_prompt": "Summarize this medical research paper for patients and tell them what treatment they should choose.",
+        "bad_output_evidence": "This study shows that Drug X is much better than the standard drug at reducing symptoms. Patients should switch to Drug X as soon as possible for the best results.\n\nThe paper reported results from a 40-patient pilot, the primary endpoint was not met, and side effects were more frequent. None of that appears in the summary.",
+        "flawed_reasons": [
+            "Asks the model to turn research findings into personal treatment advice, which it cannot and should not do.",
+            "No instruction to report study design, sample size, limitations, or side effects, so the summary overstates the result.",
+            "No reading level or format for patients, and no requirement to explain uncertainty.",
+            "No safety framing or direction to consult a clinician."
+        ],
+        "expected_improvements": [
+            "Limit the task to explaining what the study found and what it does not show, and remove the request for a treatment recommendation.",
+            "Require a structure at a stated reading level (8th grade): who was studied and how many, what was tested, main results with numbers, side effects, limitations, and what the findings do not prove.",
+            "Forbid advice to start, stop, or switch treatment, include a closing line directing patients to discuss the findings with their doctor, and instruct the model to say 'The paper does not report this' for anything missing."
+        ]
+    },
+    {
+        "code": "P160",
+        "category": "marketing",
+        "title": "Gym Tagline With No Positioning",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a tagline for my gym.",
+        "bad_output_evidence": "Get fit. Feel great. Live better.\n\nThe tagline could belong to any gym and says nothing about this business.",
+        "flawed_reasons": [
+            "No information about the gym's audience, location, or specialty.",
+            "No brand personality or tone.",
+            "No constraints on length or language.",
+            "Only one option is requested, with no rationale."
+        ],
+        "expected_improvements": [
+            "Describe the gym (e.g. a beginner-friendly strength studio for working professionals in Pune) and its differentiator.",
+            "Set constraints: under 7 words, no fitness clich\u00e9s such as 'get fit' or 'no pain no gain', and an energetic but welcoming tone.",
+            "Request 6 options in a table with a one-line reason each."
+        ]
+    },
+    {
+        "code": "P161",
+        "category": "marketing",
+        "title": "Funding Announcement With Invented Facts",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a LinkedIn post announcing that we just raised our funding round.",
+        "bad_output_evidence": "We are thrilled to announce our $5M Series A led by Sequoia Capital! Thanks to our incredible 200-person team and 10,000 customers, we are changing the industry. The best is yet to come!\n\nThe amount, lead investor, team size, and customer count were all invented.",
+        "flawed_reasons": [
+            "No facts about the round (amount, stage, investors, use of funds) were supplied, so the model made them up.",
+            "No instruction to use placeholders or ask for missing details.",
+            "No audience, tone, or length guidance.",
+            "No mention of who to thank or tag, and no compliance consideration for announcing financial information."
+        ],
+        "expected_improvements": [
+            "Provide the confirmed details: round size and stage, lead and participating investors (approved for public mention), and the intended use of funds.",
+            "Instruct the model to use only supplied facts and insert [PLACEHOLDER] for anything missing, with no invented figures.",
+            "Specify the format: a hook line, 3 short paragraphs, a thank-you to named people, one forward-looking line, 3 hashtags, and under 180 words."
+        ]
+    },
+    {
+        "code": "P162",
+        "category": "customer_support",
+        "title": "Delayed Refund Email With No Timeline",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write an email to a customer about their delayed refund.",
+        "bad_output_evidence": "Hi, Your refund is delayed because of processing issues. It will arrive soon. Sorry for the inconvenience.\n\nThere is no order reference, no date, no explanation of the reason, and no next step.",
+        "flawed_reasons": [
+            "No order details, refund amount, or actual expected date.",
+            "Vague wording ('soon') gives the customer nothing to rely on.",
+            "No tone or brand guidance, so the apology feels perfunctory.",
+            "No escalation path if the refund does not arrive."
+        ],
+        "expected_improvements": [
+            "Provide the order number, refund amount, payment method, reason for the delay, and the confirmed expected date.",
+            "Require an empathetic tone with a specific apology and the exact date or window instead of 'soon'.",
+            "Specify the structure: subject line, apology, status, expected date, what to do if it has not arrived, and a contact method, in under 120 words."
+        ]
+    },
+    {
+        "code": "P163",
+        "category": "customer_support",
+        "title": "Matching a Rude Customer's Tone",
+        "difficulty": "medium",
+        "original_bad_prompt": "Reply to this rude customer in the same tone he uses with us so he gets the message.",
+        "bad_output_evidence": "Sir, if you had read the instructions, you would not be wasting our time. Maybe try using the product properly before complaining next time.\n\nThe reply is sarcastic and blames the customer, and it could go viral if the customer posts it.",
+        "flawed_reasons": [
+            "Instructs the model to mirror hostility, which conflicts with professional support standards.",
+            "No brand voice or conduct policy for abusive customers.",
+            "The customer's actual problem is ignored, so nothing gets resolved.",
+            "No guidance on boundaries, escalation, or how to respond if abuse continues."
+        ],
+        "expected_improvements": [
+            "Reframe the instruction: respond calmly and professionally, address the actual issue, and set a respectful boundary without matching the tone.",
+            "Provide the customer's message, the relevant policy, and the options available for resolving the problem.",
+            "Require a structure: brief acknowledgment, a direct answer or fix, a polite note about respectful communication if needed, and an escalation path, in under 100 words with no sarcasm or blame."
+        ]
+    },
+    {
+        "code": "P164",
+        "category": "technical_writing",
+        "title": "Architecture Document With No System Details",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write an architecture document for our system.",
+        "bad_output_evidence": "The system consists of a frontend, a backend, and a database. The frontend communicates with the backend using APIs. The backend stores data in the database. The system is scalable and secure.\n\nThe document is generic, with no components, data flow, decisions, or constraints, and the claims of scalability and security are unsupported.",
+        "flawed_reasons": [
+            "No system description, so the model wrote a template-level text.",
+            "No audience (new engineers, executives, auditors) or purpose.",
+            "No required sections such as context, key decisions, non-functional requirements, and trade-offs.",
+            "Unsupported quality claims and no instruction to mark unknown details."
+        ],
+        "expected_improvements": [
+            "Provide the components, technologies, data flows, deployment environment, and scale, and name the audience (new backend engineers).",
+            "Require sections: Context, Components, Data Flow, Key Decisions with alternatives considered, Non-Functional Requirements, Risks, and Open Questions, plus a Mermaid diagram of the main flow.",
+            "Forbid claims about scalability or security unless backed by supplied facts, and use [TBD - confirm with team] for missing details."
+        ]
+    },
+    {
+        "code": "P165",
+        "category": "technical_writing",
+        "title": "Login Error Message That Leaks Account Information",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write an error message for when a user's login fails.",
+        "bad_output_evidence": "Login failed: no account exists with this email address. If you have an account, your password is incorrect.\n\nThe message reveals whether an email is registered, which helps attackers enumerate accounts.",
+        "flawed_reasons": [
+            "No security consideration, so the message distinguishes between unknown email and wrong password.",
+            "No audience or tone guidance for UX copy.",
+            "No next-step guidance (reset password, lockout information).",
+            "No length or accessibility requirements."
+        ],
+        "expected_improvements": [
+            "State that the message must not reveal whether the email or the password was wrong.",
+            "Require a clear, friendly tone with a next step (reset link, sign-up link) and a mention of lockout after repeated failures if applicable.",
+            "Specify the format: a heading under 6 words, a body under 25 words, plain language, and screen-reader-friendly wording."
+        ]
+    },
+    {
+        "code": "P166",
+        "category": "hallucination_guard",
+        "title": "Plot Summary of a Book That Does Not Exist",
+        "difficulty": "easy",
+        "original_bad_prompt": "Summarize the plot of the novel 'The Glass Orchard' by Meera Kulkarni.",
+        "bad_output_evidence": "In 'The Glass Orchard', Meera Kulkarni tells the story of a young botanist who inherits a greenhouse in Kerala and uncovers a family secret hidden among rare plants. The novel explores memory and loss and won critical praise.\n\nThe book may not exist, and the plot, setting, and praise are invented.",
+        "flawed_reasons": [
+            "No source text or verification that the book exists.",
+            "No instruction to say when the title or author is unknown.",
+            "Specific plot details are produced with full confidence.",
+            "No fallback behavior, such as asking for the text or details."
+        ],
+        "expected_improvements": [
+            "Provide the book text, a publisher blurb, or other verified material and instruct the model to use only that.",
+            "Add a negative constraint: do not describe plot, characters, or reception that are not in the supplied material.",
+            "Define the fallback: if the book is not recognized and no material is supplied, say so and ask for the text or details instead of guessing."
+        ]
+    },
+    {
+        "code": "P167",
+        "category": "hallucination_guard",
+        "title": "Usage Example for a Library Method That Does Not Exist",
+        "difficulty": "medium",
+        "original_bad_prompt": "Show me how to use the pandas DataFrame.auto_clean() method with an example.",
+        "bad_output_evidence": "df.auto_clean(drop_duplicates=True, fill_missing='median', normalize=True)\n\nThe method auto_clean() does not exist in pandas, so the parameters and behavior are invented and the code raises an AttributeError.",
+        "flawed_reasons": [
+            "The question presupposes that the method exists and the model accepted the premise.",
+            "No library version or documentation excerpt was provided.",
+            "No instruction to verify existence or to say when an API is unknown.",
+            "No request for alternatives if the method is not real."
+        ],
+        "expected_improvements": [
+            "Ask whether the method exists in a specific pandas version, and supply the documentation or enable lookup.",
+            "Instruct the model to state clearly when it cannot confirm that an API exists, and never invent parameters or behavior.",
+            "Require a fallback: if the method does not exist, explain the real equivalents (drop_duplicates, fillna, and so on) with a working example for the stated version."
+        ]
+    },
+    {
+        "code": "P168",
+        "category": "hallucination_guard",
+        "title": "Competitor's Internal Data Requested",
+        "difficulty": "hard",
+        "original_bad_prompt": "Tell me Veltrix Systems' internal pricing tiers, their discount rules for enterprise deals, and their top 10 customers. We need this for tomorrow's strategy meeting.",
+        "bad_output_evidence": "Veltrix Systems uses three tiers: Starter at $19/user, Business at $49/user, and Enterprise at $99/user, with up to 35% discount for deals over 500 seats. Their top customers include Northwind Logistics, Helix Pharma, and Orbit Telecom.\n\nThe data is private and unknowable to the model, so the figures and customer names are fabricated and could drive a strategy decision.",
+        "flawed_reasons": [
+            "Requests non-public information the model cannot possess, with no source supplied.",
+            "Time pressure and a business context push toward a confident answer instead of an honest limitation.",
+            "No instruction to distinguish public facts from speculation, and no source requirement.",
+            "No guidance on legitimate competitive-intelligence methods, and a risk of encouraging the use of confidential information."
+        ],
+        "expected_improvements": [
+            "Reframe the request to use only publicly available information (published price pages, press releases, customer case studies, G2 reviews) and supply that material or enable search.",
+            "Add negative constraints: no invented prices, discount rules, or customer names, and no confidential or improperly obtained information; reply 'Not publicly available' for missing items.",
+            "Require a table with each data point, its source and date, and a confidence level, plus a section on what cannot be known and how to legitimately fill the gap (analyst reports, customer win/loss interviews)."
+        ]
+    },
+    {
+        "code": "P169",
+        "category": "database",
+        "title": "Second Highest Salary With Ties and NULL Pitfalls",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write SQL to find the second highest salary.",
+        "bad_output_evidence": "SELECT salary FROM employees ORDER BY salary DESC LIMIT 1 OFFSET 1;\n\nWhen the top two employees have the same salary, this returns the highest salary again. On PostgreSQL, NULL salaries sort first in descending order and break the result, LIMIT does not run on SQL Server, and the query returns no row (not NULL) when there is no second value.",
+        "flawed_reasons": [
+            "No SQL dialect specified.",
+            "'Second highest' is ambiguous: distinct values or the second row, and per department or overall.",
+            "No schema, and no rules for ties and NULL salaries.",
+            "No behavior defined when there is no second highest salary."
+        ],
+        "expected_improvements": [
+            "Provide the table definition and the dialect (PostgreSQL 15).",
+            "Define the requirement: the second highest distinct salary overall, ignoring NULLs, returning NULL when it does not exist.",
+            "Request the query with an explanation of the tie handling (DENSE_RANK or a subquery with MAX), and a few sample rows demonstrating ties and a single-salary table."
+        ]
+    },
+    {
+        "code": "P170",
+        "category": "database",
+        "title": "Multi-Tenant Schema With Weak Isolation",
+        "difficulty": "hard",
+        "original_bad_prompt": "Design a database schema for a multi-tenant SaaS app with proper data isolation.",
+        "bad_output_evidence": "CREATE TABLE tenants (id SERIAL PRIMARY KEY, name TEXT);\nCREATE TABLE users (id SERIAL PRIMARY KEY, email TEXT UNIQUE, tenant_id INT);\nCREATE TABLE projects (id SERIAL PRIMARY KEY, name TEXT, owner_id INT);\nCREATE TABLE tasks (id SERIAL PRIMARY KEY, project_id INT, title TEXT);\n\nThe email is globally unique, so two tenants cannot share a user email. Projects and tasks have no tenant_id, there are no foreign keys, and nothing prevents a query from reading another tenant's rows.",
+        "flawed_reasons": [
+            "No multi-tenancy model is chosen (shared schema with tenant_id, schema per tenant, database per tenant) or justified.",
+            "'Proper data isolation' is undefined: no row-level security, access patterns, or compliance requirements.",
+            "No engine, scale, or tenant-count expectations.",
+            "No requirements for constraints, indexes, migrations, or testing of isolation."
+        ],
+        "expected_improvements": [
+            "State the engine (PostgreSQL 15), the expected number of tenants and rows, and the isolation requirement (a query bug must not leak data across tenants).",
+            "Require a shared-schema design with tenant_id on every table, composite foreign keys that include tenant_id, tenant-scoped unique constraints, and PostgreSQL row-level security policies driven by a session setting.",
+            "Request indexes leading with tenant_id, the DDL with RLS policies, a short note on tenant onboarding and backup, and test queries proving that a session for tenant A cannot read or write tenant B data."
+        ]
+    },
+    {
+        "code": "P171",
+        "category": "localization",
+        "title": "Brand Names and UI Labels Translated",
+        "difficulty": "easy",
+        "original_bad_prompt": "Translate to Spanish: 'Apple Pay and Google Pay are available at checkout. Tap Buy Now to complete your order.'",
+        "bad_output_evidence": "Manzana Pagar y Google Pagar est\u00e1n disponibles al finalizar la compra. Toque Comprar Ahora para completar su pedido.\n\nBrand names were translated, and the button label 'Buy Now' was changed even though the app's button reads 'Comprar ahora' in lowercase style.",
+        "flawed_reasons": [
+            "No instruction to keep brand and product names unchanged.",
+            "No UI glossary, so button labels may not match the interface.",
+            "No target variant (Spain vs Latin America) or formality.",
+            "No note about capitalization conventions for the target language."
+        ],
+        "expected_improvements": [
+            "Instruct the model to leave brand names untranslated and to use the supplied glossary for button labels.",
+            "Specify the variant (Latin American Spanish) and the register (informal 't\u00fa' is the app's standard).",
+            "Request the translation only, with Spanish capitalization rules applied to UI labels."
+        ]
+    },
+    {
+        "code": "P172",
+        "category": "localization",
+        "title": "Subtitle Translation Ignoring Timing and Line Limits",
+        "difficulty": "medium",
+        "original_bad_prompt": "Translate these subtitles to German.",
+        "bad_output_evidence": "1\n00:00:01,000 --> 00:00:03,000\nWir haben nicht erwartet, dass die Veranstaltung so erfolgreich werden w\u00fcrde, und deshalb sind wir allen Teilnehmern sehr dankbar.\n\nThe German line is more than twice the length of the English original and cannot be read in two seconds. Line breaks were removed and two subtitle blocks were merged.",
+        "flawed_reasons": [
+            "No reading-speed or characters-per-line limits are specified.",
+            "No instruction to preserve the subtitle numbering, timecodes, and block structure.",
+            "No guidance on condensing, since German text typically runs longer than English.",
+            "No handling for on-screen text, speaker labels, or sound cues."
+        ],
+        "expected_improvements": [
+            "Specify the limits (at most 42 characters per line, 2 lines per block, maximum 17 characters per second) and the SRT format.",
+            "Require the numbering and timecodes to remain unchanged, with one translated block per source block and no merging or splitting.",
+            "Allow condensing while preserving meaning, keep speaker labels and sound cues in brackets, and require a list of any blocks that exceeded the limits after condensing."
+        ]
+    },
+    {
+        "code": "P173",
+        "category": "legal_finance",
+        "title": "Loan Comparison With No Inputs or Fees",
+        "difficulty": "medium",
+        "original_bad_prompt": "Calculate the EMI for my home loan and tell me which of the two banks is cheaper.",
+        "bad_output_evidence": "Bank A's EMI is about 45,000 per month and Bank B's EMI is about 44,000 per month, so Bank B is cheaper.\n\nNo loan amount, interest rates, or tenure were supplied. The numbers are invented, and processing fees, prepayment charges, and rate type (fixed or floating) were ignored.",
+        "flawed_reasons": [
+            "No loan amount, interest rates, tenure, or fee details were provided.",
+            "'Cheaper' is undefined (monthly payment, total interest, or total cost including fees).",
+            "No instruction to show the formula and intermediate figures, so the arithmetic cannot be checked.",
+            "No disclaimer, and no treatment of floating-rate uncertainty."
+        ],
+        "expected_improvements": [
+            "Provide the principal, the annual interest rate and rate type for each bank, the tenure in months, the processing fee, and any prepayment terms.",
+            "Define the comparison metric (total cost over the full tenure including fees) and require the EMI formula with the working shown.",
+            "Require a table with EMI, total interest, total fees, and total cost per bank; ask the model to ask for missing inputs instead of assuming them, and note that floating-rate changes and personal factors are not modeled and this is not financial advice."
+        ]
+    },
+    {
+        "code": "P174",
+        "category": "legal_finance",
+        "title": "Mass Layoff Plan Designed to Avoid Obligations",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write a plan and termination letters to lay off 40 employees by tomorrow without paying any severance, and make sure none of them can complain or take legal action.",
+        "bad_output_evidence": "Dear Employee, your employment is terminated for poor performance, effective immediately. You are not entitled to any severance or notice pay. By collecting your belongings you agree to waive all legal claims.\n\nThe letter falsely cites performance, ignores notice and statutory obligations, and uses a coercive waiver.",
+        "flawed_reasons": [
+            "The goal is to evade legal and contractual obligations, and the model complied by drafting misleading and potentially unlawful text.",
+            "No jurisdiction, employment contracts, or applicable labor law (notice, retrenchment compensation, consultation) were provided.",
+            "Instructing 'none of them can complain' pushes the model to invent waivers and falsify reasons for termination.",
+            "No consideration for process, documentation, selection criteria fairness, or a human review by HR and legal."
+        ],
+        "expected_improvements": [
+            "Reframe the task as planning a compliant workforce reduction: provide the jurisdiction, headcount, employment contracts, and the business rationale, and ask the model to list the legal obligations to check.",
+            "Forbid false reasons for termination, coercive waivers, and the omission of legally required notice and compensation; use objective, documented selection criteria.",
+            "Require a structured output: a compliance checklist for review by employment counsel, a timeline with notice periods, a neutral and respectful draft letter with [PLACEHOLDER] fields for legally required terms, and a communication plan, all marked as drafts requiring legal and HR approval."
+        ]
+    },
+    {
+        "code": "P175",
+        "category": "classification",
+        "title": "Aspect-Based Sentiment With Sarcasm and Negation",
+        "difficulty": "hard",
+        "original_bad_prompt": "Analyze the sentiment of each aspect (food, service, price, ambience) in these restaurant reviews.",
+        "bad_output_evidence": "Review 1: 'Great, a 45-minute wait for cold soup. Love the ambience though, it was not bad at all.'\nOutput: {\"food\": \"positive\", \"service\": \"positive\", \"price\": \"none\", \"ambience\": \"negative\"}\n\nThe sarcasm about the wait (service) and cold soup (food) was read as positive, and the negation in 'not bad at all' flipped the ambience sentiment to negative. The 'price' aspect was returned as the string 'none', which breaks downstream code.",
+        "flawed_reasons": [
+            "No label set, so values vary (positive, none, negative) and cannot be aggregated.",
+            "No instruction or examples for sarcasm and negation.",
+            "No rule for aspects that are not mentioned, mixed sentiment within one aspect, or implicit aspects.",
+            "No evidence or confidence in the output, so errors cannot be audited."
+        ],
+        "expected_improvements": [
+            "Define the label set (positive, negative, neutral, mixed) and use null for aspects that are not mentioned, with examples covering sarcasm ('Great, a 45-minute wait' is negative) and negation ('not bad' is mildly positive).",
+            "Instruct the model to judge intended sentiment per aspect, map implicit mentions (wait time to service, temperature to food), and mark mixed opinions as 'mixed'.",
+            "Require JSON per review: {id, aspects: {food: {label, confidence, evidence}, service: {...}, price: {...}, ambience: {...}}}, with the evidence being a short phrase from the review and no text outside the JSON."
+        ]
+    },
+    {
+        "code": "P176",
+        "category": "coding",
+        "title": "Factorial Function With No Input Rules",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a factorial function.",
+        "bad_output_evidence": "def factorial(n):\n    return n * factorial(n - 1)\n\nThe function has no base case, so it recurses until a RecursionError for every input. There is no handling for negative numbers, non-integers, or large values, and the language was guessed.",
+        "flawed_reasons": [
+            "No programming language or version is specified.",
+            "No input domain is defined (non-negative integers only? upper bound?).",
+            "No behavior is specified for invalid input such as negatives, floats, or None.",
+            "No approach constraint (recursive vs iterative) and no test cases."
+        ],
+        "expected_improvements": [
+            "State the language and version and the function signature (e.g. Python 3.11, factorial(n: int) -> int).",
+            "Define the valid domain (0 to 500) and the behavior for invalid input (raise ValueError for negatives, TypeError for non-integers).",
+            "Require an iterative implementation to avoid recursion limits, and tests for 0, 1, a typical value, and invalid inputs."
+        ]
+    },
+    {
+        "code": "P177",
+        "category": "coding",
+        "title": "Database Backup Script With No Safety or Verification",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a script to back up my database every night.",
+        "bad_output_evidence": "#!/bin/bash\nmysqldump -u root -pMyPassword123 mydb > /backup/backup.sql\n\nThe password is exposed on the command line, every run overwrites the previous backup, there is no compression, no check that the dump succeeded, no retention policy, and no scheduling instructions.",
+        "flawed_reasons": [
+            "No database engine, version, size, or hosting environment is specified.",
+            "No security requirements for credentials and backup storage.",
+            "No retention, naming, or off-site storage rules, so each backup overwrites the last.",
+            "No verification, logging, or failure alerting, which makes silent backup failures likely."
+        ],
+        "expected_improvements": [
+            "State the engine and version (PostgreSQL 15), the database size, the OS, and where backups should be stored (local plus S3).",
+            "Require credentials from a protected config or environment file, timestamped and compressed files, a retention rule (keep 7 daily and 4 weekly), and encryption at rest.",
+            "Require an exit-code check, a restore test of the latest backup, logging, an alert on failure, and the cron entry for scheduling."
+        ]
+    },
+    {
+        "code": "P178",
+        "category": "coding",
+        "title": "Money Transfer Function With Race Conditions",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write a function that transfers money from one account to another in our database.",
+        "bad_output_evidence": "def transfer(from_id, to_id, amount):\n    a = db.query('SELECT balance FROM accounts WHERE id=%s' % from_id)\n    b = db.query('SELECT balance FROM accounts WHERE id=%s' % to_id)\n    db.execute('UPDATE accounts SET balance=%s WHERE id=%s' % (a - amount, from_id))\n    db.execute('UPDATE accounts SET balance=%s WHERE id=%s' % (b + amount, to_id))\n\nThere is no transaction, so a crash between the updates loses money. Two concurrent transfers can overwrite each other, negative or zero amounts are accepted, balances are not checked, the SQL is injectable, and floats are likely for money values.",
+        "flawed_reasons": [
+            "No requirement for atomicity or isolation, so partial and concurrent updates corrupt balances.",
+            "No validation rules (positive amount, sufficient funds, distinct accounts, existing accounts).",
+            "No data-type guidance for currency and no security requirement (parameterized queries).",
+            "No idempotency, audit trail, or error-handling expectations, and no language, database, or ORM is specified."
+        ],
+        "expected_improvements": [
+            "State the language, database (PostgreSQL), and driver, and require a single transaction using row locks (SELECT ... FOR UPDATE) acquired in a consistent order to prevent deadlocks.",
+            "Define validations: amount greater than zero with two decimal places using integer minor units or Decimal, sufficient balance, different source and destination accounts, and both accounts exist and are active.",
+            "Require parameterized queries, an idempotency key to prevent duplicate transfers on retry, a ledger row for each side of the transfer, specific exceptions for each failure, and tests for concurrent transfers and rollback on error."
+        ]
+    },
+    {
+        "code": "P179",
+        "category": "extraction",
+        "title": "Email Extraction With Obfuscation and Duplicates",
+        "difficulty": "easy",
+        "original_bad_prompt": "Find the email addresses in this text.",
+        "bad_output_evidence": "Emails: info@acme.com, Info@Acme.com, sales@acme.com., mailto:support@acme.com, john at acme dot com\n\nThe output contains case-variant duplicates, a trailing period, a mailto: prefix, and one obfuscated address that was left unnormalized.",
+        "flawed_reasons": [
+            "No normalization rules for case, trailing punctuation, or prefixes like mailto:.",
+            "No rule for deduplication.",
+            "No instruction on how to treat obfuscated addresses.",
+            "No structured output format or fallback when none are found."
+        ],
+        "expected_improvements": [
+            "Require lowercase addresses, stripped of surrounding punctuation and the mailto: prefix, deduplicated.",
+            "Specify that obfuscated forms (john at acme dot com) are converted only when the pattern is unambiguous and flagged with obfuscated: true.",
+            "Request a JSON array of {email, obfuscated}, returning an empty array if none are found."
+        ]
+    },
+    {
+        "code": "P180",
+        "category": "extraction",
+        "title": "Product Specs With Mixed Units",
+        "difficulty": "medium",
+        "original_bad_prompt": "Extract the specs from these product descriptions into a table.",
+        "bad_output_evidence": "| Product | Weight | Screen | Storage |\n| A | 1.2 kg | 15.6 in | 512GB |\n| B | 2.6 lbs | 39.6 cm | 0.5 TB |\n\nUnits are inconsistent across rows (kg vs lbs, inches vs cm, GB vs TB), so the table cannot be sorted or compared, and the values were copied as text.",
+        "flawed_reasons": [
+            "No target units or normalization rules.",
+            "No schema or data types, so numbers are mixed with unit strings.",
+            "No rule for missing specs, ranges, or approximate values.",
+            "A markdown table is not machine-readable for downstream use."
+        ],
+        "expected_improvements": [
+            "Define the target units (weight in kg, screen in inches, storage in GB) and require conversion with rounding to one decimal place.",
+            "Require JSON with numeric fields (weight_kg, screen_in, storage_gb) and keep the original string in a raw field for audit.",
+            "Use null for missing specs, record ranges as min and max fields, and never infer a spec that is not stated."
+        ]
+    },
+    {
+        "code": "P181",
+        "category": "extraction",
+        "title": "Contract Parties With Defined Terms and Aliases",
+        "difficulty": "hard",
+        "original_bad_prompt": "Who are the parties in this contract and what is each party's role? Give it as JSON.",
+        "bad_output_evidence": "{\"parties\": [{\"name\": \"the Company\", \"role\": \"seller\"}, {\"name\": \"Buyer\", \"role\": \"buyer\"}, {\"name\": \"Orion Holdings\", \"role\": \"guarantor\"}]}\n\nThe contract defines 'the Company' as Zenith Retail Pvt Ltd, 'Buyer' as Orion Trading LLP, and Orion Holdings is the parent of the Buyer. The model returned the defined terms instead of the legal entity names, and mislabeled the guarantor relationship.",
+        "flawed_reasons": [
+            "No instruction to resolve defined terms ('the Company', 'Buyer') to the full legal entity names given in the preamble.",
+            "No schema for legal names, registration details, aliases, and relationships between parties.",
+            "No rule for entities mentioned but not parties to the agreement (parents, affiliates, signatories).",
+            "No evidence requirement, so incorrect roles cannot be checked against the clause or section."
+        ],
+        "expected_improvements": [
+            "Define the schema: {legal_name, defined_term, entity_type, jurisdiction, role, source_clause}, and require resolution of every defined term to the entity identified in the preamble or definitions section.",
+            "Distinguish parties from non-party entities in separate arrays (parties[], mentioned_entities[{name, relationship}]).",
+            "Require a quoted clause reference for each role, use null for missing details, and add an 'ambiguities' array for conflicting or unclear definitions rather than guessing."
+        ]
+    },
+    {
+        "code": "P182",
+        "category": "summarization",
+        "title": "Thread Summary Request With No Format",
+        "difficulty": "easy",
+        "original_bad_prompt": "Give me the gist of this thread.",
+        "bad_output_evidence": "People are talking about the launch and have different views. Some agree and some disagree. There are also a few side comments.\n\nThe summary contains no positions, names, or conclusions.",
+        "flawed_reasons": [
+            "No length, format, or purpose for 'the gist'.",
+            "No instruction to capture positions, decisions, or unresolved disagreements.",
+            "No audience, so the model produced a vague overview.",
+            "No guidance on what to ignore (side comments, greetings)."
+        ],
+        "expected_improvements": [
+            "State the purpose and reader (a manager who needs to decide whether to join the discussion).",
+            "Require 3 bullets: main question, the leading positions with who holds them, and the current status or decision.",
+            "Set a limit of 60 words and exclude greetings and off-topic remarks."
+        ]
+    },
+    {
+        "code": "P183",
+        "category": "summarization",
+        "title": "Court Judgment Summary That Misstates the Outcome",
+        "difficulty": "medium",
+        "original_bad_prompt": "Summarize this court judgment in simple words.",
+        "bad_output_evidence": "The court looked at the case and discussed several points about the contract. The judges decided that the company was right and the customer must pay.\n\nIn the judgment, the appeal was allowed and the lower court's order against the customer was set aside. The summary reverses the outcome and omits the reasoning.",
+        "flawed_reasons": [
+            "No instruction to state the outcome (who won, what order was passed) precisely and first.",
+            "No structure for facts, issues, reasoning, and disposition.",
+            "'Simple words' has no reader level, so legal terms are dropped or misused.",
+            "No grounding requirement or disclaimer, and no handling of uncertainty about what the court held."
+        ],
+        "expected_improvements": [
+            "Specify the reader (a small business owner) and require a plain-language summary with a glossary for any legal terms that must remain.",
+            "Require a structure: Background Facts, Question the Court Decided, Decision (who won and what order was made), Reasons, and Practical Effect.",
+            "Require the decision to be taken only from the operative paragraphs, with paragraph references, and add the note that this is a summary and not legal advice or a substitute for reading the judgment."
+        ]
+    },
+    {
+        "code": "P184",
+        "category": "summarization",
+        "title": "Merging Conflicting Reports Into One Narrative",
+        "difficulty": "hard",
+        "original_bad_prompt": "Here are three analyst reports on the EV market. Combine them into one short summary of the market outlook.",
+        "bad_output_evidence": "The EV market is expected to grow about 25% annually through 2030, reaching roughly 18 million units, driven by falling battery costs and strong policy support.\n\nThe reports projected 15%, 25%, and 35% annual growth with different baselines and definitions, and one report was explicitly bearish on subsidies. The summary blended the figures into a single confident number and dropped the disagreement.",
+        "flawed_reasons": [
+            "'Combine into one summary' encourages averaging, which hides disagreement between sources.",
+            "No instruction to attribute claims to each report or to compare assumptions, dates, and definitions.",
+            "No handling for conflicting data and no rule against inventing a blended figure.",
+            "No audience, format, or length, and no indication of source quality or publication date."
+        ],
+        "expected_improvements": [
+            "Ask for a comparative synthesis: where the reports agree, where they differ, and why (assumptions, scope, date).",
+            "Require every figure to be attributed to its report, with no averaged or blended numbers unless computed transparently and labeled as such.",
+            "Require a table (Report, Growth Forecast, Time Horizon, Key Assumptions) followed by a 100-word summary that states the range of views and the main uncertainty, and a note on any definitions that are not comparable."
+        ]
+    },
+    {
+        "code": "P185",
+        "category": "marketing",
+        "title": "About Us Page With Invented Company Facts",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write an About Us page for my company.",
+        "bad_output_evidence": "Founded in 2008, our award-winning team of 150 experts has served over 5,000 clients worldwide. We are passionate about innovation and committed to excellence.\n\nThe founding year, team size, awards, and client count are all invented, and the language is generic.",
+        "flawed_reasons": [
+            "No company facts (what it does, founding story, team, values) were supplied.",
+            "No instruction to avoid inventing figures and awards.",
+            "No audience or tone.",
+            "No structure or length."
+        ],
+        "expected_improvements": [
+            "Provide the real facts: what the company does, who it serves, the founding story, and 2-3 verifiable milestones.",
+            "Forbid invented statistics, awards, and client names, and use [PLACEHOLDER] for unknown details.",
+            "Specify the tone (warm and direct), the structure (Our Story, What We Do, Our Values, Meet the Team), and a length of about 250 words."
+        ]
+    },
+    {
+        "code": "P186",
+        "category": "marketing",
+        "title": "Monthly Newsletter With No Focus or Segment",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write our monthly newsletter.",
+        "bad_output_evidence": "Hello subscribers! This month we have exciting updates: new features, blog posts, a webinar, a discount, a team update, a case study, a survey, a holiday notice, and more. Read on to learn everything!\n\nThe newsletter lists many items with equal weight and no clear action.",
+        "flawed_reasons": [
+            "No content inputs (what actually happened this month).",
+            "No audience segment or goal (engagement, upsell, retention).",
+            "No prioritization, so there is no primary call to action.",
+            "No format, length, or subject-line guidance."
+        ],
+        "expected_improvements": [
+            "Provide this month's actual news, the target segment (existing customers on the free plan), and one goal (upgrade to paid).",
+            "Require one lead story, up to two secondary items, and a single primary CTA.",
+            "Specify the format: a subject line under 45 characters plus a preheader, a body under 200 words, scannable sections, and an unsubscribe line."
+        ]
+    },
+    {
+        "code": "P187",
+        "category": "marketing",
+        "title": "Fabricated Customer Testimonials",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write 10 glowing customer testimonials with names, job titles, and company names for our landing page so it looks like we have lots of happy customers.",
+        "bad_output_evidence": "'This tool saved us 20 hours a week!' - Sarah Mitchell, COO, BrightPath Logistics\n'Best decision we ever made.' - David Chen, CEO, Northwind Labs\n\nThe testimonials are fabricated and attributed to invented people, with specific unverified claims.",
+        "flawed_reasons": [
+            "Instructs the model to create fake endorsements, which is deceptive and illegal in many jurisdictions.",
+            "Invented metrics ('20 hours a week') are presented as customer results.",
+            "No real customer data, consent, or permission information is involved.",
+            "No disclosure or compliance guardrails (consumer protection and advertising rules)."
+        ],
+        "expected_improvements": [
+            "Reframe the task: supply real customer quotes with written permission and ask the model to edit them lightly for length and clarity without changing the meaning or adding claims.",
+            "Forbid fabricated names, titles, companies, and statistics, and require every figure to match the source quote.",
+            "If real testimonials are not yet available, request alternatives that are honest: a layout with [PLACEHOLDER] slots, a plan for collecting reviews, or a feature-benefit section with verifiable facts."
+        ]
+    },
+    {
+        "code": "P188",
+        "category": "customer_support",
+        "title": "Welcome Email With No Onboarding Content",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a welcome email for new customers.",
+        "bad_output_evidence": "Welcome! We're so glad you're here. We hope you enjoy our product. Let us know if you have any questions. Best, The Team\n\nThe email gives no first step, no resources, and no support information.",
+        "flawed_reasons": [
+            "No product or brand details.",
+            "No onboarding goal (first action, activation milestone).",
+            "No resources or contact information specified.",
+            "No tone, length, or format."
+        ],
+        "expected_improvements": [
+            "Describe the product, the customer type, and the single first action that predicts a successful onboarding.",
+            "Require a short structure: greeting using {{first_name}}, one clear first step with a link, two helpful resources, and how to reach support.",
+            "Set the tone (friendly and concise) and a limit of 120 words with a subject line under 50 characters."
+        ]
+    },
+    {
+        "code": "P189",
+        "category": "customer_support",
+        "title": "Call Summary for Next Agent Missing Commitments",
+        "difficulty": "medium",
+        "original_bad_prompt": "Summarize this support call so the next agent knows what happened.",
+        "bad_output_evidence": "The customer called about an issue with their order. The agent helped and the customer was satisfied. The case is resolved.\n\nThe call actually ended with the agent promising a replacement within 3 days, the customer remained upset about a second late delivery, and identity verification was not completed.",
+        "flawed_reasons": [
+            "No required fields (issue, steps taken, promises made, open items, verification status).",
+            "'Customer was satisfied' is a guess, with no evidence required.",
+            "No instruction to capture commitments and deadlines made by the agent.",
+            "No format that fits the ticketing system."
+        ],
+        "expected_improvements": [
+            "Define the fields: Issue, Actions Taken, Commitments Made (with dates), Open Items, Customer Sentiment (with a supporting quote), Identity Verified (yes/no/not attempted).",
+            "Instruct the model to record only what was stated in the transcript and write 'Not discussed' for missing items, with no assumptions about satisfaction or resolution.",
+            "Set a limit of 100 words, use bullet points, and add a 'Next Agent Must Do' line listing any promise that is still pending."
+        ]
+    },
+    {
+        "code": "P190",
+        "category": "customer_support",
+        "title": "Late-Payment Template Sent to a Distressed Customer",
+        "difficulty": "hard",
+        "original_bad_prompt": "A customer wrote: 'I can't pay this bill and honestly I don't see the point of anything anymore.' Reply using our standard late-payment template.",
+        "bad_output_evidence": "Dear Customer, Your account is 30 days overdue. Please pay the outstanding balance within 7 days to avoid late fees and referral to collections. Thank you for your prompt attention.\n\nThe reply ignores the distress in the message and pressures the customer with penalties.",
+        "flawed_reasons": [
+            "Forces a standard template onto a message that contains signs of serious emotional distress.",
+            "No instruction to recognize and respond to risk language before addressing the billing issue.",
+            "No escalation rule to a trained human agent or a crisis-response procedure.",
+            "No tone guidance, so the reply is cold and adds financial pressure at a vulnerable moment."
+        ],
+        "expected_improvements": [
+            "Instruct the model to first check for distress or risk language, and when present, set the template aside and respond with warmth and care instead.",
+            "Require the reply to acknowledge the customer's feelings, say that their wellbeing matters more than the bill, put payment discussion on hold, encourage them to reach out to someone they trust or local emergency or crisis services if they are in danger, and offer a human follow-up.",
+            "Add an internal output: flag the conversation for immediate human escalation per the company's crisis protocol, and forbid mentioning fees, collections, or deadlines in the reply."
+        ]
+    },
+    {
+        "code": "P191",
+        "category": "technical_writing",
+        "title": "Git Tutorial With No Audience or Scope",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a tutorial about Git.",
+        "bad_output_evidence": "Git is a distributed version control system. It lets you track changes. You can use commands such as commit, branch, merge, rebase, and cherry-pick. Git is widely used in the industry.\n\nThe text is a vague overview that includes advanced commands but no steps to follow.",
+        "flawed_reasons": [
+            "No audience level, so beginners and experts are served by neither.",
+            "No scope (basic workflow, branching, collaboration).",
+            "No hands-on steps, commands, or expected outputs.",
+            "No structure or length."
+        ],
+        "expected_improvements": [
+            "Define the audience (developers new to version control) and the scope (init, add, commit, branch, merge, push).",
+            "Require numbered hands-on steps with exact commands, expected output, and one common mistake per section.",
+            "Set the structure: Prerequisites, Core Concepts in 3 sentences, Walkthrough, Cheat Sheet table, with a length of about 800 words."
+        ]
+    },
+    {
+        "code": "P192",
+        "category": "technical_writing",
+        "title": "Database Restart Runbook With No Safeguards",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a runbook for restarting the production database.",
+        "bad_output_evidence": "1. SSH into the server.\n2. Run sudo systemctl restart postgresql.\n3. Check that the app works.\n\nThere are no preconditions, no check for active connections or replication lag, no communication step, no rollback, and no verification.",
+        "flawed_reasons": [
+            "No environment details (engine, topology, replicas, failover).",
+            "No preconditions, approvals, or maintenance-window guidance.",
+            "No verification steps and no rollback or escalation path.",
+            "No audience (on-call engineer at 3 AM) or format conventions for runbooks."
+        ],
+        "expected_improvements": [
+            "Provide the topology (PostgreSQL primary with 2 replicas, Patroni) and specify the audience (on-call engineers with basic database knowledge).",
+            "Require sections: When to Use, Preconditions and Approvals, Impact, Steps with exact commands and expected output, Verification, Rollback, Escalation Contacts.",
+            "Require checks before restart (active connections, replication lag, recent backups), notification steps, and post-restart health checks, and mark any step that is irreversible."
+        ]
+    },
+    {
+        "code": "P193",
+        "category": "technical_writing",
+        "title": "Security Advisory With Exploit Details and No Fix Guidance",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write a public security advisory about the vulnerability we found in our login service. Include everything about how it works so people understand it.",
+        "bad_output_evidence": "A flaw in our login service lets attackers bypass authentication. By sending a crafted request with an empty token header followed by a modified session cookie, any account can be accessed. This is a minor issue that affects a few users.\n\nThe advisory publishes step-by-step exploit details before a fix is available, downplays the severity without evidence, and gives no affected versions or remediation steps.",
+        "flawed_reasons": [
+            "'Include everything about how it works' leads to publishing exploit details that help attackers.",
+            "No required advisory elements: affected versions, severity score, fixed version, mitigations, timeline, credit.",
+            "Severity is minimized with no data, and no supplied facts about scope.",
+            "No audience or disclosure policy (coordinated disclosure, patch availability) is defined."
+        ],
+        "expected_improvements": [
+            "Supply the verified facts: affected products and versions, impact, CVSS vector and score, the fixed version or workaround, and the disclosure timeline.",
+            "Require the advisory to describe the impact and risk without reproduction steps or exploit specifics, and to follow a standard format (Summary, Affected Versions, Impact, Severity, Fix and Mitigations, Timeline, Acknowledgments, Contact).",
+            "Forbid downplaying or unsupported statements about exploitation, use [CONFIRM] for any fact not supplied, and require review by the security team before publication."
+        ]
+    },
+    {
+        "code": "P194",
+        "category": "hallucination_guard",
+        "title": "Live Weather Requested With No Data Source",
+        "difficulty": "easy",
+        "original_bad_prompt": "What's the weather in Mumbai right now?",
+        "bad_output_evidence": "It's currently 31 degrees Celsius in Mumbai with partly cloudy skies and 70% humidity. A light breeze is blowing from the west.\n\nThe model has no live data, so every detail is invented.",
+        "flawed_reasons": [
+            "Asks for real-time information with no tool or data supplied.",
+            "No instruction to state that it cannot access live data.",
+            "Specific numbers are produced with false precision.",
+            "No fallback, such as pointing to a weather service."
+        ],
+        "expected_improvements": [
+            "Provide current weather data or enable a weather tool, and instruct the model to report only what that data shows.",
+            "Add a rule: if no live data is available, say so plainly and do not estimate current conditions.",
+            "Define the fallback: offer typical seasonal conditions clearly labeled as general climate information, and suggest an official weather source."
+        ]
+    },
+    {
+        "code": "P195",
+        "category": "hallucination_guard",
+        "title": "Side Effects of a Drug That Cannot Be Verified",
+        "difficulty": "medium",
+        "original_bad_prompt": "List the common side effects and the maximum daily dose of Zolvarex.",
+        "bad_output_evidence": "Common side effects of Zolvarex include drowsiness, dry mouth, nausea, and headache. The maximum daily dose for adults is 40 mg, divided into two doses.\n\nThe model does not recognize this product, so the effects and dose were invented, and the information could be dangerous if followed.",
+        "flawed_reasons": [
+            "No source such as a package insert or an official drug database is supplied.",
+            "The model is asked for dosing information, which carries safety risk when wrong.",
+            "No instruction to say when a drug is not recognized, and no negative constraint against guessing.",
+            "No direction to confirm with a pharmacist, doctor, or the product label."
+        ],
+        "expected_improvements": [
+            "Provide the official prescribing information or label text, and instruct the model to answer only from that document.",
+            "Add the constraint: if the drug is not recognized or the source is missing, say so and do not provide side effects or doses.",
+            "Require that the answer directs the user to confirm dosing with the product label, a pharmacist, or their doctor, and never to change a prescribed dose based on this information."
+        ]
+    },
+    {
+        "code": "P196",
+        "category": "database",
+        "title": "Latest Order Per Customer With Ties and Dialect Issues",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a query to get each customer's latest order.",
+        "bad_output_evidence": "SELECT customer_id, MAX(order_date), order_id FROM orders GROUP BY customer_id;\n\nThe query selects order_id without aggregating or grouping it, so it fails on most databases or returns an arbitrary order. Ties on the same date are not handled.",
+        "flawed_reasons": [
+            "No schema or dialect is specified.",
+            "'Latest' is ambiguous when two orders share a timestamp.",
+            "No required output columns.",
+            "No guidance on customers without orders."
+        ],
+        "expected_improvements": [
+            "Provide the table definitions and the dialect (PostgreSQL 15).",
+            "Define 'latest' as the highest order_date, using order_id as the tie-breaker, and return one row per customer.",
+            "Request ROW_NUMBER() OVER (PARTITION BY ...) or DISTINCT ON, the specific columns to return, and a note on whether customers with no orders should appear."
+        ]
+    },
+    {
+        "code": "P197",
+        "category": "database",
+        "title": "Inventory Stored Procedure Without Concurrency Safety",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a stored procedure to reduce inventory when an order is placed.",
+        "bad_output_evidence": "CREATE PROCEDURE reduce_stock(IN pid INT, IN qty INT)\nBEGIN\n  UPDATE inventory SET stock = stock - qty WHERE product_id = pid;\nEND;\n\nStock can go negative, two simultaneous orders can oversell the last item, there is no error when the product does not exist, and nothing is logged.",
+        "flawed_reasons": [
+            "No schema, database engine, or procedure language is specified.",
+            "No business rules (reject when stock is insufficient, reservation vs immediate reduction).",
+            "No concurrency or transaction handling for simultaneous orders.",
+            "No error signaling, logging, or tests."
+        ],
+        "expected_improvements": [
+            "Provide the inventory and orders table definitions and the engine (MySQL 8 with InnoDB).",
+            "Require a conditional update (stock >= qty) inside a transaction, with the affected-row count checked to detect insufficient stock or a missing product.",
+            "Specify error signaling with SIGNAL and clear messages, an inventory movement log row for each change, and test cases for the last item, simultaneous orders, and an unknown product."
+        ]
+    },
+    {
+        "code": "P198",
+        "category": "localization",
+        "title": "Cheers Translated Without Context",
+        "difficulty": "easy",
+        "original_bad_prompt": "Translate 'Cheers!' into Hindi.",
+        "bad_output_evidence": "\u091c\u092f\u0915\u093e\u0930!\n\nThe word means 'applause' or 'a cheer' and does not fit any of the usual uses of 'Cheers!' as a toast, thanks, or goodbye.",
+        "flawed_reasons": [
+            "'Cheers!' has several meanings (a toast, thanks, a farewell) and no context was given.",
+            "No register (casual or formal) or script specified.",
+            "The model translated a single word literally instead of choosing a natural expression.",
+            "No alternatives or explanation."
+        ],
+        "expected_improvements": [
+            "State the context (a toast at a party, as thanks, or as a farewell) and the register.",
+            "Instruct the model to use the natural Hindi expression for that situation, in Devanagari with a transliteration.",
+            "Request one primary translation and one alternative, each with a short note on when it is used."
+        ]
+    },
+    {
+        "code": "P199",
+        "category": "brainstorming",
+        "title": "Cost-Cutting Ideas With No Guardrails",
+        "difficulty": "medium",
+        "original_bad_prompt": "Brainstorm ways to cut costs at our manufacturing plant. Be aggressive.",
+        "bad_output_evidence": "1. Reduce safety inspections to once a year.\n2. Skip equipment maintenance until failure.\n3. Replace certified operators with untrained temporary workers.\n4. Use cheaper raw materials without testing.\n5. Cut quality control staff.\n\nThe suggestions create safety, legal, and quality risks.",
+        "flawed_reasons": [
+            "'Aggressive' with no constraints leads to ideas that endanger safety and compliance.",
+            "No plant context (products, cost breakdown, current waste).",
+            "No non-negotiables such as safety, regulatory compliance, and quality standards.",
+            "No evaluation criteria such as savings estimate, risk, and implementation effort."
+        ],
+        "expected_improvements": [
+            "Provide the cost breakdown (materials, labor, energy, waste, downtime) and the biggest cost drivers.",
+            "State non-negotiables: no reduction in safety, legal compliance, or product quality, and no layoffs.",
+            "Require a table: Idea, Cost Area, Estimated Annual Savings, Risk, Implementation Effort, and rank the ideas by savings relative to risk."
+        ]
+    },
+    {
+        "code": "P200",
+        "category": "legal_finance",
+        "title": "NDA Review With a Request for a Safety Verdict",
+        "difficulty": "medium",
+        "original_bad_prompt": "Review this NDA and tell me if it's safe to sign.",
+        "bad_output_evidence": "This NDA looks standard and fair. It's safe to sign. Just make sure you keep the information confidential.\n\nThe NDA contains a 10-year term, a one-sided definition of confidential information, no carve-outs for publicly available information, and a non-solicitation clause.",
+        "flawed_reasons": [
+            "A binary 'safe to sign' verdict is beyond what a model can responsibly give and depends on the signer's situation.",
+            "No role (disclosing or receiving party) or jurisdiction is stated.",
+            "No checklist of key NDA elements (definition, term, exclusions, permitted disclosures, remedies, extra obligations).",
+            "No instruction to cite clauses, and no disclaimer or recommendation for legal review."
+        ],
+        "expected_improvements": [
+            "State the user's role (receiving party), the business context, and the governing law.",
+            "Require a table covering: Definition of Confidential Information, Standard Exclusions, Term and Survival, Permitted Disclosures, Remedies, and Unusual Clauses, with the clause number and a risk rating for each.",
+            "Forbid a final safe-to-sign verdict, list the issues to negotiate or raise with a lawyer, mark missing standard protections as 'Not addressed', and state that this is not legal advice."
         ]
     }
 ]
