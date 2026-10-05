@@ -23,7 +23,7 @@ class PromptBankItemSchema(BaseModel):
 @router.get("/")
 def get_prompt_bank(
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_roles(["admin"]))
+    admin_user: User = Depends(require_roles(["admin", "judge"]))
 ):
     """Fetch all prompt bank items for the Admin Dashboard."""
     items = db.query(PromptBankItem).all()
@@ -33,7 +33,7 @@ def get_prompt_bank(
 def create_prompt_bank_item(
     payload: PromptBankItemSchema,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_roles(["admin"]))
+    admin_user: User = Depends(require_roles(["admin", "judge"]))
 ):
     """Create a new prompt bank item."""
     existing = db.query(PromptBankItem).filter(PromptBankItem.code == payload.code).first()
@@ -159,7 +159,7 @@ def update_prompt_bank_item(
     item_id: str,
     payload: PromptBankItemSchema,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_roles(["admin"]))
+    admin_user: User = Depends(require_roles(["admin", "judge"]))
 ):
     """Update an existing prompt bank item."""
     item = db.query(PromptBankItem).filter(PromptBankItem.id == item_id).first()
