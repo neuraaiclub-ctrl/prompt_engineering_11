@@ -160,10 +160,21 @@ class ArenaService:
             raise HTTPException(status_code=400, detail="Cannot start competition: Arena is in an invalid state.")
 
         # Clear old arena data so only teams and prompt questions remain
-        db.query(ArenaEvaluation).delete()
-        db.query(ArenaSubmission).delete()
-        db.query(ArenaSecurityEvent).delete()
-        db.query(TeamArenaSession).delete()
+        from app.models.arena_scoring import (
+            ArenaFinalScore, ArenaIntegrityFlag, ArenaScoringJob, 
+            ArenaScoringRun, ArenaTestResult, ArenaDimensionScore
+        )
+        db.query(ArenaTestResult).delete(synchronize_session=False)
+        db.query(ArenaDimensionScore).delete(synchronize_session=False)
+        db.query(ArenaScoringRun).delete(synchronize_session=False)
+        db.query(ArenaScoringJob).delete(synchronize_session=False)
+        db.query(ArenaIntegrityFlag).delete(synchronize_session=False)
+        db.query(ArenaFinalScore).delete(synchronize_session=False)
+
+        db.query(ArenaEvaluation).delete(synchronize_session=False)
+        db.query(ArenaSubmission).delete(synchronize_session=False)
+        db.query(ArenaSecurityEvent).delete(synchronize_session=False)
+        db.query(TeamArenaSession).delete(synchronize_session=False)
 
         now = datetime.utcnow()
         conf.status = "live"
