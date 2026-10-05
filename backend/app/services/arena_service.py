@@ -932,6 +932,8 @@ class ArenaService:
         sum_structure = 0.0
         sum_relevance = 0.0
 
+        from app.models.arena_scoring import ArenaFinalScore
+
         for sub in submissions:
             p = sub.prompt_item
             evals = sub.evaluations
@@ -944,8 +946,18 @@ class ArenaService:
                 c_total = sum(e.total_score for e in evals) / len(evals)
                 feedback = "; ".join([e.judge_feedback for e in evals if e.judge_feedback])
             else:
-                avg_clarity = avg_context = avg_spec = avg_struct = avg_rel = c_total = 0.0
-                feedback = "No comments recorded."
+                engine_score = db.query(ArenaFinalScore).filter(ArenaFinalScore.submission_id == sub.id).first()
+                if engine_score:
+                    avg_clarity = engine_score.clarity_score
+                    avg_context = engine_score.context_score
+                    avg_spec = engine_score.specificity_score
+                    avg_struct = engine_score.output_format_score
+                    avg_rel = engine_score.constraints_score
+                    c_total = engine_score.total
+                    feedback = "Evaluated by AI Engine."
+                else:
+                    avg_clarity = avg_context = avg_spec = avg_struct = avg_rel = c_total = 0.0
+                    feedback = "No comments recorded."
 
             total_team_score += c_total
             sum_clarity += avg_clarity
@@ -1017,6 +1029,8 @@ class ArenaService:
         teams = db.query(Team).all()
         eligible_standings = []
         eliminated_standings = []
+        
+        from app.models.arena_scoring import ArenaFinalScore
 
         for t in teams:
             session = db.query(TeamArenaSession).filter(TeamArenaSession.team_id == t.id).first()
@@ -1029,6 +1043,10 @@ class ArenaService:
                 evals = sub.evaluations
                 if evals:
                     total_score += sum(e.total_score for e in evals) / len(evals)
+                else:
+                    engine_score = db.query(ArenaFinalScore).filter(ArenaFinalScore.submission_id == sub.id).first()
+                    if engine_score:
+                        total_score += engine_score.total
 
             avg_score = round(total_score / 5.0, 2)
             completed_time = session.completed_at if session else None
@@ -1084,6 +1102,8 @@ class ArenaService:
         total_score = 0.0
         challenges_report = []
 
+        from app.models.arena_scoring import ArenaFinalScore
+
         for sub in submissions:
             p = db.query(PromptBankItem).filter(PromptBankItem.id == sub.prompt_bank_item_id).first()
             evals = sub.evaluations
@@ -1096,8 +1116,18 @@ class ArenaService:
                 c_total = sum(e.total_score for e in evals) / len(evals)
                 feedback = "; ".join([e.judge_feedback for e in evals if e.judge_feedback])
             else:
-                avg_clarity = avg_spec = avg_context = avg_format = avg_constraints = c_total = 0.0
-                feedback = "Pending evaluation."
+                engine_score = db.query(ArenaFinalScore).filter(ArenaFinalScore.submission_id == sub.id).first()
+                if engine_score:
+                    avg_clarity = engine_score.clarity_score
+                    avg_spec = engine_score.specificity_score
+                    avg_context = engine_score.context_score
+                    avg_format = engine_score.output_format_score
+                    avg_constraints = engine_score.constraints_score
+                    c_total = engine_score.total
+                    feedback = "Evaluated by AI Engine."
+                else:
+                    avg_clarity = avg_spec = avg_context = avg_format = avg_constraints = c_total = 0.0
+                    feedback = "Pending evaluation."
 
             total_score += c_total
 
