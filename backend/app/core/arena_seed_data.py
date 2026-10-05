@@ -1,6 +1,6 @@
 """
 NEURA Prompt Fixing Arena - Seed Prompt Bank Data
-225 Diverse, Real-World Flawed Prompts for Controlled Dynamic Assignment
+250 Diverse, Real-World Flawed Prompts for Controlled Dynamic Assignment
 """
 
 ARENA_PROMPT_BANK = [
@@ -4277,6 +4277,481 @@ ARENA_PROMPT_BANK = [
             "Reframe the task: draft an accurate revenue recognition note from the company's actual policy and the verified contract status, and state that revenue is recognized only when the framework's criteria are met.",
             "Forbid describing unsigned deals as committed or recognized, and require the note to describe how pending deals are treated (not recognized until a contract exists), using only supplied facts.",
             "Add an output section for the finance lead listing items that need confirmation (contract status by deal, cutoff testing, significant judgments) and a recommendation to review the wording with the auditors and the audit committee."
+        ]
+    },
+    {
+        "code": "P226",
+        "category": "coding",
+        "title": "Fibonacci Function With No Input Bounds",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a function to return the nth Fibonacci number.",
+        "bad_output_evidence": "def fib(n):\n    if n <= 1:\n        return n\n    return fib(n - 1) + fib(n - 2)\n\nThe function takes exponential time (fib(50) never finishes), has no handling for negative numbers or non-integers, and the language was guessed.",
+        "flawed_reasons": [
+            "No programming language or version is specified.",
+            "No input range or performance requirement, so a naive exponential recursion was produced.",
+            "No behavior defined for negative, non-integer, or very large inputs.",
+            "No indexing convention (does fib(0) equal 0 or 1?) and no test cases."
+        ],
+        "expected_improvements": [
+            "State the language and version, the signature, and the indexing convention (fib(0) = 0, fib(1) = 1).",
+            "Define the input range (0 to 10,000) and require an iterative or memoized solution that runs in linear time.",
+            "Specify behavior for invalid input (raise ValueError for negatives, TypeError for non-integers) and request tests for 0, 1, a typical value, and a large value."
+        ]
+    },
+    {
+        "code": "P227",
+        "category": "coding",
+        "title": "Log Parser With No Format or Scale Spec",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a script to find errors in our log files.",
+        "bad_output_evidence": "with open('app.log') as f:\n    for line in f:\n        if 'error' in line:\n            print(line)\n\nThe match is case-sensitive so 'ERROR' is missed, it also matches harmless lines such as 'no error found', the path is hardcoded, rotated and compressed logs are ignored, and there is no summary or timestamp filtering.",
+        "flawed_reasons": [
+            "No log format (plain text, JSON, syslog) or sample lines are provided.",
+            "'Errors' is undefined: log levels, exception traces, and HTTP 5xx responses are not distinguished.",
+            "No scale information (file sizes, rotation, compression) or time-range requirement.",
+            "No output requirements (grouping, counts, report format)."
+        ],
+        "expected_improvements": [
+            "Provide sample log lines, the format, and the language, and define errors as lines with level ERROR or CRITICAL plus multi-line stack traces.",
+            "Require streaming reads, support for .gz rotated files, a CLI with path and --since and --until arguments, and a case-insensitive level match on the level field only.",
+            "Specify the output: counts grouped by error message signature, the first and last occurrence timestamps, and the top 10 most frequent errors as a table or JSON file."
+        ]
+    },
+    {
+        "code": "P228",
+        "category": "coding",
+        "title": "File Upload Handler Trusting the Client",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write an Express endpoint that lets users upload profile pictures.",
+        "bad_output_evidence": "app.post('/upload', upload.single('file'), (req, res) => {\n  fs.renameSync(req.file.path, 'public/uploads/' + req.file.originalname);\n  res.send('Uploaded');\n});\n\nThe original file name is trusted (path traversal such as ../../app.js), any file type is accepted including .html and .php, there is no size limit, files are served from the public folder, and there is no authentication or error handling.",
+        "flawed_reasons": [
+            "No security requirements for untrusted uploads.",
+            "No allowed file types, size limits, or image verification rules.",
+            "No storage design (where files live, how names are generated, how they are served).",
+            "No authentication, rate limiting, or error-handling expectations, and no framework versions or libraries are specified."
+        ],
+        "expected_improvements": [
+            "State the stack (Express 4, multer 1.x, Node 20) and require authentication, a 2 MB size limit, and one file per request.",
+            "Require server-side validation of the real file type by magic bytes (JPEG, PNG, WebP only), re-encoding of the image with a library such as sharp to strip metadata and embedded payloads, and generated random file names with the original name ignored.",
+            "Require storage outside the web root or in object storage served with a safe Content-Type and Content-Disposition, safe temp file cleanup on errors, a JSON error contract, and tests for path traversal names, oversize files, and a PHP file renamed to .jpg."
+        ]
+    },
+    {
+        "code": "P229",
+        "category": "extraction",
+        "title": "URL Extraction With Trailing Punctuation",
+        "difficulty": "easy",
+        "original_bad_prompt": "Extract all the links from this text.",
+        "bad_output_evidence": "Links: https://example.com/docs), www.example.org, example.com/pricing., http://example.com/a?b=1&amp;c=2, \"https://example.com\"\n\nThe output keeps trailing punctuation and quotes, has HTML entities, a link without a scheme, and the same site in different forms.",
+        "flawed_reasons": [
+            "No rule for trimming trailing punctuation, quotes, or brackets.",
+            "No normalization (scheme, www, HTML entities, trailing slash) or deduplication.",
+            "No instruction on schemeless links.",
+            "No structured output or handling for texts with no links."
+        ],
+        "expected_improvements": [
+            "Require URLs to be stripped of surrounding punctuation and decoded from HTML entities, and normalized to include https:// when the scheme is missing.",
+            "Add deduplication after normalization and record the original string in a separate field.",
+            "Request a JSON array of {original, normalized}, returning an empty array when no links are found."
+        ]
+    },
+    {
+        "code": "P230",
+        "category": "extraction",
+        "title": "Q&A Pair Extraction From a Transcript With Rhetorical Questions",
+        "difficulty": "medium",
+        "original_bad_prompt": "Extract the questions and answers from this webinar transcript.",
+        "bad_output_evidence": "Q: So what does that mean for you? A: It means growth.\nQ: How do I sign up? A: Visit the website.\nQ: Can the platform integrate with Salesforce? A: (no answer)\n\nThe first item is a rhetorical question from the presenter, the second answer was invented from a slide mention, and the third pairs a real question with a missing answer without saying so.",
+        "flawed_reasons": [
+            "No distinction between audience questions and rhetorical presenter questions.",
+            "No rule for unanswered or partially answered questions.",
+            "No instruction to quote the answer from the transcript, so answers are paraphrased or invented.",
+            "No schema, speaker attribution, or timestamps."
+        ],
+        "expected_improvements": [
+            "Define the scope: only questions asked by audience members or the moderator, excluding rhetorical presenter questions.",
+            "Require a JSON schema: {question, asker, answer, answerer, timestamp, answer_status: answered|partial|unanswered}.",
+            "Require answers to be taken from the transcript text only, with 'unanswered' as the status and null as the answer when the speaker did not respond."
+        ]
+    },
+    {
+        "code": "P231",
+        "category": "extraction",
+        "title": "Medication Table From Patient Notes With Dose Changes",
+        "difficulty": "hard",
+        "original_bad_prompt": "From these discharge notes, give me the patient's current medications and doses as a list so the pharmacy can fill them.",
+        "bad_output_evidence": "- Metformin 1000 mg twice daily\n- Lisinopril 10 mg daily\n- Warfarin 5 mg daily\n- Aspirin 81 mg daily\n\nThe notes said metformin was reduced to 500 mg twice daily, lisinopril was stopped due to cough, and warfarin was to be held until the INR is rechecked. The model listed the original admission medications as current.",
+        "flawed_reasons": [
+            "No instruction to track changes over the notes (started, stopped, held, dose changed), so the list reflects the first mention of each drug.",
+            "'Current' is undefined and there is no rule for conflicting or ambiguous statements.",
+            "No schema or status fields, and a plain list hides the uncertainty.",
+            "High-risk clinical use with no evidence requirement, no uncertainty handling, and no clinician verification step."
+        ],
+        "expected_improvements": [
+            "Define a JSON schema: {drug, dose, unit, frequency, route, status: active|stopped|held|changed, change_reason, evidence_quote, note_section}.",
+            "Instruct the model to process the notes in chronological order, give the latest instruction priority, and place conflicting or ambiguous entries in a 'needs_clinician_review' array instead of resolving them.",
+            "Forbid inferring doses or statuses that are not written, require a quoted evidence phrase for every entry, and state that the output is a draft that must be verified by a pharmacist or physician before use."
+        ]
+    },
+    {
+        "code": "P232",
+        "category": "summarization",
+        "title": "Changelog Summary With No Audience Filter",
+        "difficulty": "medium",
+        "original_bad_prompt": "Summarize this changelog.",
+        "bad_output_evidence": "The release includes bug fixes, performance improvements, dependency updates, refactoring, and several new features. Users are encouraged to upgrade.\n\nThe summary hides a breaking change to the configuration file format and a removed command-line flag.",
+        "flawed_reasons": [
+            "No audience (end users, administrators, developers), so relevance cannot be judged.",
+            "No instruction to separate breaking changes and required actions from routine items.",
+            "Generic category names replace specific changes.",
+            "No length or format guidance."
+        ],
+        "expected_improvements": [
+            "State the audience (system administrators upgrading from version 3.x) and what they need to decide.",
+            "Require sections: Breaking Changes and Required Actions first, then New Features, Fixes, and Deprecations, each item naming the specific feature, flag, or setting.",
+            "Add rules: omit internal refactors and dependency bumps unless they change behavior, and write 'No breaking changes listed' if none are present instead of implying safety."
+        ]
+    },
+    {
+        "code": "P233",
+        "category": "summarization",
+        "title": "Abstract Written From a Paper's Title Only",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write an abstract for my paper titled 'Federated Learning for Rural Healthcare Diagnostics'.",
+        "bad_output_evidence": "This paper proposes a novel federated learning framework for rural healthcare diagnostics. Experiments on three datasets show a 12% improvement in diagnostic accuracy while preserving patient privacy.\n\nThe model never saw the paper, so the method, datasets, and the 12% result are invented.",
+        "flawed_reasons": [
+            "Only a title is provided, so the abstract is fabricated.",
+            "No instruction to use only supplied content or to ask for missing information.",
+            "No word limit, structure, or venue style requirements.",
+            "Invented quantitative results could end up in a real submission."
+        ],
+        "expected_improvements": [
+            "Provide the full paper text or the key sections (problem, method, data, results, conclusions).",
+            "Require the abstract to use only supplied facts, with [INSERT RESULT] placeholders for missing numbers, and no invented datasets or metrics.",
+            "Specify a structure (Background, Method, Results, Conclusion), a limit of 200 words, and the target venue's style."
+        ]
+    },
+    {
+        "code": "P234",
+        "category": "marketing",
+        "title": "Webinar Invitation Email With No Details",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write an email inviting people to our webinar.",
+        "bad_output_evidence": "Subject: Join Our Webinar!\n\nHi there, We are hosting an amazing webinar and would love for you to join us. It will be full of valuable insights. Click below to register.\n\nThe email has no topic, date, time, speaker, or reason to attend.",
+        "flawed_reasons": [
+            "No webinar facts (topic, date, time zone, speakers, duration, link).",
+            "No audience or value proposition.",
+            "Vague hype language and a generic subject line.",
+            "No format or length constraints."
+        ],
+        "expected_improvements": [
+            "Provide the topic, date and time with time zone, the speakers, the registration link, and the target audience.",
+            "Require 3 specific takeaways attendees will get, and forbid vague phrases such as 'amazing' and 'valuable insights'.",
+            "Specify the format: a subject under 50 characters, a body under 120 words, one CTA button, and a line about the recording for people who cannot attend live."
+        ]
+    },
+    {
+        "code": "P235",
+        "category": "marketing",
+        "title": "Influencer Brief With No Disclosure or Deliverables",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a brief for influencers promoting our skincare serum.",
+        "bad_output_evidence": "Hi! Please post about our amazing serum. Say it removes wrinkles in a week and is dermatologist approved. Make it look natural and don't mention that it's sponsored.\n\nThe brief tells influencers to make unsupported claims and to hide the paid relationship.",
+        "flawed_reasons": [
+            "No product facts, so the model invented claims (wrinkle removal, dermatologist approval).",
+            "No advertising disclosure requirements, and the brief even asks to conceal sponsorship.",
+            "No deliverables, timeline, usage rights, or approval process.",
+            "No brand voice, do's and don'ts, or compliance guardrails for cosmetic claims."
+        ],
+        "expected_improvements": [
+            "Provide verified product facts (ingredients, tested claims with evidence, skin types) and the target audience and campaign goal.",
+            "Require clear sponsorship disclosure (e.g. #ad or the platform's paid-partnership tool) and forbid medical or unsubstantiated claims.",
+            "Define the deliverables (1 Reel and 3 Stories), posting dates, usage rights, approval steps, key messages, mandatory and prohibited phrases, and a point of contact."
+        ]
+    },
+    {
+        "code": "P236",
+        "category": "customer_support",
+        "title": "Product Defect Complaint With Possible Safety Risk",
+        "difficulty": "hard",
+        "original_bad_prompt": "A customer says their space heater got very hot and the casing started to melt. Write a friendly reply offering a 10% discount on their next purchase.",
+        "bad_output_evidence": "Hi! We're sorry to hear about your experience. Space heaters can get hot sometimes! As a thank-you for your feedback, here's 10% off your next order. Happy shopping!\n\nThe reply dismisses a potential fire hazard, offers a discount instead of safety guidance, and does not escalate.",
+        "flawed_reasons": [
+            "A possible safety incident is treated as a routine complaint.",
+            "No instruction to give immediate safety advice (stop using the unit, unplug it) or to escalate to the safety team.",
+            "A discount is offered with no policy and may be read as minimizing the issue.",
+            "No data collection for the incident report (model, batch, photos, any damage or injury) and no tone guidance for a serious situation."
+        ],
+        "expected_improvements": [
+            "Instruct the model to treat overheating or melting as a safety incident: advise the customer to stop using and unplug the product if it is safe to do so, and keep it away from flammable items.",
+            "Require the reply to request the product model, purchase details, photos, and whether any damage or injury occurred, and to say that the case is being escalated to the product safety team and a human agent will follow up.",
+            "Forbid minimizing language, liability admissions, and unrelated discounts, and add an internal output: an incident summary flagged high priority for the safety and legal teams."
+        ]
+    },
+    {
+        "code": "P237",
+        "category": "technical_writing",
+        "title": "Environment Variable Docs That Expose Secrets",
+        "difficulty": "medium",
+        "original_bad_prompt": "Document all the environment variables in this .env file for the team wiki.",
+        "bad_output_evidence": "DATABASE_URL: postgres://admin:Pr0dPass!@db.internal:5432/app (the production database)\nSTRIPE_SECRET_KEY: sk_live_51Hx... (used for payments)\nJWT_SECRET: 7f3a... (signs login tokens)\n\nThe documentation copies real secret values into a wiki page.",
+        "flawed_reasons": [
+            "No instruction to treat secrets as sensitive, so real credentials were reproduced.",
+            "No required fields (purpose, required or optional, format, default, example placeholder).",
+            "No audience or environment scoping (development, staging, production).",
+            "No guidance on how and where secrets are stored and rotated."
+        ],
+        "expected_improvements": [
+            "Instruct the model never to reproduce actual values, and to use placeholder examples such as postgres://user:password@host:5432/dbname.",
+            "Require a table with columns: Variable, Purpose, Required, Format, Default, Example (placeholder), and Sensitive (yes/no).",
+            "Add a short section on secret handling (use a secrets manager, never commit .env, rotate keys), and note any variable whose purpose cannot be determined as 'TBD - confirm with owner'."
+        ]
+    },
+    {
+        "code": "P238",
+        "category": "technical_writing",
+        "title": "Onboarding Doc With No Role or Order of Steps",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write an onboarding document for new developers.",
+        "bad_output_evidence": "Welcome to the team! Read the codebase, set up your environment, talk to your teammates, and start working on tasks. Don't hesitate to ask questions.\n\nThe document has no concrete access list, setup commands, first-week plan, or contacts.",
+        "flawed_reasons": [
+            "No team context (stack, repositories, tools, processes).",
+            "No time structure (day 1, week 1, month 1) or success milestones.",
+            "No access checklist, contacts, or links.",
+            "No audience level, such as junior vs senior hires."
+        ],
+        "expected_improvements": [
+            "Provide the stack, repositories, tools, access requirements, and team contacts, and name the audience (mid-level backend developers).",
+            "Require a time-boxed structure: Before Day 1, Day 1, Week 1, Month 1, each with concrete tasks, expected outcomes, and who to ask.",
+            "Add a setup section with exact commands and a verification step, a first-task suggestion with acceptance criteria, and [TBD] markers for unknown details."
+        ]
+    },
+    {
+        "code": "P239",
+        "category": "hallucination_guard",
+        "title": "Legal Deadline Stated With Certainty",
+        "difficulty": "hard",
+        "original_bad_prompt": "What is the exact deadline to appeal a consumer court order in India, and what is the court fee? I need to file today.",
+        "bad_output_evidence": "You have exactly 30 days from the date of the order to file an appeal, and the court fee is Rs. 2,000 for any claim amount. Submit the appeal to the State Commission.\n\nThe period, the fee, and the forum depend on which commission passed the order, the applicable Act and rules in force, and the amount involved. The answer is stated as certain, and a wrong deadline could cause a lost right.",
+        "flawed_reasons": [
+            "Asks for exact legal deadlines and fees with no source or case details (which forum, which Act, date of the order, amount).",
+            "Time pressure pushes toward a confident, unverified answer.",
+            "No instruction to flag that rules change and vary by forum, or to cite the provision.",
+            "No requirement to recommend verification with the official text or a lawyer, though a mistake has serious consequences."
+        ],
+        "expected_improvements": [
+            "Supply the order details (issuing forum, date, claim value) and the relevant statute text or enable search of official sources, and instruct the model to answer only from them.",
+            "Add negative constraints: do not state a deadline or fee that is not found in the provided or retrieved official source, and say 'Cannot confirm' when unsure; do not guess.",
+            "Require the answer to cite the provision and its source, list the facts that change the answer, advise confirming with the court registry or a qualified lawyer immediately given the urgency, and mention that condonation of delay may be available but must not be assumed."
+        ]
+    },
+    {
+        "code": "P240",
+        "category": "hallucination_guard",
+        "title": "Summary of a Webpage the Model Cannot Open",
+        "difficulty": "easy",
+        "original_bad_prompt": "Read https://www.example-startup.com/about and tell me what the company's mission and funding history are.",
+        "bad_output_evidence": "The company's mission is to democratize access to financial tools for everyone. They have raised $12 million across a seed round and a Series A.\n\nThe model cannot browse in this setup, so the mission statement and funding figures are invented.",
+        "flawed_reasons": [
+            "Only a link is given and no page content is supplied or retrievable.",
+            "No instruction to state when the page cannot be accessed.",
+            "Specific figures are produced with confidence.",
+            "No fallback behavior."
+        ],
+        "expected_improvements": [
+            "Paste the page text or enable a browsing tool, and instruct the model to use only that content.",
+            "Add the rule: if the page content is not available, say so and ask for the text instead of answering.",
+            "Require each fact to be traced to a sentence in the page and 'Not stated on the page' for missing items such as funding."
+        ]
+    },
+    {
+        "code": "P241",
+        "category": "hallucination_guard",
+        "title": "Fabricated Historical Detail Through a Leading Question",
+        "difficulty": "medium",
+        "original_bad_prompt": "Why did Napoleon lose the Battle of Waterloo because of his famous speech to the Prussian troops?",
+        "bad_output_evidence": "Napoleon's speech to the Prussian troops was a strategic error, as it revealed his plans and encouraged them to fight harder, which contributed to his defeat at Waterloo.\n\nNo such speech is part of the historical record. The model accepted a false premise and built an explanation on it.",
+        "flawed_reasons": [
+            "The question contains a false premise that the model did not check.",
+            "No instruction to verify claims in the question before answering.",
+            "No requirement to separate documented facts from interpretation.",
+            "No source or grounding material."
+        ],
+        "expected_improvements": [
+            "Rephrase neutrally: 'What factors contributed to Napoleon's defeat at Waterloo?' and provide a source text if possible.",
+            "Instruct the model to check the question's assumptions, to point out any premise it cannot support, and not to build an answer on it.",
+            "Require the answer to distinguish well-documented causes from historians' interpretations and to say 'There is no evidence of this' when a claimed event is not in the record."
+        ]
+    },
+    {
+        "code": "P242",
+        "category": "database",
+        "title": "Running Total Query With No Ordering or Partition Rules",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a query that shows the running total of sales.",
+        "bad_output_evidence": "SELECT order_date, amount, SUM(amount) OVER () AS running_total FROM sales;\n\nThe window has no ORDER BY, so every row shows the grand total instead of a running total. There is no partition by customer or region and no tie-breaker for rows with the same date.",
+        "flawed_reasons": [
+            "No schema or dialect is specified.",
+            "No definition of the running total's scope (overall, per customer, per month reset).",
+            "No ordering and tie-breaking rules for rows with the same date.",
+            "No output requirements (columns, rounding)."
+        ],
+        "expected_improvements": [
+            "Provide the table definition and the dialect (PostgreSQL 15).",
+            "Define the requirement: running total of net amount per region ordered by order_date and then order_id, resetting each calendar year.",
+            "Request SUM() OVER (PARTITION BY region, year ORDER BY order_date, order_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) with the specified output columns and a few sample rows demonstrating a reset."
+        ]
+    },
+    {
+        "code": "P243",
+        "category": "database",
+        "title": "Data Anonymization Script That Is Easily Reversible",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write SQL to anonymize our customer data so we can share it with an external analytics vendor.",
+        "bad_output_evidence": "UPDATE customers SET name = 'Anonymous', email = MD5(email), phone = NULL;\n\nUnsalted MD5 hashes of emails can be reversed with a lookup table. Date of birth, postal code, and gender remain unchanged, so people can be re-identified by combining them. The script also modifies the production table in place, with no copy and no check.",
+        "flawed_reasons": [
+            "No definition of 'anonymized', so pseudonymization with a weak hash was used.",
+            "No identification of direct and quasi-identifiers (date of birth, postal code, rare attributes).",
+            "No requirement to work on a copy, keep join keys for analytics, or verify re-identification risk.",
+            "No schema, dialect, regulation (GDPR, DPDP Act), or data-sharing agreement context."
+        ],
+        "expected_improvements": [
+            "Provide the schema, the dialect, the applicable regulations, and the analytics use cases, so required attributes can be preserved in a generalized form.",
+            "Require the work to happen in a new schema or table (never in place), with direct identifiers removed, stable surrogate keys generated with a keyed hash (HMAC with a secret kept outside the database), and quasi-identifiers generalized (birth year or age band, first 3 digits of the postal code).",
+            "Require a verification step (k-anonymity check with a minimum group size such as 5, counts of unique combinations), suppression of small groups, a note that pseudonymized data may still be personal data under the applicable law, and a recommendation for legal and privacy review before sharing."
+        ]
+    },
+    {
+        "code": "P244",
+        "category": "localization",
+        "title": "Currency and Pricing Display for Multiple Markets",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write code to show prices in the user's local currency on our store.",
+        "bad_output_evidence": "function showPrice(usd, currency) {\n  const rates = { EUR: 0.92, INR: 83, JPY: 150 };\n  return currency + ' ' + (usd * rates[currency]).toFixed(2);\n}\n\nThe exchange rates are hardcoded, the formatting ignores locale conventions (for example, JPY has no decimals and EUR formatting varies by country), rounding uses floating point, and there is no fallback for an unknown currency.",
+        "flawed_reasons": [
+            "No source or refresh policy for exchange rates.",
+            "No locale-aware formatting requirements (symbols, separators, decimal places).",
+            "No rules for rounding, price display vs charged currency, or tax-inclusive pricing.",
+            "No language or framework, and no behavior for unsupported currencies."
+        ],
+        "expected_improvements": [
+            "State the language and framework, and require locale-aware formatting through the standard internationalization API (Intl.NumberFormat) with the user's locale and currency code.",
+            "Define the rate handling: fetched from a named rates provider or an internal service with caching, timestamped, and a stale-rate fallback; also state whether the displayed price is an estimate and which currency is charged.",
+            "Require integer minor units or a decimal library for money, the correct fraction digits per currency, tax-inclusive display rules where relevant, and a defined fallback to the base currency when the currency or rate is unavailable, with tests for JPY, EUR in two locales, and INR."
+        ]
+    },
+    {
+        "code": "P245",
+        "category": "localization",
+        "title": "Error Messages Translated Without Context for Developers",
+        "difficulty": "easy",
+        "original_bad_prompt": "Translate these error messages into Portuguese: 'Session expired', 'Invalid input', 'Cannot connect to server'.",
+        "bad_output_evidence": "Sess\u00e3o expirada\nEntrada inv\u00e1lida\nN\u00e3o pode conectar ao servidor\n\nThe translations are literal. 'Cannot connect' is rendered as a grammatically awkward phrase, the Brazilian and European Portuguese variant is not chosen, and there is no tone consistency with the rest of the app.",
+        "flawed_reasons": [
+            "No target variant (Brazil vs Portugal).",
+            "No context about where the messages appear or what action the user should take.",
+            "No instruction on tone (neutral and helpful) or on keeping messages short.",
+            "No glossary or consistency rules with existing app text."
+        ],
+        "expected_improvements": [
+            "Specify the variant (Brazilian Portuguese), the audience (end users of a banking app), and the tone (clear, calm, non-technical).",
+            "Request natural, user-friendly wording that also suggests the next step where helpful (e.g. 'Sua sess\u00e3o expirou. Entre novamente.').",
+            "Require output as JSON keyed by message ID and a note for any message that was ambiguous without more context."
+        ]
+    },
+    {
+        "code": "P246",
+        "category": "brainstorming",
+        "title": "Names for Characters in a Story Without Cultural Context",
+        "difficulty": "easy",
+        "original_bad_prompt": "Give me names for the characters in my story.",
+        "bad_output_evidence": "Hero: Jack Stone. Heroine: Emily Rose. Villain: Dark Lord Malakar. Sidekick: Bob.\n\nThe names are clich\u00e9d and do not fit any setting, because the genre, era, and culture of the story were not given.",
+        "flawed_reasons": [
+            "No genre, setting, era, or cultural background.",
+            "No character roles, personalities, or ages.",
+            "No style guidance (realistic, symbolic, easy to pronounce).",
+            "No quantity or format, so the model returned a few stereotyped examples."
+        ],
+        "expected_improvements": [
+            "Describe the setting (e.g. contemporary Pune, a family drama), the number of characters, and each character's role, age, and background.",
+            "Set the style constraints: realistic, regionally appropriate names, no clich\u00e9 villain names, and distinct initial letters so characters are easy to tell apart.",
+            "Request a table with Name, Meaning or Origin, and Why It Fits, with 3 options per character."
+        ]
+    },
+    {
+        "code": "P247",
+        "category": "classification",
+        "title": "Support Ticket Priority With Customer-Supplied Urgency",
+        "difficulty": "medium",
+        "original_bad_prompt": "Assign a priority (low, medium, high) to each support ticket.",
+        "bad_output_evidence": "Ticket 1: 'URGENT!!! Change my profile picture NOW' -> high\nTicket 2: 'Our whole team cannot log in since 9 AM, 40 users affected' -> medium\nTicket 3: 'Please fix when you can, small typo on the invoice' -> low\n\nThe loud wording of the first ticket drove the priority, while a company-wide outage was rated medium.",
+        "flawed_reasons": [
+            "No priority criteria, so the model follows the customer's tone and capital letters.",
+            "No factors such as business impact, number of users affected, and customer tier.",
+            "No reasoning or evidence in the output.",
+            "No handling for missing impact information."
+        ],
+        "expected_improvements": [
+            "Define the criteria: high means service down or data loss or security risk or a payment failure; medium means a major feature broken with a workaround; low means cosmetic or informational.",
+            "Instruct the model to ignore urgency words and punctuation and to base the priority on the described impact, the number of users affected, and the customer tier.",
+            "Require JSON: {id, priority, impact_summary, criteria_matched, needs_more_info}, with 'needs_more_info' set to true and a medium default when the impact cannot be determined."
+        ]
+    },
+    {
+        "code": "P248",
+        "category": "classification",
+        "title": "Content Moderation of Self-Harm Posts With Binary Labels",
+        "difficulty": "hard",
+        "original_bad_prompt": "Label each post as 'safe' or 'unsafe' so we can auto-delete the unsafe ones.",
+        "bad_output_evidence": "Post 1: 'I can't take this anymore, I don't want to be here' -> unsafe\nPost 2: 'Here is how to recover from burnout, 5 tips' -> safe\nPost 3: 'Sometimes I think everyone would be better off without me' -> unsafe\n\nThe posts expressing personal distress are labeled unsafe, which would lead to auto-deleting them and removing the person's chance of getting help.",
+        "flawed_reasons": [
+            "A binary label cannot separate harmful content (instructions or encouragement of self-harm) from a person expressing distress who needs support.",
+            "Auto-deletion without human review is a risky action for sensitive cases.",
+            "No policy definitions, categories, or severity levels.",
+            "No escalation path for posts that indicate imminent risk, and no guidance on tone or resources."
+        ],
+        "expected_improvements": [
+            "Provide the moderation policy with distinct categories (promotion or instructions for self-harm, expression of personal distress, recovery or support content, unrelated) and a severity scale.",
+            "Require distress posts to be routed to a trained human reviewer and a supportive outreach workflow (not deleted automatically), and reserve removal for content that promotes or instructs harm.",
+            "Require JSON output {id, category, severity, action: 'remove|human_review_priority|allow', reason}, an 'imminent_risk' flag that triggers immediate escalation per the safety protocol, and a rule to choose 'human_review_priority' whenever the model is uncertain."
+        ]
+    },
+    {
+        "code": "P249",
+        "category": "legal_finance",
+        "title": "Invoice Dispute Letter Citing Laws That May Not Apply",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a legal notice to a client who hasn't paid our invoice, citing the relevant laws.",
+        "bad_output_evidence": "LEGAL NOTICE: Under Section 73 of the Contract Act and the Late Payments Protection Act 2019, you are liable to pay the invoice amount plus 24% interest and legal costs within 7 days, failing which we will file criminal charges for fraud.\n\nThe cited statute appears to be invented, the interest rate and the criminal threat have no basis, and no invoice details are included.",
+        "flawed_reasons": [
+            "No invoice, contract, or payment-term details, so the letter lacks specifics.",
+            "No jurisdiction or contract governing law, so the model cites laws that may not exist or apply.",
+            "The model added a baseless interest rate and a threat of criminal action, which can be improper and create risk.",
+            "No instruction on tone, steps (reminder before notice), or a recommendation for legal review."
+        ],
+        "expected_improvements": [
+            "Supply the invoice number, amount, due date, the contract's payment and interest clauses, the parties, and the governing law.",
+            "Instruct the model to cite only provisions that are supplied and to use [LEGAL PROVISION TO BE CONFIRMED BY COUNSEL] instead of naming statutes; forbid threats of criminal action and interest rates not in the contract.",
+            "Require a professional, firm tone and a structure: facts, amount due, contractual basis, a reasonable deadline, payment instructions, and next steps, plus a note that the notice should be reviewed by a lawyer before sending."
+        ]
+    },
+    {
+        "code": "P250",
+        "category": "workflow",
+        "title": "End-to-End Report Request Combining Many Tasks",
+        "difficulty": "hard",
+        "original_bad_prompt": "Take this folder of 50 customer survey responses, clean the data, find the key insights, make charts, write the executive summary, translate it into French and German, and draft the email to the board. Make it perfect.",
+        "bad_output_evidence": "Executive Summary: Customers are generally satisfied and want improvements. [Chart 1: placeholder] [Chart 2: placeholder]\nFrench: Les clients sont g\u00e9n\u00e9ralement satisfaits...\nGerman: [omitted for brevity]\nEmail: Dear Board, Please find the results attached.\n\nThe response skips data cleaning, shows placeholders instead of charts, drops the German translation, contains no real insights or numbers, and does not state what was left undone.",
+        "flawed_reasons": [
+            "Seven distinct tasks (cleaning, analysis, charts, summary, two translations, email) are bundled into one prompt with no order, dependencies, or checkpoints.",
+            "The data and survey structure are not described, and 'key insights' and 'clean' are undefined.",
+            "'Make it perfect' is not a measurable requirement, so the model hides gaps instead of reporting them.",
+            "No output format for each deliverable, no audience details, and no instruction to flag assumptions or incomplete work."
+        ],
+        "expected_improvements": [
+            "Split the work into sequential steps with explicit outputs: 1) data cleaning rules and a cleaned dataset with a log of changes, 2) analysis of defined questions with numbers, 3) charts with specified type, axes, and data source, 4) the executive summary, 5) translations of the final approved text, 6) the board email.",
+            "For each step, specify the inputs, the audience and format (e.g. a 200-word executive summary with 3 findings, each with a supporting figure and sample size), and the acceptance criteria that must be met before moving to the next step.",
+            "Add constraints: base all findings only on the supplied data, report data-quality issues and assumptions, mark any step that could not be completed instead of using placeholders, and have the translations reviewed by a native speaker before distribution."
         ]
     }
 ]
