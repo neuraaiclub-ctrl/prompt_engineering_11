@@ -48,6 +48,18 @@ class Settings:
     GOOGLE_SERVICE_ACCOUNT_FILE: str = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "")
     GOOGLE_SERVICE_ACCOUNT_JSON: str = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
 
+    # LLM Keys
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "mock")
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "mock")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "mock")
+    
+    # Specific keys for Render setup
+    LLM_P1_A_KEY: str = os.getenv("LLM_P1_A_KEY", "mock")
+    LLM_P1_B_KEY: str = os.getenv("LLM_P1_B_KEY", "mock")
+    LLM_P2_A_KEY: str = os.getenv("LLM_P2_A_KEY", "mock")
+    LLM_P2_B_KEY: str = os.getenv("LLM_P2_B_KEY", "mock")
+    TEST_RUN_KEY: str = os.getenv("TEST_RUN_KEY", "mock")
+
     REGISTRATION_SYNC_ENABLED: bool = os.getenv("REGISTRATION_SYNC_ENABLED", "false").lower() == "true"
     REGISTRATION_SYNC_INTERVAL_SECONDS: int = int(os.getenv("REGISTRATION_SYNC_INTERVAL_SECONDS", "300"))
 

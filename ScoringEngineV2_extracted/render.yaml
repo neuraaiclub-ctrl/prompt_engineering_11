@@ -1,0 +1,60 @@
+services:
+  - type: web
+    name: arena-api
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: arena-db
+          property: connectionString
+      - key: SECRET_KEY
+        sync: false
+      - key: LLM_P1_A_KEY
+        sync: false
+      - key: LLM_P1_B_KEY
+        sync: false
+      - key: LLM_P2_A_KEY
+        sync: false
+      - key: LLM_P2_B_KEY
+        sync: false
+      - key: TEST_RUN_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  - type: worker
+    name: arena-scoring-worker
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python -m app.workers.scoring_worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: arena-db
+          property: connectionString
+      - key: LLM_P1_A_KEY
+        sync: false
+      - key: LLM_P1_B_KEY
+        sync: false
+      - key: LLM_P2_A_KEY
+        sync: false
+      - key: LLM_P2_B_KEY
+        sync: false
+      - key: TEST_RUN_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+databases:
+  - name: arena-db
+    plan: starter

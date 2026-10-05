@@ -14,6 +14,14 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - OPENAI_API_KEY=${OPENAI_API_KEY:-mock}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-mock}
+      - GROQ_API_KEY=${GROQ_API_KEY:-mock}
+      - LLM_P1_A_KEY=${LLM_P1_A_KEY:-mock}
+      - LLM_P1_B_KEY=${LLM_P1_B_KEY:-mock}
+      - LLM_P2_A_KEY=${LLM_P2_A_KEY:-mock}
+      - LLM_P2_B_KEY=${LLM_P2_B_KEY:-mock}
+      - TEST_RUN_KEY=${TEST_RUN_KEY:-mock}
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     depends_on:
@@ -38,6 +46,14 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - OPENAI_API_KEY=${OPENAI_API_KEY:-mock}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-mock}
+      - GROQ_API_KEY=${GROQ_API_KEY:-mock}
+      - LLM_P1_A_KEY=${LLM_P1_A_KEY:-mock}
+      - LLM_P1_B_KEY=${LLM_P1_B_KEY:-mock}
+      - LLM_P2_A_KEY=${LLM_P2_A_KEY:-mock}
+      - LLM_P2_B_KEY=${LLM_P2_B_KEY:-mock}
+      - TEST_RUN_KEY=${TEST_RUN_KEY:-mock}
+    env_file:
+      - .env
     depends_on:
       - backend
       - redis
