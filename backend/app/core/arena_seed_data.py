@@ -1,6 +1,6 @@
 """
 NEURA Prompt Fixing Arena - Seed Prompt Bank Data
-200 Diverse, Real-World Flawed Prompts for Controlled Dynamic Assignment
+225 Diverse, Real-World Flawed Prompts for Controlled Dynamic Assignment
 """
 
 ARENA_PROMPT_BANK = [
@@ -3802,6 +3802,481 @@ ARENA_PROMPT_BANK = [
             "State the user's role (receiving party), the business context, and the governing law.",
             "Require a table covering: Definition of Confidential Information, Standard Exclusions, Term and Survival, Permitted Disclosures, Remedies, and Unusual Clauses, with the clause number and a risk rating for each.",
             "Forbid a final safe-to-sign verdict, list the issues to negotiate or raise with a lawyer, mark missing standard protections as 'Not addressed', and state that this is not legal advice."
+        ]
+    },
+    {
+        "code": "P201",
+        "category": "coding",
+        "title": "String Reversal With No Language or Unicode Rules",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a function to reverse a string.",
+        "bad_output_evidence": "function reverse(s) {\n  return s.split('').reverse().join('');\n}\n\nThe model chose JavaScript without being asked. The function corrupts emoji and combining characters (a thumbs-up emoji with a skin-tone modifier is split into broken pieces), and throws a TypeError on null or undefined input.",
+        "flawed_reasons": [
+            "No programming language or version is specified.",
+            "No definition of 'character' (code unit, code point, or grapheme cluster), so Unicode text is mishandled.",
+            "No behavior defined for empty, null, or non-string input.",
+            "No test cases or performance expectations."
+        ],
+        "expected_improvements": [
+            "State the language and version and the function signature (e.g. Python 3.11, reverse_text(s: str) -> str).",
+            "Define the reversal unit: grapheme clusters, so emoji and accented characters stay intact, and say which library is allowed.",
+            "Specify behavior for empty strings and None (return empty string or raise TypeError) and request tests with ASCII, emoji, and combining-character examples."
+        ]
+    },
+    {
+        "code": "P202",
+        "category": "coding",
+        "title": "Retry Decorator That Retries Forever",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a retry decorator.",
+        "bad_output_evidence": "def retry(func):\n    def wrapper(*args, **kwargs):\n        while True:\n            try:\n                return func(*args, **kwargs)\n            except:\n                pass\n    return wrapper\n\nThe decorator loops forever, swallows every exception including KeyboardInterrupt, waits zero seconds between attempts, never logs a failure, and discards the wrapped function's name and docstring.",
+        "flawed_reasons": [
+            "No language, version, or sync vs async context is specified.",
+            "No retry policy: maximum attempts, delay, backoff, jitter, or which exceptions are retryable.",
+            "No requirement for logging, re-raising the final error, or preserving function metadata.",
+            "No guidance on idempotency, so non-safe operations could be repeated."
+        ],
+        "expected_improvements": [
+            "State the language and version (Python 3.11) and whether the decorator must support async functions.",
+            "Define parameters: max_attempts, base_delay, exponential backoff with jitter, and a tuple of retryable exception types, with all other exceptions propagating immediately.",
+            "Require functools.wraps, logging of each failed attempt, re-raising the last exception after the final attempt, a docstring warning about idempotency, and tests using a flaky stub."
+        ]
+    },
+    {
+        "code": "P203",
+        "category": "coding",
+        "title": "Calculator Endpoint Built on eval()",
+        "difficulty": "hard",
+        "original_bad_prompt": "Build an API endpoint that evaluates the math expressions users type in, like a calculator.",
+        "bad_output_evidence": "@app.route('/calc', methods=['POST'])\ndef calc():\n    expr = request.json['expr']\n    return {'result': eval(expr)}\n\nAnyone can send __import__('os').system('...') and run arbitrary commands on the server. The endpoint also hangs on expressions like 9**9**9, and crashes with a 500 error on invalid input.",
+        "flawed_reasons": [
+            "No security requirement for executing untrusted input, so the model used eval().",
+            "No definition of the allowed grammar (operators, functions, constants, number formats).",
+            "No resource limits (expression length, exponent size, execution time).",
+            "No error contract for invalid expressions, division by zero, or overflow, and no framework or version is specified."
+        ],
+        "expected_improvements": [
+            "State the framework (Flask 3, Python 3.11) and require a safe parser that never calls eval or exec, such as an AST walk with an allow-list of nodes or a vetted expression library.",
+            "Define the grammar: numbers, + - * / %, parentheses, and a small set of functions (sqrt, abs), with a maximum expression length of 200 characters and an exponent cap.",
+            "Require input validation, a timeout, a JSON error contract (400 with a message for invalid expressions, no stack traces), and tests that include injection attempts, huge exponents, and division by zero."
+        ]
+    },
+    {
+        "code": "P204",
+        "category": "extraction",
+        "title": "Hashtag and Mention Extraction With Noise",
+        "difficulty": "easy",
+        "original_bad_prompt": "Pull out the hashtags and mentions from these tweets.",
+        "bad_output_evidence": "Hashtags: #Launch, #launch, #1, #section2\nMentions: @acme, @Acme, @gmail\n\nThe output includes case-variant duplicates, '#1' from the text 'We are #1', a URL fragment, and '@gmail' taken from an email address. There are no counts and no tweet IDs.",
+        "flawed_reasons": [
+            "No normalization or deduplication rules (case-insensitivity).",
+            "No rule to exclude false positives such as email addresses and URL fragments.",
+            "No association with the tweet each item came from, and no counts.",
+            "No structured output format."
+        ],
+        "expected_improvements": [
+            "Define a hashtag as # followed by a letter and word characters, and a mention as a valid username that is not part of an email address or URL.",
+            "Require lowercase normalization, deduplication per tweet, and counts across all tweets.",
+            "Request JSON: {tweet_id, hashtags[], mentions[]} plus an aggregate object of counts, with empty arrays when nothing is found."
+        ]
+    },
+    {
+        "code": "P205",
+        "category": "extraction",
+        "title": "Education History With Inconsistent Degrees and Grades",
+        "difficulty": "medium",
+        "original_bad_prompt": "Extract the education history from these resumes.",
+        "bad_output_evidence": "Resume 1: B.Tech, Pune, 8.4, 2019\nResume 2: Bachelor of Engineering from COEP, 3.6 GPA, graduated 2020\nResume 3: MBA (pursuing), IIM\n\nDegrees and institutions use different spellings, the grades are on different scales (out of 10 vs out of 4) without saying so, and the ongoing degree has no end date handling.",
+        "flawed_reasons": [
+            "No schema, so each resume produces a differently shaped record.",
+            "No normalization for degree names, institution names, and grade scales.",
+            "No handling for ongoing, incomplete, or expected degrees.",
+            "No rule for missing years or fields."
+        ],
+        "expected_improvements": [
+            "Define a JSON schema: {institution, degree_level, field_of_study, start_year, end_year, status: completed|ongoing, grade_value, grade_scale}.",
+            "Add normalization rules: map degree names to a fixed list (bachelor, master, doctorate, diploma), keep the raw string in a separate field, and record the grade scale explicitly instead of converting.",
+            "Use null for missing values, set status to 'ongoing' only when the text says so, and never infer a graduation year or an institution that is not stated."
+        ]
+    },
+    {
+        "code": "P206",
+        "category": "extraction",
+        "title": "Knowledge Graph Triples With Pronouns and Contradictions",
+        "difficulty": "hard",
+        "original_bad_prompt": "Extract the entities and relationships from these news articles so I can build a knowledge graph.",
+        "bad_output_evidence": "(He, founded, it)\n(Acme, works_at, Dana Rao)\n(Dana Rao, employed_by, Acme)\n(Acme, CEO, Dana Rao)\n(Acme, CEO, Sam Lee)\n(Acme, competitor_of, Beta Corp)\n\nThe triples contain unresolved pronouns, the same relationship under two names, a reversed direction, two conflicting CEOs kept without dates, and a competitor relationship that no article states.",
+        "flawed_reasons": [
+            "No schema of entity types and a controlled list of relation names.",
+            "No instruction to resolve pronouns and aliases to canonical entities.",
+            "No handling for time-bound or contradictory facts across articles.",
+            "No rule against inferring relationships that are not explicitly stated, and no evidence field to check each triple."
+        ],
+        "expected_improvements": [
+            "Define entity types (Person, Organization, Location, Product) and a fixed relation vocabulary with direction (e.g. CEO_OF: Person -> Organization).",
+            "Require coreference resolution to canonical names with an alias list, and a rule to drop triples whose subject or object cannot be resolved.",
+            "Request JSON triples with {subject, relation, object, valid_from, valid_to, source_article_id, evidence_quote}, a 'conflicts' array for contradictory facts, and a ban on inferred relationships."
+        ]
+    },
+    {
+        "code": "P207",
+        "category": "summarization",
+        "title": "Podcast Transcript Summary Full of Banter",
+        "difficulty": "easy",
+        "original_bad_prompt": "Summarize this podcast transcript.",
+        "bad_output_evidence": "The hosts welcomed listeners, talked about their week, thanked a sponsor, and then discussed various topics related to startups before saying goodbye.\n\nThe summary covers sponsor and small-talk segments equally and contains none of the actual advice or conclusions.",
+        "flawed_reasons": [
+            "No instruction to separate substantive content from intros, banter, and ad reads.",
+            "No audience or purpose, so there is no basis for choosing what matters.",
+            "No structure or length requirement.",
+            "No requirement to identify speakers or capture specific claims and advice."
+        ],
+        "expected_improvements": [
+            "State the audience and purpose (busy founders deciding whether to listen to the full episode).",
+            "Require 5 key takeaways with the speaker's name and the specific advice or claim, and exclude intros, sponsor reads, and small talk.",
+            "Set a limit of 150 words and require a one-sentence verdict on who the episode is for."
+        ]
+    },
+    {
+        "code": "P208",
+        "category": "summarization",
+        "title": "Pull Request Summary That Hides Risk",
+        "difficulty": "medium",
+        "original_bad_prompt": "Summarize this pull request diff for the reviewers.",
+        "bad_output_evidence": "This PR updates several files across the project, improves performance, and cleans up some code. It touches the user service, the database layer, and tests.\n\nThe diff includes a database migration that drops a column, a breaking change to a public API response, and no tests for the new code path.",
+        "flawed_reasons": [
+            "No instruction to highlight risk areas such as migrations, breaking changes, and security-sensitive code.",
+            "'Improves performance' is asserted without evidence from the diff.",
+            "No structure separating what changed, why, and how to verify it.",
+            "No reviewer-focused guidance on what to check or what is missing (tests, docs)."
+        ],
+        "expected_improvements": [
+            "State the audience (peer reviewers) and require sections: Purpose, Key Changes by area, Risks, Test Coverage, and Suggested Review Focus.",
+            "Require explicit flags for schema migrations, public API changes, dependency changes, and security-relevant code, each with the file and line reference.",
+            "Forbid claims that are not supported by the diff, and require a 'Missing or unclear' list (no tests, no migration rollback, undocumented behavior change)."
+        ]
+    },
+    {
+        "code": "P209",
+        "category": "marketing",
+        "title": "Yoga Class Ad With Health Claims and No Offer",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a Facebook ad for my yoga classes.",
+        "bad_output_evidence": "Transform your life with yoga! Cure your back pain, melt away stress, and get the body you've always dreamed of. Join today! #yoga #fitness #health #wellness #love",
+        "flawed_reasons": [
+            "No details about location, schedule, price, class level, or any offer.",
+            "No target audience or tone.",
+            "Health claims such as 'cure your back pain' are unsupported and risky.",
+            "No format constraints (primary text, headline, CTA button) and generic hashtags."
+        ],
+        "expected_improvements": [
+            "Provide the studio location, class types and times, the intro offer, and the target audience (beginners in the neighborhood).",
+            "Forbid medical and guaranteed-outcome claims, and keep the tone welcoming and realistic.",
+            "Set the format: primary text under 90 words, a headline under 40 characters, one CTA button label, and 3 variants."
+        ]
+    },
+    {
+        "code": "P210",
+        "category": "marketing",
+        "title": "Press Release With Invented Quotes and Statistics",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a press release for our product launch next week.",
+        "bad_output_evidence": "FOR IMMEDIATE RELEASE\n\nAcme Labs Launches Industry-Leading Platform\n\n'This is a game-changing moment for the industry,' said Jane Doe, CEO of Acme Labs. According to industry analysts, the market will reach $50 billion by 2030.\n\nThe CEO's name, the quote, and the market statistic were all invented, and the release has no date, location, product details, boilerplate, or media contact.",
+        "flawed_reasons": [
+            "No facts (product, date, price, availability, spokesperson) were supplied, so the model invented them.",
+            "Fabricated quotes attributed to a named person and an unsourced statistic.",
+            "No structure requirements (dateline, headline, boilerplate, contact).",
+            "No tone or audience (trade press, local media) and no instruction to use placeholders."
+        ],
+        "expected_improvements": [
+            "Provide the launch facts, the approved spokesperson quote or permission to draft one for approval, and any statistics with their sources.",
+            "Instruct the model to use only supplied facts and insert [PLACEHOLDER] for missing details, with draft quotes clearly labeled 'for approval'.",
+            "Specify the structure: headline under 12 words, dateline, a lead paragraph answering who, what, when, where, and why, a quote, product details, boilerplate, and media contact, in about 350 words."
+        ]
+    },
+    {
+        "code": "P211",
+        "category": "customer_support",
+        "title": "Where Is My Order Reply With No Order Data",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a chatbot reply for when a customer asks 'Where is my order?'",
+        "bad_output_evidence": "Great news! Your order is on its way and should arrive in 2-3 business days. Thank you for shopping with us!\n\nThe bot has no order information, so the status and delivery window are invented for every customer.",
+        "flawed_reasons": [
+            "No order or tracking data is provided, so the reply fabricates a status.",
+            "No instruction to ask for an order number or verify the customer.",
+            "No handling for delayed, cancelled, or unknown orders.",
+            "No tone guidance or handoff to a human."
+        ],
+        "expected_improvements": [
+            "Supply the order lookup result (status, carrier, tracking link, estimated date) as input and instruct the model to use only that data.",
+            "If no order data is available, require the reply to ask for the order number and email, and never state a status or date.",
+            "Add branches for delayed or lost shipments with an apology and a human-agent option, in under 60 words and a friendly tone."
+        ]
+    },
+    {
+        "code": "P212",
+        "category": "customer_support",
+        "title": "Discount Request Reply That Invents a Coupon",
+        "difficulty": "medium",
+        "original_bad_prompt": "Reply to this customer asking for a discount.",
+        "bad_output_evidence": "Hi! Of course, we love our loyal customers. Use code SAVE20 at checkout for 20% off your next order, valid for the rest of the month.\n\nThe model invented a coupon code, the percentage, and the validity. The company has no such code and the support team has no authority to give that discount.",
+        "flawed_reasons": [
+            "No discount policy, approved codes, or agent authority limits are provided.",
+            "The model makes commitments on behalf of the company.",
+            "No instruction on how to decline politely or offer legitimate alternatives.",
+            "No tone guidance and no escalation route for special cases."
+        ],
+        "expected_improvements": [
+            "Provide the actual policy: approved promotions, eligibility rules, and what an agent may offer without approval.",
+            "Forbid inventing codes, percentages, or deadlines, and require the model to use only the supplied offers.",
+            "Specify branches: eligible (give the real code and terms), not eligible (a polite explanation and alternatives such as the newsletter offer), exceptional cases (escalate to a supervisor), in under 90 words."
+        ]
+    },
+    {
+        "code": "P213",
+        "category": "technical_writing",
+        "title": "App FAQ With Invented Features",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a FAQ for our app.",
+        "bad_output_evidence": "Q: Does the app work offline? A: Yes, all features work offline.\nQ: Is my data encrypted? A: Yes, with military-grade encryption.\nQ: Can I export my data? A: Yes, to PDF, Excel, and CSV.\n\nNone of these answers are based on the real app, so each one is a made-up commitment.",
+        "flawed_reasons": [
+            "No product information is supplied, so the model invents capabilities.",
+            "No list of actual common questions or support tickets to base the FAQ on.",
+            "No tone, audience, or structure.",
+            "No instruction to mark unknown answers instead of guessing."
+        ],
+        "expected_improvements": [
+            "Provide the feature list, pricing, and the real top support questions.",
+            "Require answers based only on the supplied facts, with [CONFIRM] where information is missing, and forbid vague marketing claims like 'military-grade'.",
+            "Specify the structure: grouped sections (Getting Started, Account, Billing, Troubleshooting), questions in the customer's words, and answers under 50 words with a link to the relevant help page."
+        ]
+    },
+    {
+        "code": "P214",
+        "category": "technical_writing",
+        "title": "Error Code Reference With Invented Codes",
+        "difficulty": "medium",
+        "original_bad_prompt": "Document the error codes for our API.",
+        "bad_output_evidence": "400 - Bad Request: The request was invalid.\n401 - Unauthorized: Authentication failed.\n404 - Not Found: Resource not found.\nERR_1001 - Invalid input\nERR_1002 - Database error\n\nThe custom ERR_ codes were made up, the descriptions repeat the code names, and there are no causes, example responses, or fixes.",
+        "flawed_reasons": [
+            "The real error code list and response format are not provided, so codes are invented.",
+            "No required fields per error (cause, example payload, how to fix, retryable or not).",
+            "No audience or organization of the reference.",
+            "No instruction to mark undocumented behavior."
+        ],
+        "expected_improvements": [
+            "Provide the actual error enum, sample responses, and the audience (third-party integrators).",
+            "Require a table per error: HTTP status, code, meaning, common causes, example JSON response, how to resolve, retry guidance.",
+            "Instruct the model to document only supplied codes, to write 'Cause not documented - confirm with API team' where details are missing, and to group codes by category."
+        ]
+    },
+    {
+        "code": "P215",
+        "category": "hallucination_guard",
+        "title": "Library Recommendation With a Nonexistent Package",
+        "difficulty": "medium",
+        "original_bad_prompt": "What's the best Python library for parsing PDF invoices? Give me the pip install command and the GitHub link.",
+        "bad_output_evidence": "The best option is pdf-invoice-parser-pro.\n\npip install pdf-invoice-parser-pro\nGitHub: https://github.com/invoice-tools/pdf-invoice-parser-pro\n\nThe package name and repository are invented. A package with this name could be registered by an attacker and installed by the user.",
+        "flawed_reasons": [
+            "Asks for a single 'best' option with an exact install command and URL, which encourages invention.",
+            "No requirement to verify that the package exists or to give a source.",
+            "No negative constraint against fabricating package names or links.",
+            "No selection criteria (maintenance status, license, accuracy on scanned invoices) or a safety note about installing unverified packages."
+        ],
+        "expected_improvements": [
+            "Ask for 3 well-known candidates with the evaluation criteria (active maintenance, license, text vs scanned PDFs) and enable search or supply a candidate list.",
+            "Forbid inventing package names, install commands, and URLs, and require the model to say 'I cannot verify this package' when unsure.",
+            "Require a note to verify each package on PyPI (publisher, release history, download counts) before installing, and a fallback suggestion to check the project's official documentation."
+        ]
+    },
+    {
+        "code": "P216",
+        "category": "hallucination_guard",
+        "title": "Research Results Fabricated Before the Experiment",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write the methods and results sections for my paper on our new tutoring app. We haven't finished the experiments yet but the deadline is Friday, so just make the numbers look statistically significant.",
+        "bad_output_evidence": "Methods: We recruited 240 students across 6 schools and randomly assigned them to the treatment or control group.\nResults: Students using the app scored 18.4% higher (p < 0.01, Cohen's d = 0.62) than the control group.\n\nThe sample, design, effect size, and p-value are all invented, and the text presents them as real study results.",
+        "flawed_reasons": [
+            "Instructs the model to fabricate data and significance, which is research misconduct.",
+            "No actual protocol, data, or analysis output was supplied.",
+            "No guardrail against inventing sample sizes, statistics, or study procedures.",
+            "No alternative for the real problem (the deadline), such as drafting the methods from the planned protocol with clearly marked placeholders."
+        ],
+        "expected_improvements": [
+            "Reframe the request: draft the Methods section from the actual or planned protocol supplied by the author, and prepare a Results template with [RESULT TO BE INSERTED] fields for real data.",
+            "Forbid fabricated participants, statistics, effect sizes, and p-values, and require every number to come from supplied data or analysis output.",
+            "Add an output section listing what is needed to complete the paper (final data, statistical analysis plan, ethics approval details) and a note recommending that the deadline issue be discussed with the venue rather than filled with unreal results."
+        ]
+    },
+    {
+        "code": "P217",
+        "category": "database",
+        "title": "Oldest Employee Query With NULLs and Ties",
+        "difficulty": "easy",
+        "original_bad_prompt": "Write a query to find the oldest employee.",
+        "bad_output_evidence": "SELECT name FROM employees ORDER BY birth_date LIMIT 1;\n\nIn MySQL, NULL birth dates sort first, so the query can return an employee with no recorded birth date. Employees who share the earliest birth date are cut off by LIMIT 1, and former employees are included.",
+        "flawed_reasons": [
+            "No schema or dialect is specified.",
+            "'Oldest' is not tied to a column or an active-employee filter.",
+            "No rule for NULL values or for ties.",
+            "No output requirements."
+        ],
+        "expected_improvements": [
+            "Provide the table definition and the dialect (MySQL 8).",
+            "Define the requirement: active employees only, ignoring NULL birth dates, returning all employees who share the earliest birth date.",
+            "Request the query using a subquery on MIN(birth_date), with the columns to return (id, name, birth_date) in a code block."
+        ]
+    },
+    {
+        "code": "P218",
+        "category": "database",
+        "title": "Monthly Active Users Counted as Events",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a query for monthly active users.",
+        "bad_output_evidence": "SELECT DATE_TRUNC('month', created_at) AS month, COUNT(*) AS mau\nFROM events\nGROUP BY 1;\n\nThe query counts events, not distinct users, includes bot and internal traffic, and uses the server timezone. 'Active' was never defined.",
+        "flawed_reasons": [
+            "No definition of 'active' (any event, a login, or a meaningful action).",
+            "No schema, so the table and user identifier are guessed.",
+            "No rules for timezone, bots, internal users, or anonymous events.",
+            "No dialect or date range."
+        ],
+        "expected_improvements": [
+            "Provide the events table definition and the dialect (PostgreSQL 15).",
+            "Define active user: a distinct user_id with at least one event of types ('login', 'purchase', 'create_project') in the calendar month, excluding is_internal and is_bot rows, in UTC.",
+            "Request the query with COUNT(DISTINCT user_id), the last 12 full months, months with zero users included, and a one-line note on any assumption."
+        ]
+    },
+    {
+        "code": "P219",
+        "category": "database",
+        "title": "Adding a Required Column to a Huge Live Table",
+        "difficulty": "hard",
+        "original_bad_prompt": "Write a migration to add a required country column to our users table. It has 200 million rows and the site must stay up.",
+        "bad_output_evidence": "ALTER TABLE users ADD COLUMN country VARCHAR(2) NOT NULL;\n\nThe statement fails because existing rows have no value, and the naive fix with a default can rewrite or lock the table depending on the engine and version, blocking writes on a live site. There is no backfill, rollback, or monitoring plan.",
+        "flawed_reasons": [
+            "No database engine or version, which determines locking behavior and online DDL support.",
+            "'The site must stay up' is not translated into concrete constraints such as the maximum lock time.",
+            "A single-step migration ignores the need for phases (add nullable, backfill, enforce).",
+            "No rollback plan, batching strategy, replication-lag consideration, or verification step."
+        ],
+        "expected_improvements": [
+            "State the engine and version (PostgreSQL 15), the write load, replicas, and the acceptable lock duration (under 1 second).",
+            "Request a phased plan: add a nullable column, deploy code that writes the value, backfill in small batches with throttling, add a NOT NULL check constraint as NOT VALID and then validate it, and finally set NOT NULL.",
+            "Require a lock_timeout for each statement, monitoring of replication lag and table bloat, a rollback step for every phase, and verification queries that count remaining NULL rows."
+        ]
+    },
+    {
+        "code": "P220",
+        "category": "localization",
+        "title": "US Recipe Localized for UK Readers by Spelling Only",
+        "difficulty": "easy",
+        "original_bad_prompt": "Localize this recipe for UK readers: '2 cups all-purpose flour, 1 stick butter, 1 cup zucchini, a handful of cilantro. Bake at 350\u00b0F for 25 minutes.'",
+        "bad_output_evidence": "2 cups all-purpose flour, 1 stick butter, 1 cup courgette, a handful of coriander. Bake at 350\u00b0F for 25 minutes.\n\nOnly two words were changed. UK readers do not measure flour in cups or butter in sticks, the oven temperature is in Fahrenheit, and 'all-purpose flour' is called plain flour in the UK.",
+        "flawed_reasons": [
+            "'Localize' was interpreted as vocabulary swaps only, ignoring units and conventions.",
+            "No instruction to convert volume measures and temperatures.",
+            "No guidance on ingredient equivalents and naming.",
+            "No instruction to preserve recipe proportions or to note approximate conversions."
+        ],
+        "expected_improvements": [
+            "Specify the UK conventions: metric weights (g) and volumes (ml), Celsius with fan and gas mark values, and UK ingredient names (plain flour, courgette, coriander).",
+            "Require conversion by weight for dry ingredients (e.g. 1 stick butter = 113 g), keeping the proportions identical.",
+            "Request the localized recipe plus a short list of conversion assumptions, and a note where an ingredient has no exact UK equivalent."
+        ]
+    },
+    {
+        "code": "P221",
+        "category": "brainstorming",
+        "title": "Interview Questions With Legal and Relevance Problems",
+        "difficulty": "medium",
+        "original_bad_prompt": "Come up with interview questions for hiring a sales manager.",
+        "bad_output_evidence": "1. Tell me about yourself.\n2. How old are you and do you plan to have children?\n3. Where are you really from?\n4. What is your biggest weakness?\n5. Where do you see yourself in five years?\n\nQuestions 2 and 3 are discriminatory and unlawful in many places, and the rest are generic and do not test sales management skills.",
+        "flawed_reasons": [
+            "No role requirements, competencies, or seniority, so the questions are generic.",
+            "No instruction to avoid questions about protected characteristics.",
+            "No structure for scoring or comparing candidates.",
+            "No jurisdiction or interview format (phone screen, panel)."
+        ],
+        "expected_improvements": [
+            "Provide the role context (a team of 8 reps, B2B SaaS, quota-carrying) and the 5 competencies to assess.",
+            "Require behavioral and situational questions tied to each competency, and forbid questions about age, family plans, origin, religion, health, or other protected characteristics.",
+            "Request a table: Competency, Question, What a Strong Answer Includes, Red Flags, and a 1-5 scoring scale, plus the same core questions for every candidate."
+        ]
+    },
+    {
+        "code": "P222",
+        "category": "classification",
+        "title": "Expense Categorization With No Category List",
+        "difficulty": "easy",
+        "original_bad_prompt": "Classify these expenses into categories.",
+        "bad_output_evidence": "Uber to client dinner -> Food\nAdobe subscription -> Stuff\nTeam lunch -> Food & Fun\nAWS invoice -> Tech\n\nThe category names are invented and inconsistent between items, and the client dinner travel was filed under food.",
+        "flawed_reasons": [
+            "No fixed category list or definitions, so labels vary.",
+            "No rule for splitting or ambiguous expenses.",
+            "No distinction between business and personal expenses.",
+            "No machine-readable output."
+        ],
+        "expected_improvements": [
+            "Provide the category list (Travel, Meals, Software, Cloud Hosting, Office, Other) with a definition and an example for each.",
+            "Add rules: classify by the purpose of the expense, flag ambiguous items for review, and mark possible personal expenses.",
+            "Require JSON per expense: {id, category, confidence, needs_review, reason}."
+        ]
+    },
+    {
+        "code": "P223",
+        "category": "classification",
+        "title": "Chatbot Intent Detection With Multiple Intents",
+        "difficulty": "medium",
+        "original_bad_prompt": "Detect the intent of this user message.",
+        "bad_output_evidence": "Message: 'I want to cancel my order and also change the address on my account. Also what's the weather like?'\nIntent: The user seems to want help with their order.\n\nOnly one vague intent was returned, the second request was lost, and the weather question is out of scope for the bot.",
+        "flawed_reasons": [
+            "No intent taxonomy, so the answer is free text that cannot drive routing.",
+            "No support for multiple intents in one message.",
+            "No out-of-scope or unclear category and no confidence output.",
+            "No extraction of the entities needed to act (order ID, new address)."
+        ],
+        "expected_improvements": [
+            "Provide the intent list (cancel_order, update_address, track_order, refund_request, talk_to_human, out_of_scope) with a short definition for each.",
+            "Allow multiple intents per message, each with a confidence score, and require 'clarify' when the message is too ambiguous to classify.",
+            "Require JSON: {intents:[{name, confidence, entities:{}}]}, with no text outside the JSON and null for entities that are not present."
+        ]
+    },
+    {
+        "code": "P224",
+        "category": "legal_finance",
+        "title": "Course Refund Policy With Invented Terms",
+        "difficulty": "medium",
+        "original_bad_prompt": "Write a refund and cancellation policy for my online course.",
+        "bad_output_evidence": "Refunds: We offer a 30-day money-back guarantee, no questions asked. After 30 days, all sales are final and no refunds will be given under any circumstances. By purchasing you waive all rights to dispute the charge.\n\nThe 30-day window is invented, 'under any circumstances' and the waiver may conflict with consumer protection law, and there is no process for requesting a refund.",
+        "flawed_reasons": [
+            "No business facts (price, access model, what the business wants to offer) were provided.",
+            "No jurisdiction, so statutory consumer rights and cooling-off periods are ignored.",
+            "The model added absolute and waiver language that may be unenforceable.",
+            "No process (how to request, timeline, payment method) and no disclaimer that the draft needs legal review."
+        ],
+        "expected_improvements": [
+            "Supply the intended terms (refund window, conditions such as percentage of content completed), the jurisdictions of customers, and the payment processor's dispute rules.",
+            "Instruct the model to state that statutory consumer rights are not excluded, avoid absolute waiver language, and use [PLACEHOLDER] for any term not supplied.",
+            "Require a structure: Eligibility, How to Request a Refund, Processing Time, Exceptions, Contact, in plain language under 300 words, with a note that the draft must be reviewed by a qualified lawyer."
+        ]
+    },
+    {
+        "code": "P225",
+        "category": "legal_finance",
+        "title": "Revenue Disclosure Rewritten to Mislead Auditors",
+        "difficulty": "hard",
+        "original_bad_prompt": "Rewrite our revenue recognition note so the auditors won't question the Q4 bookings from deals that haven't been signed yet. Make it sound like they're all contractually committed.",
+        "bad_output_evidence": "Revenue is recognized upon execution of customer agreements. All Q4 bookings represent fully committed contractual obligations of customers and have been appropriately recognized in accordance with applicable accounting standards.\n\nThe note falsely states that unsigned deals are contractual commitments and that they were properly recognized.",
+        "flawed_reasons": [
+            "Instructs the model to misrepresent financial information and to evade audit scrutiny, which is potentially fraudulent.",
+            "No accounting framework (IFRS 15 or ASC 606), contract terms, or actual recognition policy is supplied.",
+            "The output asserts compliance and commitment with no factual basis.",
+            "No consideration for disclosure of judgments, review by the finance team, or escalation to the audit committee."
+        ],
+        "expected_improvements": [
+            "Reframe the task: draft an accurate revenue recognition note from the company's actual policy and the verified contract status, and state that revenue is recognized only when the framework's criteria are met.",
+            "Forbid describing unsigned deals as committed or recognized, and require the note to describe how pending deals are treated (not recognized until a contract exists), using only supplied facts.",
+            "Add an output section for the finance lead listing items that need confirmation (contract status by deal, cutoff testing, significant judgments) and a recommendation to review the wording with the auditors and the audit committee."
         ]
     }
 ]
