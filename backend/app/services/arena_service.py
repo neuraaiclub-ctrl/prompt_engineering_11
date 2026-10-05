@@ -193,6 +193,65 @@ class ArenaService:
         conf.status = "completed"
         conf.ended_at = now
 
+        # Auto-submit missing challenges with 0 marks for all active teams
+        sessions = db.query(TeamArenaSession).filter(
+            TeamArenaSession.status.in_(["active", "waiting"])
+        ).all()
+        
+        for session in sessions:
+            team = session.team
+            if not team or team.status == "eliminated":
+                continue
+            
+            prompt_ids = cls.parse_prompt_ids(session.prompt_ids)
+            # Ensure prompt_ids has enough challenges
+            if not prompt_ids or len(prompt_ids) < conf.challenges_count:
+                prompt_ids = cls.assign_unique_prompts_for_team(db, team)
+                session.prompt_ids = prompt_ids
+            
+            # Fill in submissions for every missing index
+            for idx in range(session.current_challenge_index, conf.challenges_count + 1):
+                prompt_id = prompt_ids[idx - 1] if idx <= len(prompt_ids) else None
+                if not prompt_id:
+                    prompt_item = db.query(PromptBankItem).filter(PromptBankItem.code == f"P00{idx}").first() or db.query(PromptBankItem).first()
+                    prompt_id = prompt_item.id if prompt_item else "fallback-id"
+                
+                # Create the blank submission
+                sub_id = str(uuid.uuid4())
+                sub = ArenaSubmission(
+                    id=sub_id,
+                    team_id=team.id,
+                    prompt_bank_item_id=prompt_id,
+                    challenge_index=idx,
+                    submitted_prompt="[NO SUBMISSION - TIME EXPIRED]",
+                    diagnosis_notes="Team failed to submit an answer before the arena ended.",
+                    server_timestamp=now,
+                    status="locked"
+                )
+                db.add(sub)
+                db.flush()
+
+                # Assign automatic 0 marks
+                from app.models.arena_scoring import ArenaFinalScore
+                final_eval = ArenaFinalScore(
+                    id=str(uuid.uuid4()),
+                    submission_id=sub.id,
+                    clarity_score=0.0,
+                    specificity_score=0.0,
+                    context_score=0.0,
+                    output_format_score=0.0,
+                    constraints_score=0.0,
+                    total=0.0,
+                    source="engine"
+                )
+                db.add(final_eval)
+            
+            # Mark session as completed
+            session.current_challenge_index = conf.challenges_count + 1
+            session.status = "completed"
+            session.completed_at = now
+            team.status = "completed"
+
         audit = AuditLog(
             actor_user_id=current_user.id,
             action="arena.competition_ended",
@@ -205,7 +264,7 @@ class ArenaService:
 
         return {
             "success": True,
-            "message": "Competition marked as completed. Submissions are now closed.",
+            "message": "Competition marked as completed. All missing submissions were auto-filled with 0 marks.",
             "status": "completed",
             "ended_at": now.isoformat()
         }
