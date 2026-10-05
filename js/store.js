@@ -869,6 +869,20 @@ class Store {
       return { success: false, error: 'Connection error' };
     }
   }
+
+  async downloadPromptDemoCsv() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/prompt-bank/demo-csv`, {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      });
+      if (!response.ok) return { success: false, error: 'Failed to download Demo CSV' };
+      const blob = await response.blob();
+      return { success: true, blob };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
   // ==========================================
   // EXECUTION SANDBOX (PARTICIPANT)
   // ==========================================

@@ -901,18 +901,12 @@ window.handleCsvUpload = async (event) => {
 
 window.downloadDemoCsv = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/prompt-bank/demo-csv`, {
-      method: 'GET',
-      headers: store.getAuthHeaders()
-    });
-    
-    if (!response.ok) {
-      Router.showToast('Failed to download Demo CSV', 'red');
+    const res = await store.downloadPromptDemoCsv();
+    if (!res.success) {
+      Router.showToast(res.error || 'Failed to download Demo CSV', 'red');
       return;
     }
-    
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(res.blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'demo_prompts.csv';
