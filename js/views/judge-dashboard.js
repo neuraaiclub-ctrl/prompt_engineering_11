@@ -213,6 +213,9 @@ export async function renderJudgeDashboard() {
       <button class="btn btn-sm ${activeJudgeTab === 'leaderboard' ? 'btn-primary' : ''}" id="tabBtnLeaderboard" style="padding:8px 18px;">
         3. OFFICIAL STANDINGS & PODIUM
       </button>
+      <button class="btn btn-sm ${activeJudgeTab === 'questions' ? 'btn-primary' : ''}" id="tabBtnQuestions" style="padding:8px 18px;">
+        4. PROMPT BANK / QUESTIONS
+      </button>
     </div>
 
     <!-- TAB 1: RUBRIC SCORING QUEUE -->
@@ -477,6 +480,13 @@ export async function renderJudgeDashboard() {
         <!-- Loaded asynchronously -->
       </div>
     </div>
+
+    <!-- TAB 4: QUESTIONS / PROMPT BANK -->
+    <div id="judgeTabContentQuestions" style="display:${activeJudgeTab === 'questions' ? 'block' : 'none'};">
+      <div id="judgeQuestionsContainer">
+        <!-- Loaded asynchronously -->
+      </div>
+    </div>
   `;
 
   // Attach Top Operations Handlers
@@ -496,9 +506,16 @@ export async function renderJudgeDashboard() {
     renderJudgeDashboard();
     loadLeaderboardTab();
   });
+  document.getElementById('tabBtnQuestions')?.addEventListener('click', () => {
+    activeJudgeTab = 'questions';
+    renderJudgeDashboard();
+    loadQuestionsTab();
+  });
 
   if (activeJudgeTab === 'leaderboard') {
     loadLeaderboardTab();
+  } else if (activeJudgeTab === 'questions') {
+    loadQuestionsTab();
   }
 
   // Attach Rubric Scoring Handlers

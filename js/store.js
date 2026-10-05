@@ -820,6 +820,41 @@ class Store {
       return { success: false, error: 'Connection error' };
     }
   }
+
+  async deletePrompt(id) {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/prompt-bank/${id}`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true };
+      return { success: false, error: data.detail || 'Failed to delete' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
+
+  async uploadPromptCsv(file) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const headers = this.getAuthHeaders();
+      delete headers['Content-Type']; // Let browser set boundaries
+      
+      const resp = await fetch(`${API_BASE_URL}/prompt-bank/upload-csv`, {
+        method: 'POST',
+        headers: headers,
+        body: formData
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, message: data.message };
+      return { success: false, error: data.detail || 'Failed to upload CSV' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
   // ==========================================
   // EXECUTION SANDBOX (PARTICIPANT)
   // ==========================================
