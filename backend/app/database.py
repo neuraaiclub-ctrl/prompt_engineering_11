@@ -118,18 +118,27 @@ def seed_initial_data():
             )
             db.add(arena_conf)
 
+        def _fix_str(val):
+            if isinstance(val, str):
+                return val.encode('utf-16', 'surrogatepass').decode('utf-16', 'ignore').encode('utf-8', 'ignore').decode('utf-8')
+            elif isinstance(val, list):
+                return [_fix_str(x) for x in val]
+            elif isinstance(val, dict):
+                return {_fix_str(k): _fix_str(v) for k, v in val.items()}
+            return val
+
         for p_data in ARENA_PROMPT_BANK:
             existing_p = db.query(PromptBankItem).filter(PromptBankItem.code == p_data["code"]).first()
             if not existing_p:
                 item = PromptBankItem(
-                    code=p_data["code"],
-                    category=p_data["category"],
-                    title=p_data["title"],
-                    difficulty=p_data["difficulty"],
-                    original_bad_prompt=p_data["original_bad_prompt"],
-                    bad_output_evidence=p_data["bad_output_evidence"],
-                    flawed_reasons=p_data["flawed_reasons"],
-                    expected_improvements=p_data["expected_improvements"]
+                    code=_fix_str(p_data["code"]),
+                    category=_fix_str(p_data["category"]),
+                    title=_fix_str(p_data["title"]),
+                    difficulty=_fix_str(p_data["difficulty"]),
+                    original_bad_prompt=_fix_str(p_data["original_bad_prompt"]),
+                    bad_output_evidence=_fix_str(p_data["bad_output_evidence"]),
+                    flawed_reasons=_fix_str(p_data["flawed_reasons"]),
+                    expected_improvements=_fix_str(p_data["expected_improvements"])
                 )
                 db.add(item)
 
@@ -138,6 +147,7 @@ def seed_initial_data():
         db.commit()
     except Exception as e:
         db.rollback()
+        raise e
     finally:
         db.close()
 
