@@ -899,8 +899,31 @@ window.handleCsvUpload = async (event) => {
   }
 };
 
-window.downloadDemoCsv = () => {
-  window.location.href = `${API_BASE_URL}/prompt-bank/demo-csv`;
+window.downloadDemoCsv = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/prompt-bank/demo-csv`, {
+      method: 'GET',
+      headers: store.getAuthHeaders()
+    });
+    
+    if (!response.ok) {
+      Router.showToast('Failed to download Demo CSV', 'red');
+      return;
+    }
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'demo_prompts.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error(e);
+    Router.showToast('Error downloading file', 'red');
+  }
 };
 
 window.deletePromptItem = async (id) => {
