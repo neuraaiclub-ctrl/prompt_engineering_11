@@ -862,6 +862,164 @@ function showEliminationConfirmationModal(teamId, teamName) {
 }
 window.openEliminateModal = showEliminationConfirmationModal;
 
+// QUESTIONS TAB ADDITION
+async function loadQuestionsTab() {
+  const container = document.getElementById('judgeQuestionsContainer');
+  if (!container) return;
+
+  container.innerHTML = `<div style="padding:20px; text-align:center; color:var(--muted);" class="mono-text">Loading prompt bank...</div>`;
+
+  const prompts = await store.getPromptBank();
+  
+  // Expose to window for inline handlers
+  window.currentPromptBankData = prompts;
+  window.promptBankFilter = window.promptBankFilter || 'all';
+
+  renderQuestionsTabContent(prompts);
+}
+
+window.setQuestionsFilter = (difficulty) => {
+  window.promptBankFilter = difficulty;
+  renderQuestionsTabContent(window.currentPromptBankData);
+};
+
+window.triggerCsvUpload = () => {
+  document.getElementById('fileUploadCsv').click();
+};
+
+window.handleCsvUpload = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const res = await store.uploadPromptCsv(file);
+  if (res.success) {
+    Router.showToast(res.message || 'CSV Uploaded Successfully', 'green');
+    loadQuestionsTab();
+  } else {
+    Router.showToast(res.error || 'Failed to upload CSV', 'red');
+  }
+};
+
+window.downloadDemoCsv = () => {
+  window.location.href = `${API_BASE_URL}/prompt-bank/demo-csv`;
+};
+
+window.deletePromptItem = async (id) => {
+  if (confirm('Are you sure you want to delete this question?')) {
+    const res = await store.deletePrompt(id);
+    if (res.success) {
+      Router.showToast('Question deleted', 'green');
+      loadQuestionsTab();
+    } else {
+      Router.showToast(res.error || 'Failed to delete', 'red');
+    }
+  }
+};
+
+window.seedDefaultQuestions = async () => {
+  if (confirm('This will seed the missing default questions (up to 250) from the codebase into the database. Existing questions will not be overwritten. Proceed?')) {
+    const res = await store.seedPromptBank();
+    if (res.success) {
+      Router.showToast(res.message, 'green');
+      loadQuestionsTab();
+    } else {
+      Router.showToast(res.error || 'Failed to seed defaults', 'red');
+    }
+  }
+};
+
+function renderQuestionsTabContent(prompts) {
+  const container = document.getElementById('judgeQuestionsContainer');
+  if (!container) return;
+
+  const filter = window.promptBankFilter || 'all';
+  const filteredPrompts = prompts.filter(p => filter === 'all' ? true : p.difficulty === filter);
+
+  let rowsHtml = '';
+  if (filteredPrompts.length === 0) {
+    rowsHtml = `<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:24px;">No questions match the selected filter.</td></tr>`;
+  } else {
+    filteredPrompts.forEach(p => {
+      const badSnippet = (p.original_bad_prompt || '').substring(0, 40) + '...';
+      const diffColor = p.difficulty === 'hard' ? 'var(--red)' : p.difficulty === 'medium' ? 'var(--amber)' : 'var(--green)';
+      const diffLabel = p.difficulty ? p.difficulty.toUpperCase() : 'MEDIUM';
+      rowsHtml += `
+        <tr>
+          <td style="font-family:var(--mono); font-weight:700;">${escapeHtml(p.code)}</td>
+          <td style="font-weight:600; color:var(--text);">${escapeHtml(p.title)}</td>
+          <td class="mono-text" style="font-size:12px; color:var(--muted);">${escapeHtml(p.category)}</td>
+          <td>
+            <span class="chip" style="font-size:10px; border-color:${diffColor}; color:${diffColor};">
+              ${diffLabel}
+            </span>
+          </td>
+          <td class="mono-text" style="font-size:11px; color:var(--muted); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            ${escapeHtml(badSnippet)}
+          </td>
+          <td>
+            <button class="btn btn-sm btn-red" onclick="window.deletePromptItem('${p.id}')" style="padding:3px 8px; font-size:10px; font-weight:700;">
+              DELETE
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+
+  const btnAll = filter === 'all' ? 'btn-primary' : '';
+  const btnEasy = filter === 'easy' ? 'btn-primary' : '';
+  const btnMed = filter === 'medium' ? 'btn-primary' : '';
+  const btnHard = filter === 'hard' ? 'btn-primary' : '';
+
+  container.innerHTML = `
+    <div class="glass bracket-frame" style="padding:24px;">
+      <span class="bl"></span><span class="br"></span>
+      
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:16px;">
+        <div>
+          <div class="eyebrow">PROMPT BANK MANAGEMENT</div>
+          <h2 class="heading-md" style="font-size:16px;">QUESTIONS IN REPOSITORY (${prompts.length})</h2>
+        </div>
+        
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="file" id="fileUploadCsv" accept=".csv" style="display:none;" onchange="window.handleCsvUpload(event)">
+          <button class="btn btn-sm" onclick="window.seedDefaultQuestions()" style="padding:6px 14px; background:var(--violet); color:white;">
+            🌱 SEED 250 DEFAULTS
+          </button>
+          <button class="btn btn-sm" onclick="window.downloadDemoCsv()" style="padding:6px 14px; border:1px dashed var(--muted);">
+            📥 DEMO CSV FORMAT
+          </button>
+          <button class="btn btn-sm btn-primary" onclick="window.triggerCsvUpload()" style="padding:6px 14px;">
+            📁 UPLOAD CSV
+          </button>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-bottom:20px;">
+        <button class="btn btn-sm ${btnAll}" onclick="window.setQuestionsFilter('all')" style="padding:6px 14px;">ALL</button>
+        <button class="btn btn-sm ${btnEasy}" onclick="window.setQuestionsFilter('easy')" style="padding:6px 14px;">EASY</button>
+        <button class="btn btn-sm ${btnMed}" onclick="window.setQuestionsFilter('medium')" style="padding:6px 14px;">MEDIUM</button>
+        <button class="btn btn-sm ${btnHard}" onclick="window.setQuestionsFilter('hard')" style="padding:6px 14px;">HARD</button>
+      </div>
+
+      <table class="lb-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Difficulty</th>
+            <th>Bad Prompt snippet</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function showSafetyConfirmModal(title, message, confirmBtnText, onConfirm) {
   const modalWrap = document.getElementById('customModalContainer') || document.body;
   const modalDiv = document.createElement('div');

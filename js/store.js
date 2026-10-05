@@ -855,6 +855,20 @@ class Store {
       return { success: false, error: 'Connection error' };
     }
   }
+
+  async seedPromptBank() {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/prompt-bank/seed`, {
+        method: 'POST',
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, message: data.message };
+      return { success: false, error: data.detail || 'Failed to seed' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
   // ==========================================
   // EXECUTION SANDBOX (PARTICIPANT)
   // ==========================================

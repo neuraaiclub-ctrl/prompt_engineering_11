@@ -177,3 +177,28 @@ def upload_csv(
         
     db.commit()
     return {"success": True, "message": f"Successfully processed {added_count} items."}
+
+@router.post("/seed")
+def seed_prompt_bank(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_roles(["admin", "judge"]))
+):
+    from app.core.arena_seed_data import ARENA_PROMPT_BANK
+    added = 0
+    for p_data in ARENA_PROMPT_BANK:
+        existing = db.query(PromptBankItem).filter(PromptBankItem.code == p_data["code"]).first()
+        if not existing:
+            item = PromptBankItem(
+                code=p_data["code"],
+                category=p_data["category"],
+                title=p_data["title"],
+                difficulty=p_data["difficulty"],
+                original_bad_prompt=p_data.get("original_bad_prompt", ""),
+                bad_output_evidence=p_data.get("bad_output_evidence", ""),
+                flawed_reasons=p_data.get("flawed_reasons", []),
+                expected_improvements=p_data.get("expected_improvements", [])
+            )
+            db.add(item)
+            added += 1
+    db.commit()
+    return {"success": True, "message": f"Successfully seeded {added} default questions."}
