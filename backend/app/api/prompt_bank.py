@@ -63,56 +63,6 @@ def create_prompt_bank_item(
     )
     return item
 
-@router.put("/{item_id}")
-def update_prompt_bank_item(
-    item_id: str,
-    payload: PromptBankItemSchema,
-    db: Session = Depends(get_db),
-    admin_user: User = Depends(require_roles(["admin"]))
-):
-    """Update an existing prompt bank item."""
-    item = db.query(PromptBankItem).filter(PromptBankItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Prompt Bank Item not found.")
-        
-    existing_code = db.query(PromptBankItem).filter(PromptBankItem.code == payload.code, PromptBankItem.id != item_id).first()
-    if existing_code:
-        raise HTTPException(status_code=400, detail=f"Code {payload.code} is used by another prompt.")
-
-    item.code = payload.code
-    item.category = payload.category
-    item.title = payload.title
-    item.difficulty = payload.difficulty
-    item.original_bad_prompt = payload.original_bad_prompt
-    item.bad_output_evidence = payload.bad_output_evidence
-    item.flawed_reasons = payload.flawed_reasons
-    item.expected_improvements = payload.expected_improvements
-    
-    db.commit()
-    db.refresh(item)
-    
-    log_audit_event(
-        db,
-        action="prompt_bank.update",
-        target_type="PromptBankItem",
-        target_id=item.id,
-        actor_user_id=admin_user.id
-    )
-    return item
-
-@router.delete("/{item_id}")
-def delete_prompt_bank_item(
-    item_id: str,
-    db: Session = Depends(get_db),
-    admin_user: User = Depends(require_roles(["admin", "judge"]))
-):
-    item = db.query(PromptBankItem).filter(PromptBankItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Prompt Bank Item not found.")
-    db.delete(item)
-    db.commit()
-    return {"success": True, "message": "Deleted successfully."}
-
 from fastapi import UploadFile, File
 import csv
 from io import StringIO
@@ -202,3 +152,55 @@ def seed_prompt_bank(
             added += 1
     db.commit()
     return {"success": True, "message": f"Successfully seeded {added} default questions."}
+
+
+@router.put("/{item_id}")
+def update_prompt_bank_item(
+    item_id: str,
+    payload: PromptBankItemSchema,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_roles(["admin"]))
+):
+    """Update an existing prompt bank item."""
+    item = db.query(PromptBankItem).filter(PromptBankItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Prompt Bank Item not found.")
+        
+    existing_code = db.query(PromptBankItem).filter(PromptBankItem.code == payload.code, PromptBankItem.id != item_id).first()
+    if existing_code:
+        raise HTTPException(status_code=400, detail=f"Code {payload.code} is used by another prompt.")
+
+    item.code = payload.code
+    item.category = payload.category
+    item.title = payload.title
+    item.difficulty = payload.difficulty
+    item.original_bad_prompt = payload.original_bad_prompt
+    item.bad_output_evidence = payload.bad_output_evidence
+    item.flawed_reasons = payload.flawed_reasons
+    item.expected_improvements = payload.expected_improvements
+    
+    db.commit()
+    db.refresh(item)
+    
+    log_audit_event(
+        db,
+        action="prompt_bank.update",
+        target_type="PromptBankItem",
+        target_id=item.id,
+        actor_user_id=admin_user.id
+    )
+    return item
+
+@router.delete("/{item_id}")
+def delete_prompt_bank_item(
+    item_id: str,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_roles(["admin", "judge"]))
+):
+    item = db.query(PromptBankItem).filter(PromptBankItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Prompt Bank Item not found.")
+    db.delete(item)
+    db.commit()
+    return {"success": True, "message": "Deleted successfully."}
+
