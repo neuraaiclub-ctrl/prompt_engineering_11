@@ -167,17 +167,25 @@ def get_spectator_runoff_stream(db: Session = Depends(get_db)):
     from app.models.execution import Submission
     from app.models.evaluation import Evaluation
 
+    from sqlalchemy.orm import joinedload
+    
     teams = db.query(Team).all()
+    all_subs = db.query(Submission).options(joinedload(Submission.evaluations)).all()
+    
+    subs_by_team = {}
+    for s in all_subs:
+        if s.team_id not in subs_by_team or s.created_at > subs_by_team[s.team_id].created_at:
+            subs_by_team[s.team_id] = s
+            
     results = []
 
     for t in teams:
-        # Find latest submission
-        sub = db.query(Submission).filter(Submission.team_id == t.id).order_by(Submission.created_at.desc()).first()
+        sub = subs_by_team.get(t.id)
         if not sub:
             results.append({"team_name": t.name, "status": "idle", "pass_count": 0, "total_count": 3})
             continue
 
-        eval_rec = db.query(Evaluation).filter(Evaluation.submission_id == sub.id, Evaluation.type == "automated").first()
+        eval_rec = next((e for e in sub.evaluations if e.type == "automated"), None)
         if not eval_rec:
             results.append({"team_name": t.name, "status": "testing", "pass_count": 0, "total_count": 3})
         else:

@@ -264,17 +264,17 @@ class ArenaService:
 
         ends_at_val = None
         if conf.status == "live" and conf.started_at:
-            ends_at_val = (conf.started_at + timedelta(minutes=30)).isoformat()
+            ends_at_val = (conf.started_at + timedelta(minutes=30)).isoformat() + "Z"
         elif conf.ended_at:
-            ends_at_val = conf.ended_at.isoformat()
+            ends_at_val = conf.ended_at.isoformat() + "Z"
 
         response: Dict[str, Any] = {
             "status": conf.status,
-            "server_time": server_now.isoformat(),
-            "started_at": conf.started_at.isoformat() if conf.started_at else None,
-            "ended_at": conf.ended_at.isoformat() if conf.ended_at else None,
+            "server_time": server_now.isoformat() + "Z",
+            "started_at": conf.started_at.isoformat() + "Z" if conf.started_at else None,
+            "ended_at": conf.ended_at.isoformat() + "Z" if conf.ended_at else None,
             "ends_at": ends_at_val,
-            "results_released_at": conf.results_released_at.isoformat() if conf.results_released_at else None,
+            "results_released_at": conf.results_released_at.isoformat() + "Z" if conf.results_released_at else None,
             "config": {
                 "challenges_count": conf.challenges_count,
                 "marks_per_challenge": conf.marks_per_challenge,
@@ -1019,14 +1019,14 @@ class ArenaService:
 
         ends_at_val = None
         if conf.status == "live" and conf.started_at:
-            ends_at_val = (conf.started_at + timedelta(minutes=30)).isoformat()
+            ends_at_val = (conf.started_at + timedelta(minutes=30)).isoformat() + "Z"
         elif conf.ended_at:
-            ends_at_val = conf.ended_at.isoformat()
+            ends_at_val = conf.ended_at.isoformat() + "Z"
 
         return {
             "status": conf.status,
             "is_results_released": getattr(conf, 'is_results_released', False),
-            "started_at": conf.started_at.isoformat() if conf.started_at else None,
+            "started_at": conf.started_at.isoformat() + "Z" if conf.started_at else None,
             "ends_at": ends_at_val,
             "active_dataset_tag": getattr(conf, 'active_dataset_tag', None),
             "metrics": metrics_dict,
@@ -1298,9 +1298,11 @@ class ArenaService:
         
         from app.models.arena_scoring import ArenaFinalScore
 
+        from sqlalchemy.orm import joinedload
+        
         # Bulk fetch to prevent N+1 queries under load
         all_sessions = {s.team_id: s for s in db.query(TeamArenaSession).all()}
-        all_submissions = db.query(ArenaSubmission).all()
+        all_submissions = db.query(ArenaSubmission).options(joinedload(ArenaSubmission.evaluations)).all()
         subs_by_team = {}
         for s in all_submissions:
             subs_by_team.setdefault(s.team_id, []).append(s)
