@@ -324,26 +324,66 @@ class TeamService:
 
     @classmethod
     def delete_team_admin(cls, db: Session, team_id: str, admin_user: User):
+        from sqlalchemy import text
         team = db.query(Team).filter(Team.id == team_id).first()
         if not team:
             raise HTTPException(status_code=404, detail="Team not found.")
         
+        team_name = team.name  # cache before delete
         try:
+            # 1. Delete arena_final_scores for this team's submissions (via subquery)
+            db.execute(text("""
+                DELETE FROM arena_final_scores
+                WHERE submission_id IN (
+                    SELECT id FROM arena_submissions WHERE team_id = :tid
+                )
+            """), {"tid": team_id})
+
+            # 2. Delete arena_evaluations for this team's submissions
+            db.execute(text("""
+                DELETE FROM arena_evaluations
+                WHERE submission_id IN (
+                    SELECT id FROM arena_submissions WHERE team_id = :tid
+                )
+            """), {"tid": team_id})
+
+            # 3. Delete arena_submissions
+            db.execute(text("DELETE FROM arena_submissions WHERE team_id = :tid"), {"tid": team_id})
+
+            # 4. Delete team_arena_sessions
+            db.execute(text("DELETE FROM team_arena_sessions WHERE team_id = :tid"), {"tid": team_id})
+
+            # 5. Delete security events
+            db.execute(text("DELETE FROM arena_security_events WHERE team_id = :tid"), {"tid": team_id})
+
+            # 6. Delete leaderboard entries
+            db.execute(text("DELETE FROM leaderboard_entries WHERE team_id = :tid"), {"tid": team_id})
+
+            # 7. Delete elimination records (if table exists)
+            try:
+                db.execute(text("DELETE FROM team_eliminations WHERE team_id = :tid"), {"tid": team_id})
+            except Exception:
+                db.rollback()
+
+            # 8. Delete team members (users + their roles)
             for member in team.members:
                 user = member.user
                 if user:
-                    db.query(Role).filter(Role.user_id == user.id).delete()
+                    db.query(Role).filter(Role.user_id == user.id).delete(synchronize_session=False)
                     db.delete(user)
+
+            # 9. Delete the team itself (cascade will handle team_members)
             db.delete(team)
+
             db.add(AuditLog(
                 actor_user_id=admin_user.id,
                 action="admin.team_deleted",
                 target_type="Team",
                 target_id=team_id,
-                audit_metadata={"team_name": team.name}
+                audit_metadata={"team_name": team_name}
             ))
             db.commit()
-            return {"success": True, "message": f"Team '{team.name}' deleted successfully."}
+            return {"success": True, "message": f"Team '{team_name}' deleted successfully."}
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Failed to delete team: {str(e)}")
