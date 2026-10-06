@@ -61,23 +61,6 @@ class ArenaService:
     def assign_unique_prompts_for_team(db: Session, team: Team) -> List[str]:
         all_prompts = db.query(PromptBankItem).order_by(PromptBankItem.code.asc()).all()
         if not all_prompts:
-            from app.core.arena_seed_data import ARENA_PROMPT_BANK
-            for p_data in ARENA_PROMPT_BANK:
-                item = PromptBankItem(
-                    code=p_data["code"],
-                    category=p_data["category"],
-                    title=p_data["title"],
-                    difficulty=p_data["difficulty"],
-                    original_bad_prompt=p_data["original_bad_prompt"],
-                    bad_output_evidence=p_data["bad_output_evidence"],
-                    flawed_reasons=p_data["flawed_reasons"],
-                    expected_improvements=p_data["expected_improvements"]
-                )
-                db.add(item)
-            db.commit()
-            all_prompts = db.query(PromptBankItem).order_by(PromptBankItem.code.asc()).all()
-
-        if not all_prompts:
             raise HTTPException(status_code=500, detail="Prompt bank is empty. Seed initial prompt data.")
         
         total = len(all_prompts)
@@ -145,7 +128,7 @@ class ArenaService:
                         "team_name": team.name,
                         "current_challenge_index": 1,
                         "total_challenges": conf.challenges_count,
-                        "status": "active" if conf.status == "live" else "waiting",
+                        "status": "waiting",
                         "is_completed": False,
                         "completed_at": None
                     }
@@ -156,25 +139,15 @@ class ArenaService:
     def start_competition(cls, db: Session, current_user: User, force: bool = False) -> Dict[str, Any]:
         conf = cls.get_or_create_config(db)
         
-        if conf.status not in ["waiting", "completed", "results_available"] and not force:
-            raise HTTPException(status_code=400, detail="Cannot start competition: Arena is in an invalid state.")
+        # Phase 0 / Defect #8: State machine guard
+        if conf.status != "waiting" and not force:
+            raise HTTPException(status_code=400, detail="Cannot start competition: Arena is not in 'waiting' state.")
 
         # Clear old arena data so only teams and prompt questions remain
-        from app.models.arena_scoring import (
-            ArenaFinalScore, ArenaIntegrityFlag, ArenaScoringJob, 
-            ArenaScoringRun, ArenaTestResult, ArenaDimensionScore
-        )
-        db.query(ArenaTestResult).delete(synchronize_session=False)
-        db.query(ArenaDimensionScore).delete(synchronize_session=False)
-        db.query(ArenaScoringRun).delete(synchronize_session=False)
-        db.query(ArenaScoringJob).delete(synchronize_session=False)
-        db.query(ArenaIntegrityFlag).delete(synchronize_session=False)
-        db.query(ArenaFinalScore).delete(synchronize_session=False)
-
-        db.query(ArenaEvaluation).delete(synchronize_session=False)
-        db.query(ArenaSubmission).delete(synchronize_session=False)
-        db.query(ArenaSecurityEvent).delete(synchronize_session=False)
-        db.query(TeamArenaSession).delete(synchronize_session=False)
+        db.query(ArenaEvaluation).delete()
+        db.query(ArenaSubmission).delete()
+        db.query(ArenaSecurityEvent).delete()
+        db.query(TeamArenaSession).delete()
 
         now = datetime.utcnow()
         conf.status = "live"
@@ -204,64 +177,6 @@ class ArenaService:
         conf.status = "completed"
         conf.ended_at = now
 
-        # Auto-submit missing challenges with 0 marks for all active teams
-        sessions = db.query(TeamArenaSession).filter(
-            TeamArenaSession.status.in_(["active", "waiting"])
-        ).all()
-        
-        for session in sessions:
-            team = session.team
-            if not team or team.status == "eliminated":
-                continue
-            
-            prompt_ids = cls.parse_prompt_ids(session.prompt_ids)
-            # Ensure prompt_ids has enough challenges
-            if not prompt_ids or len(prompt_ids) < conf.challenges_count:
-                prompt_ids = cls.assign_unique_prompts_for_team(db, team)
-                session.prompt_ids = prompt_ids
-            
-            # Fill in submissions for every missing index
-            for idx in range(session.current_challenge_index, conf.challenges_count + 1):
-                prompt_id = prompt_ids[idx - 1] if idx <= len(prompt_ids) else None
-                if not prompt_id:
-                    prompt_item = db.query(PromptBankItem).filter(PromptBankItem.code == f"P00{idx}").first() or db.query(PromptBankItem).first()
-                    prompt_id = prompt_item.id if prompt_item else "fallback-id"
-                
-                # Create the blank submission
-                sub_id = str(uuid.uuid4())
-                sub = ArenaSubmission(
-                    id=sub_id,
-                    team_id=team.id,
-                    prompt_bank_item_id=prompt_id,
-                    challenge_index=idx,
-                    submitted_prompt="[NO SUBMISSION - TIME EXPIRED]",
-                    diagnosis_notes="Team failed to submit an answer before the arena ended.",
-                    server_timestamp=now,
-                    status="locked"
-                )
-                db.add(sub)
-
-                # Assign automatic 0 marks
-                from app.models.arena_scoring import ArenaFinalScore
-                final_eval = ArenaFinalScore(
-                    id=str(uuid.uuid4()),
-                    submission_id=sub.id,
-                    clarity_score=0.0,
-                    specificity_score=0.0,
-                    context_score=0.0,
-                    output_format_score=0.0,
-                    constraints_score=0.0,
-                    total=0.0,
-                    source="engine"
-                )
-                db.add(final_eval)
-            
-            # Mark session as completed
-            session.current_challenge_index = conf.challenges_count + 1
-            session.status = "completed"
-            session.completed_at = now
-            team.status = "completed"
-
         audit = AuditLog(
             actor_user_id=current_user.id,
             action="arena.competition_ended",
@@ -274,7 +189,7 @@ class ArenaService:
 
         return {
             "success": True,
-            "message": "Competition marked as completed. All missing submissions were auto-filled with 0 marks.",
+            "message": "Competition marked as completed. Submissions are now closed.",
             "status": "completed",
             "ended_at": now.isoformat()
         }
@@ -283,12 +198,11 @@ class ArenaService:
     def release_results(cls, db: Session, current_user: User) -> Dict[str, Any]:
         conf = cls.get_or_create_config(db)
         
-        if conf.status not in ["completed", "results_available"]:
-            cls.end_competition(db, current_user)
+        # Phase 0 / Defect #7: State machine guard
+        if conf.status != "completed":
+            raise HTTPException(status_code=400, detail="Cannot release results: Arena is not in 'completed' state.")
             
         now = datetime.utcnow()
-        if not conf.ended_at:
-            conf.ended_at = now
         conf.status = "results_available"
         conf.results_released_at = now
 
@@ -308,19 +222,6 @@ class ArenaService:
             "status": "results_available",
             "results_released_at": now.isoformat()
         }
-
-
-    @staticmethod
-    def parse_prompt_ids(raw_prompt_ids) -> List[str]:
-        if isinstance(raw_prompt_ids, str):
-            try:
-                import json
-                return json.loads(raw_prompt_ids)
-            except Exception:
-                return []
-        if isinstance(raw_prompt_ids, list):
-            return raw_prompt_ids
-        return []
 
     @classmethod
     def get_my_challenge(cls, db: Session, current_user: User) -> Dict[str, Any]:
@@ -382,20 +283,11 @@ class ArenaService:
                 "message": "Waiting for the Judge to start the competition."
             }
 
-        prompt_ids = cls.parse_prompt_ids(session.prompt_ids)
-        if not prompt_ids or len(prompt_ids) < session.current_challenge_index:
-            prompt_ids = cls.assign_unique_prompts_for_team(db, team)
-            session.prompt_ids = prompt_ids
-            db.commit()
-            db.refresh(session)
-
+        prompt_ids = session.prompt_ids
         active_prompt_id = prompt_ids[session.current_challenge_index - 1]
         prompt_item = db.query(PromptBankItem).filter(PromptBankItem.id == active_prompt_id).first()
         if not prompt_item:
-            # Fallback lookup by code or first available item if database was reseeded
-            prompt_item = db.query(PromptBankItem).filter(PromptBankItem.code == f"P00{session.current_challenge_index}").first() or db.query(PromptBankItem).first()
-            if not prompt_item:
-                raise HTTPException(status_code=404, detail="Assigned prompt item not found in bank.")
+            raise HTTPException(status_code=404, detail="Assigned prompt item not found in bank.")
 
         return {
             "competition_status": conf.status,
@@ -462,169 +354,55 @@ class ArenaService:
         if existing:
             raise HTTPException(status_code=400, detail=f"Challenge {curr_idx} has already been submitted and is locked.")
 
-        prompt_ids = cls.parse_prompt_ids(session.prompt_ids)
-        if not prompt_ids or len(prompt_ids) < curr_idx:
-            prompt_ids = cls.assign_unique_prompts_for_team(db, team)
-            session.prompt_ids = prompt_ids
-            db.commit()
-            db.refresh(session)
-
-        if not prompt_ids or len(prompt_ids) < curr_idx:
-            raise HTTPException(status_code=400, detail=f"No assigned prompt found for challenge index {curr_idx}.")
-
-        prompt_id = prompt_ids[curr_idx - 1]
-        prompt_item = db.query(PromptBankItem).filter(PromptBankItem.id == prompt_id).first()
-        if not prompt_item:
-            prompt_item = db.query(PromptBankItem).filter(PromptBankItem.code == f"P00{curr_idx}").first() or db.query(PromptBankItem).first()
-            if prompt_item:
-                prompt_id = prompt_item.id
-
+        prompt_id = session.prompt_ids[curr_idx - 1]
         server_now = datetime.utcnow()
 
         # Phase 0 / Defect #13: Unicode normalization
         normalized_prompt = unicodedata.normalize("NFC", payload.prompt_text.strip())
 
-        try:
-            sub_id = str(uuid.uuid4())
-            sub = ArenaSubmission(
-                id=sub_id,
-                team_id=team.id,
-                prompt_bank_item_id=prompt_id,
-                challenge_index=curr_idx,
-                submitted_prompt=normalized_prompt,
-                diagnosis_notes=payload.diagnosis_notes, # Phase 0 / Defect #4
-                server_timestamp=server_now,
-                status="locked"
-            )
-            db.add(sub)
-            db.flush()
+        sub_id = str(uuid.uuid4())
+        sub = ArenaSubmission(
+            id=sub_id,
+            team_id=team.id,
+            prompt_bank_item_id=prompt_id,
+            challenge_index=curr_idx,
+            submitted_prompt=normalized_prompt,
+            diagnosis_notes=payload.diagnosis_notes, # Phase 0 / Defect #4
+            server_timestamp=server_now,
+            status="locked"
+        )
+        db.add(sub)
+        db.flush()
 
-            # Compute instant Evaluation Engine scores (5 dimensions: 0, 10, 20 marks each)
-            def _analyze_text(txt):
-                if not txt or len(txt.strip()) < 8:
-                    return [0, 0, 0, 0, 0]
-                lower = txt.lower()
-                words = len(txt.split())
-                lines = len([l for l in txt.split('\n') if l.strip()])
-                import re
-                
-                # Clarity
-                clarity = 0
-                if re.search(r'\b(write|draft|extract|classify|summarize|summarise|generate|return|list|convert|translate|identify|analyze|analyse|produce|create|answer|rewrite|turn|respond|reply|explain|compare|decide|output)\b', lower):
-                    clarity += 0.4
-                clarity += 0.3 if words >= 30 else (0.18 if words >= 14 else 0.06)
-                if lines >= 2 or len(re.findall(r'[.!?](\s|$)', txt)) >= 2:
-                    clarity += 0.15
-                if re.search(r'\b(so that|in order to|goal|objective|purpose|because|to help|used for|will be used)\b', lower):
-                    clarity += 0.15
+        session.current_challenge_index += 1
+        is_now_completed = session.current_challenge_index > conf.challenges_count
 
-                # Specificity
-                specificity = 0
-                if re.search(r'\d', txt):
-                    specificity += 0.3
-                if re.search(r'\b(exactly|at most|at least|no more than|no fewer than|maximum|minimum|under|between|within|up to)\b', lower):
-                    specificity += 0.25
-                if re.search(r'\b(e\.g\.|for example|such as|like:)\b|"[^"]{3,}"', txt):
-                    specificity += 0.25
-                if re.search(r'^\s*([-*•]|\d+[.)])\s+', txt, re.M):
-                    specificity += 0.2
-
-                # Context
-                context = 0
-                if re.search(r'\b(you are|act as|your role|as an? [a-z-]+ (?:expert|analyst|engineer|assistant|editor|writer|strategist|agent|reviewer))\b', lower):
-                    context += 0.4
-                if re.search(r'\b(audience|reader|readers|customer|customers|user|users|manager|managers|student|students|beginner|team)\b', lower):
-                    context += 0.3
-                if re.search(r'\b(context|background|scenario|given|input|the following|below|based on|using only)\b', lower):
-                    context += 0.3
-
-                # Output format
-                fmt = 0
-                if re.search(r'\b(json|xml|yaml|csv|markdown|table|schema|sql|list|bullet|bullets|key|keys|value|values|object|array|string|number|boolean)\b', lower):
-                    fmt += 0.35
-                if re.search(r'\b(field|fields|column|columns|heading|headings|section|sections|paragraph|paragraphs|response|structure|structured|template)\b', lower):
-                    fmt += 0.35
-                if re.search(r'\b(format|form|layout|pattern|delimiter|delimiters|wrapper|valid|strictly|only|no preamble|no conversational|no extra|return only|output only|respond only)\b', lower):
-                    fmt += 0.35
-                if re.search(r'[:{}\[\]```\-*#]', txt):
-                    fmt += 0.25
-
-                # Constraints
-                constraints = 0
-                if re.search(r'\b(must|never|do not|don\'t|cannot|cant|avoid|only|always|forbid|forbidden|prohibit|prohibited|ensure|restrict|restricted|prevent)\b', lower):
-                    constraints += 0.35
-                if re.search(r'\b(if|when|unless|otherwise|fallback|null|n\/a|unknown|missing|invalid|empty|unclear|ambiguous|edge case|error|exception|exceptionally)\b', lower):
-                    constraints += 0.35
-                if re.search(r'\b(tone|style|length|word|words|character|characters|sentence|sentences|limit|limits|max|maximum|min|minimum|rule|rules|guideline|guidelines|guardrail|guardrails|do not hallucinate|no hallucination|factual|fact-based)\b', lower):
-                    constraints += 0.35
-
-                def map_s(v):
-                    v_cap = min(1.0, max(0.0, v))
-                    return 20.0 if v_cap >= 0.65 else (10.0 if v_cap >= 0.25 else 0.0)
-
-                return [map_s(clarity), map_s(specificity), map_s(context), map_s(fmt), map_s(constraints)]
-
-            scores = _analyze_text(normalized_prompt)
-            tot = sum(scores)
-
-            from app.models.arena_scoring import ArenaFinalScore
-            final_eval = ArenaFinalScore(
-                id=str(uuid.uuid4()),
-                submission_id=sub.id,
-                clarity_score=scores[0],
-                specificity_score=scores[1],
-                context_score=scores[2],
-                output_format_score=scores[3],
-                constraints_score=scores[4],
-                total=round(tot, 2),
-                source="engine"
-            )
-            db.add(final_eval)
-
-            session.current_challenge_index += 1
-            is_now_completed = session.current_challenge_index > conf.challenges_count
-
-            if is_now_completed:
-                session.status = "completed"
-                session.completed_at = server_now
-                team.status = "completed"
-                
-                db.add(AuditLog(
-                    actor_user_id=current_user.id,
-                    action="arena.team_completed",
-                    target_type="Team",
-                    target_id=team.id,
-                    audit_metadata={"completed_at": server_now.isoformat(), "team_name": team.name}
-                ))
-
+        if is_now_completed:
+            session.status = "completed"
+            session.completed_at = server_now
+            team.status = "completed"
+            
             db.add(AuditLog(
                 actor_user_id=current_user.id,
-                action="arena.submit_challenge",
-                target_type="ArenaSubmission",
-                target_id=sub.id,
-                audit_metadata={
-                    "challenge_index": curr_idx,
-                    "team_id": team.id,
-                    "server_timestamp": server_now.isoformat()
-                }
+                action="arena.team_completed",
+                target_type="Team",
+                target_id=team.id,
+                audit_metadata={"completed_at": server_now.isoformat(), "team_name": team.name}
             ))
 
-            db.commit()
-        except IntegrityError as ie:
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Submission conflict: Challenge {curr_idx} has already been submitted for your team."
-            )
-        except HTTPException:
-            db.rollback()
-            raise
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Database submission failed: {str(e)}"
-            )
+        db.add(AuditLog(
+            actor_user_id=current_user.id,
+            action="arena.submit_challenge",
+            target_type="ArenaSubmission",
+            target_id=sub.id,
+            audit_metadata={
+                "challenge_index": curr_idx,
+                "team_id": team.id,
+                "server_timestamp": server_now.isoformat()
+            }
+        ))
+
+        db.commit()
 
         return {
             "success": True,
@@ -722,30 +500,19 @@ class ArenaService:
                 "metadata": ev.client_metadata, # Phase 0 / Defect #6: UI expects metadata
                 "timestamp": ev.created_at.isoformat() # Phase 0 / Defect #6: ISO-8601
             })
-        flagged_list = [{"team_id": tid, "team_name": next((t.name for t in teams if t.id == tid), "Unknown"), "violation_count": count} for tid, count in flagged_team_map.items()]
-        total_submissions_count = len(sub_list)
-        evaluated_submissions_count = sum(1 for s in sub_list if s.get("is_evaluated"))
-        pending_evaluations_count = total_submissions_count - evaluated_submissions_count
-
-        metrics_dict = {
-            "total_teams": total_teams,
-            "waiting_teams": max(waiting_count, 0),
-            "active_teams": active_count,
-            "completed_teams": completed_count,
-            "total_submissions": total_submissions_count,
-            "evaluated_submissions": evaluated_submissions_count,
-            "pending_evaluations": pending_evaluations_count,
-            "flagged_teams_count": len(flagged_team_map),
-            "flagged_teams": len(flagged_team_map),
-            "flagged_teams_list": flagged_list
-        }
 
         return {
             "status": conf.status,
             "is_results_released": getattr(conf, 'is_results_released', False),
             "started_at": conf.started_at.isoformat() if conf.started_at else None,
-            "metrics": metrics_dict,
-            "stats": metrics_dict,
+            "metrics": { # Phase 0 / Defect #6: UI expects 'metrics', not 'stats'
+                "total_teams": total_teams,
+                "waiting_teams": max(waiting_count, 0),
+                "active_teams": active_count,
+                "completed_teams": completed_count,
+                "flagged_teams_count": len(flagged_team_map), # Phase 0 / Defect #6: UI expects flagged_teams_count
+                "flagged_teams": [{"team_id": tid, "team_name": next((t.name for t in teams if t.id == tid), "Unknown"), "violation_count": count} for tid, count in flagged_team_map.items()]
+            },
             "submissions": sub_list,
             "security_events": events_list
         }
@@ -875,8 +642,6 @@ class ArenaService:
         sum_structure = 0.0
         sum_relevance = 0.0
 
-        from app.models.arena_scoring import ArenaFinalScore
-
         for sub in submissions:
             p = sub.prompt_item
             evals = sub.evaluations
@@ -889,18 +654,8 @@ class ArenaService:
                 c_total = sum(e.total_score for e in evals) / len(evals)
                 feedback = "; ".join([e.judge_feedback for e in evals if e.judge_feedback])
             else:
-                engine_score = db.query(ArenaFinalScore).filter(ArenaFinalScore.submission_id == sub.id).first()
-                if engine_score:
-                    avg_clarity = engine_score.clarity_score
-                    avg_context = engine_score.context_score
-                    avg_spec = engine_score.specificity_score
-                    avg_struct = engine_score.output_format_score
-                    avg_rel = engine_score.constraints_score
-                    c_total = engine_score.total
-                    feedback = "Evaluated by AI Engine."
-                else:
-                    avg_clarity = avg_context = avg_spec = avg_struct = avg_rel = c_total = 0.0
-                    feedback = "No comments recorded."
+                avg_clarity = avg_context = avg_spec = avg_struct = avg_rel = c_total = 0.0
+                feedback = "No comments recorded."
 
             total_team_score += c_total
             sum_clarity += avg_clarity
@@ -972,21 +727,10 @@ class ArenaService:
         teams = db.query(Team).all()
         eligible_standings = []
         eliminated_standings = []
-        
-        from app.models.arena_scoring import ArenaFinalScore
-
-        # Bulk fetch to prevent N+1 queries under load
-        all_sessions = {s.team_id: s for s in db.query(TeamArenaSession).all()}
-        all_submissions = db.query(ArenaSubmission).all()
-        subs_by_team = {}
-        for s in all_submissions:
-            subs_by_team.setdefault(s.team_id, []).append(s)
-            
-        all_engine_scores = {es.submission_id: es for es in db.query(ArenaFinalScore).all()}
 
         for t in teams:
-            session = all_sessions.get(t.id)
-            submissions = subs_by_team.get(t.id, [])
+            session = db.query(TeamArenaSession).filter(TeamArenaSession.team_id == t.id).first()
+            submissions = db.query(ArenaSubmission).filter(ArenaSubmission.team_id == t.id).all()
             
             is_eliminated = (t.status == "eliminated" or (session and session.status == "eliminated"))
 
@@ -995,10 +739,6 @@ class ArenaService:
                 evals = sub.evaluations
                 if evals:
                     total_score += sum(e.total_score for e in evals) / len(evals)
-                else:
-                    engine_score = all_engine_scores.get(sub.id)
-                    if engine_score:
-                        total_score += engine_score.total
 
             avg_score = round(total_score / 5.0, 2)
             completed_time = session.completed_at if session else None
@@ -1054,8 +794,6 @@ class ArenaService:
         total_score = 0.0
         challenges_report = []
 
-        from app.models.arena_scoring import ArenaFinalScore
-
         for sub in submissions:
             p = db.query(PromptBankItem).filter(PromptBankItem.id == sub.prompt_bank_item_id).first()
             evals = sub.evaluations
@@ -1068,18 +806,8 @@ class ArenaService:
                 c_total = sum(e.total_score for e in evals) / len(evals)
                 feedback = "; ".join([e.judge_feedback for e in evals if e.judge_feedback])
             else:
-                engine_score = db.query(ArenaFinalScore).filter(ArenaFinalScore.submission_id == sub.id).first()
-                if engine_score:
-                    avg_clarity = engine_score.clarity_score
-                    avg_spec = engine_score.specificity_score
-                    avg_context = engine_score.context_score
-                    avg_format = engine_score.output_format_score
-                    avg_constraints = engine_score.constraints_score
-                    c_total = engine_score.total
-                    feedback = "Evaluated by AI Engine."
-                else:
-                    avg_clarity = avg_spec = avg_context = avg_format = avg_constraints = c_total = 0.0
-                    feedback = "Pending evaluation."
+                avg_clarity = avg_spec = avg_context = avg_format = avg_constraints = c_total = 0.0
+                feedback = "Pending evaluation."
 
             total_score += c_total
 
