@@ -118,3 +118,15 @@ def get_all_teams_admin(
     Returns all registered teams for Admin Team Management.
     """
     return TeamService.get_all_teams_admin(db)
+
+@router.delete("/admin/{team_id}")
+def delete_team_admin(
+    team_id: str,
+    admin_user: User = Depends(require_roles(["admin"])),
+    db: Session = Depends(get_db)
+):
+    """
+    Permanently deletes a team and all associated members/data. Admin only.
+    """
+    return TeamService.delete_team_admin(db, team_id, admin_user)
+

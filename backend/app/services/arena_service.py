@@ -952,10 +952,13 @@ class ArenaService:
                 "id": sub.id,
                 "team_id": sub.team_id,
                 "team_name": t.name if t else "Unknown",
+                "team_status": t.status if t else "unknown",
+                "is_eliminated": (t.status == "eliminated") if t else False,
                 "college": t.college if t else "N/A",
                 "challenge_index": sub.challenge_index,
                 "prompt_code": p.code if p else "P--",
                 "prompt_title": p.title if p else "Flawed Prompt",
+                "challenge_difficulty": p.difficulty if p else "medium",
                 "original_bad_prompt": p.original_bad_prompt if p else "",
                 "bad_output_evidence": p.bad_output_evidence if p else "",
                 "submitted_prompt": sub.submitted_prompt,
@@ -984,7 +987,12 @@ class ArenaService:
                 "metadata": ev.client_metadata, # Phase 0 / Defect #6: UI expects metadata
                 "timestamp": ev.created_at.isoformat() # Phase 0 / Defect #6: ISO-8601
             })
-        flagged_list = [{"team_id": tid, "team_name": next((t.name for t in teams if t.id == tid), "Unknown"), "violation_count": count} for tid, count in flagged_team_map.items()]
+        flagged_list = [{
+            "team_id": tid,
+            "team_name": next((t.name for t in teams if t.id == tid), "Unknown"),
+            "violation_count": count,
+            "is_eliminated": next((t.status == "eliminated" for t in teams if t.id == tid), False)
+        } for tid, count in flagged_team_map.items()]
         total_submissions_count = len(sub_list)
         evaluated_submissions_count = sum(1 for s in sub_list if s.get("is_evaluated"))
         pending_evaluations_count = total_submissions_count - evaluated_submissions_count

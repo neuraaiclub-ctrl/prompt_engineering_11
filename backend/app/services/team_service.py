@@ -320,3 +320,29 @@ class TeamService:
                 "created_at": t.created_at.isoformat() if t.created_at else None
             })
         return results
+
+    @classmethod
+    def delete_team_admin(cls, db: Session, team_id: str, admin_user: User):
+        team = db.query(Team).filter(Team.id == team_id).first()
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found.")
+        
+        try:
+            for member in team.members:
+                user = member.user
+                if user:
+                    db.query(Role).filter(Role.user_id == user.id).delete()
+                    db.delete(user)
+            db.delete(team)
+            db.add(AuditLog(
+                actor_user_id=admin_user.id,
+                action="admin.team_deleted",
+                target_type="Team",
+                target_id=team_id,
+                audit_metadata={"team_name": team.name}
+            ))
+            db.commit()
+            return {"success": True, "message": f"Team '{team.name}' deleted successfully."}
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to delete team: {str(e)}")

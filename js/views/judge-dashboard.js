@@ -316,9 +316,15 @@ export async function renderJudgeDashboard() {
                   <span class="chip chip-${selectedSub.challenge_difficulty === 'hard' ? 'violet' : 'cyan'}">
                     ${selectedSub.challenge_difficulty ? selectedSub.challenge_difficulty.toUpperCase() : 'MEDIUM'}
                   </span>
-                  <button class="btn btn-sm btn-red" id="btnInspectorEliminateTeam" style="padding:5px 12px; font-size:11px; font-weight:700;">
-                    🛑 ELIMINATE TEAM
-                  </button>
+                  ${(selectedSub.is_eliminated || selectedSub.team_status === 'eliminated') ? `
+                    <button class="btn btn-sm" id="btnInspectorRestoreTeam" style="padding:5px 12px; font-size:11px; font-weight:700; background:var(--green); border-color:var(--green); color:#000;">
+                      ♻️ RESTORE TEAM
+                    </button>
+                  ` : `
+                    <button class="btn btn-sm btn-red" id="btnInspectorEliminateTeam" style="padding:5px 12px; font-size:11px; font-weight:700;">
+                      🛑 ELIMINATE TEAM
+                    </button>
+                  `}
                 </div>
               </div>
 
@@ -430,9 +436,15 @@ export async function renderJudgeDashboard() {
               <div class="mono-text" style="font-size:11px; color:var(--muted); line-height:1.5; margin-bottom:10px;">
                 Flagged for suspicious tab switches or window blur events exceeding the proctoring threshold (&ge;3).
               </div>
-              <button class="btn btn-sm btn-red" onclick="window.openEliminateModal('${ft.team_id}', '${escapeHtml(ft.team_name)}')" style="padding:4px 10px; font-size:10.5px; font-weight:700;">
-                🛑 ELIMINATE TEAM
-              </button>
+              ${ft.is_eliminated ? `
+                <button class="btn btn-sm" onclick="window.uneliminateTeam('${ft.team_id}')" style="padding:4px 10px; font-size:10.5px; font-weight:700; background:var(--green); border-color:var(--green); color:#000;">
+                  ♻️ RESTORE TEAM
+                </button>
+              ` : `
+                <button class="btn btn-sm btn-red" onclick="window.openEliminateModal('${ft.team_id}', '${escapeHtml(ft.team_name)}')" style="padding:4px 10px; font-size:10.5px; font-weight:700;">
+                  🛑 ELIMINATE TEAM
+                </button>
+              `}
             </div>
           `).join('')}
 
@@ -600,6 +612,20 @@ function setupRubricScoringHandlers(selectedSub) {
   document.getElementById('btnInspectorEliminateTeam')?.addEventListener('click', () => {
     if (!selectedSub) return;
     showEliminationConfirmationModal(selectedSub.team_id, selectedSub.team_name);
+  });
+
+  // Inspector Restore action (shown when team is already eliminated)
+  document.getElementById('btnInspectorRestoreTeam')?.addEventListener('click', async () => {
+    if (!selectedSub) return;
+    if (confirm(`Restore team '${selectedSub.team_name}' to active status?`)) {
+      const res = await store.uneliminateTeam(selectedSub.team_id, 'Reversed from inspector panel.');
+      if (res.success) {
+        Router.showToast(`Team '${selectedSub.team_name}' restored to active.`, 'green');
+        await renderJudgeDashboard();
+      } else {
+        Router.showToast(res.error || 'Failed to restore team.', 'red');
+      }
+    }
   });
 
   document.getElementById('btnSendOverallFeedback')?.addEventListener('click', async (e) => {
