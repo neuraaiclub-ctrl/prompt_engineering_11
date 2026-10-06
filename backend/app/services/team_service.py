@@ -331,6 +331,9 @@ class TeamService:
         
         team_name = team.name  # cache before delete
         try:
+            # Collect all user IDs belonging to this team
+            member_user_ids = [m.user_id for m in team.members if m.user_id]
+
             # 1. Delete arena_final_scores for this team's submissions (via subquery)
             db.execute(text("""
                 DELETE FROM arena_final_scores
@@ -359,20 +362,25 @@ class TeamService:
             # 6. Delete leaderboard entries
             db.execute(text("DELETE FROM leaderboard_entries WHERE team_id = :tid"), {"tid": team_id})
 
-            # 7. Delete elimination records (if table exists)
+            # 7. Delete registration records linked to these users
+            if member_user_ids:
+                placeholders = ",".join([f"'{uid}'" for uid in member_user_ids])
+                db.execute(text(f"DELETE FROM registrations WHERE user_id IN ({placeholders})"))
+
+            # 8. Delete elimination records (if table exists)
             try:
                 db.execute(text("DELETE FROM team_eliminations WHERE team_id = :tid"), {"tid": team_id})
             except Exception:
                 db.rollback()
 
-            # 8. Delete team members (users + their roles)
+            # 9. Delete team members (users + their roles)
             for member in team.members:
                 user = member.user
                 if user:
                     db.query(Role).filter(Role.user_id == user.id).delete(synchronize_session=False)
                     db.delete(user)
 
-            # 9. Delete the team itself (cascade will handle team_members)
+            # 10. Delete the team itself (cascade handles team_members)
             db.delete(team)
 
             db.add(AuditLog(
