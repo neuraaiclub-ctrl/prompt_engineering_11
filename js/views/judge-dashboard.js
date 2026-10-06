@@ -1086,7 +1086,7 @@ function setupJudgeAutoSync() {
       judgeOverviewCache = res;
       updateQueueUI();
     }
-  }, 3000); // 3-second auto-sync interval
+  }, 10000); // 10-second auto-sync interval
 }
 
 function updateQueueUI() {

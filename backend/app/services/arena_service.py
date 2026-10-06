@@ -677,14 +677,16 @@ class ArenaService:
         flagged_team_map = {t_id: count for t_id, count in flagged_query if count >= 3}
 
         submissions = db.query(ArenaSubmission).order_by(ArenaSubmission.server_timestamp.desc()).all()
+        from app.models.arena_scoring import ArenaFinalScore
+        sub_ids = [s.id for s in submissions]
+        eval_records = db.query(ArenaFinalScore).filter(ArenaFinalScore.submission_id.in_(sub_ids)).all() if sub_ids else []
+        eval_map = {e.submission_id: e for e in eval_records}
+        
         sub_list = []
         for sub in submissions:
             t = sub.team
             p = sub.prompt_item
-            from app.models.arena_scoring import ArenaFinalScore
-            eval_record = db.query(ArenaFinalScore).filter(
-                ArenaFinalScore.submission_id == sub.id
-            ).first()
+            eval_record = eval_map.get(sub.id)
 
             sub_list.append({
                 "id": sub.id,

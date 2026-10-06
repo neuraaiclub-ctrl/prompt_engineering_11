@@ -56,7 +56,7 @@ export function renderArenaWorkspace() {
   refresh(container).then(() => {
     pollId = setInterval(() => {
       if (container.classList.contains('active') && store.isAuthenticated()) refresh(container, true);
-    }, 2500);
+    }, 8000);
   });
 }
 
