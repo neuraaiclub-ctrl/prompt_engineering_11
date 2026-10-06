@@ -656,7 +656,6 @@ async function renderResults(container) {
         <h1 class="heading-lg">${escapeHtml(res.team_name || 'Your Team')}</h1>
         <p class="ar-panel-body">No prompts were scored for your team.</p>
         <div class="ar-panel-actions">
-          <button class="btn btn-violet" id="btnViewArenaLeaderboard">View the leaderboard</button>
           <button class="btn btn-ghost" id="btnReportLogout">Sign out</button>
         </div>
       </div></div>`;
@@ -719,7 +718,6 @@ async function renderResults(container) {
       </section>
 
       <footer class="ar-res-foot">
-        <button class="btn btn-violet btn-lg" id="btnViewArenaLeaderboard">View the leaderboard</button>
         <button class="btn btn-ghost" id="btnReportLogout">Sign out</button>
       </footer>
     </div>`;
@@ -730,7 +728,6 @@ async function renderResults(container) {
 }
 
 function wireResultButtons() {
-  document.getElementById('btnViewArenaLeaderboard')?.addEventListener('click', () => window.location.href = 'live.html');
   document.getElementById('btnReportLogout')?.addEventListener('click', () => Router.confirmLogout());
 }
 
