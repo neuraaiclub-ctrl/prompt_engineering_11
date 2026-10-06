@@ -223,6 +223,11 @@ def init_db():
                 conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN IF NOT EXISTS expected_good_prompt VARCHAR;"))
                 conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS title VARCHAR NOT NULL DEFAULT 'Main Arena';"))
                 conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;"))
+                
+                # Encapsulated Arena context
+                conn.execute(text("ALTER TABLE team_arena_sessions ADD COLUMN IF NOT EXISTS arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
+                conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN IF NOT EXISTS arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
+                conn.execute(text("ALTER TABLE arena_security_events ADD COLUMN IF NOT EXISTS arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
                 conn.commit()
             else:
                 result = conn.execute(text("PRAGMA table_info(teams);"))
@@ -260,6 +265,20 @@ def init_db():
                         conn.execute(text("ALTER TABLE arena_config ADD COLUMN title VARCHAR NOT NULL DEFAULT 'Main Arena';"))
                     if "is_active" not in conf_cols:
                         conn.execute(text("ALTER TABLE arena_config ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1;"))
+
+                tas_res = conn.execute(text("PRAGMA table_info(team_arena_sessions);"))
+                tas_cols = [row[1] for row in tas_res.fetchall()]
+                if tas_cols and "arena_id" not in tas_cols:
+                    conn.execute(text("ALTER TABLE team_arena_sessions ADD COLUMN arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
+                    
+                sub_cols = [row[1] for row in conn.execute(text("PRAGMA table_info(arena_submissions);")).fetchall()]
+                if sub_cols and "arena_id" not in sub_cols:
+                    conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
+                    
+                sec_res = conn.execute(text("PRAGMA table_info(arena_security_events);"))
+                sec_cols = [row[1] for row in sec_res.fetchall()]
+                if sec_cols and "arena_id" not in sec_cols:
+                    conn.execute(text("ALTER TABLE arena_security_events ADD COLUMN arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
 
                 conn.commit()
     except Exception as e:
