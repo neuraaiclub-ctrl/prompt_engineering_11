@@ -7,7 +7,7 @@ from typing import Optional
 
 from app.database import get_db
 from app.models.user import User, Role
-from app.models.team import TeamMember
+from app.models.team import Team, TeamMember
 from app.models.registration import Registration
 from app.core.security import hash_password, verify_password, create_access_token, revoke_token, is_legacy_hash
 from app.core.audit import log_audit_event
@@ -43,7 +43,6 @@ def login(request: Request, payload: LoginSchema, db: Session = Depends(get_db))
 
     # Fallback search by Team invite_code
     if not user:
-        from app.models.team import Team, TeamMember
         team = db.query(Team).filter(func.lower(Team.invite_code) == email_lower).first()
         if team:
             member = db.query(TeamMember).filter(TeamMember.team_id == team.id).first()
