@@ -340,6 +340,50 @@ class ArenaService:
             "results_released_at": now.isoformat()
         }
 
+    @classmethod
+    def reset_arena(cls, db: Session, current_user: User) -> Dict[str, Any]:
+        """
+        Full reset: clears all session, submission, evaluation, and scoring data.
+        Returns arena_config to 'waiting' state.
+        Prompt bank is NOT touched — questions remain intact.
+        """
+        from app.models.arena_scoring import (
+            ArenaFinalScore, ArenaIntegrityFlag, ArenaScoringJob,
+            ArenaScoringRun, ArenaTestResult, ArenaDimensionScore
+        )
+        db.query(ArenaTestResult).delete(synchronize_session=False)
+        db.query(ArenaDimensionScore).delete(synchronize_session=False)
+        db.query(ArenaScoringRun).delete(synchronize_session=False)
+        db.query(ArenaScoringJob).delete(synchronize_session=False)
+        db.query(ArenaIntegrityFlag).delete(synchronize_session=False)
+        db.query(ArenaFinalScore).delete(synchronize_session=False)
+        db.query(ArenaEvaluation).delete(synchronize_session=False)
+        db.query(ArenaSubmission).delete(synchronize_session=False)
+        db.query(ArenaSecurityEvent).delete(synchronize_session=False)
+        db.query(TeamArenaSession).delete(synchronize_session=False)
+
+        conf = cls.get_or_create_config(db)
+        conf.status = "waiting"
+        conf.started_at = None
+        conf.ended_at = None
+        conf.results_released_at = None
+
+        audit = AuditLog(
+            actor_user_id=current_user.id,
+            action="arena.reset",
+            target_type="ArenaConfig",
+            target_id=conf.id,
+            audit_metadata={"reset_by": current_user.email, "timestamp": datetime.utcnow().isoformat()}
+        )
+        db.add(audit)
+        db.commit()
+
+        return {
+            "success": True,
+            "message": "Arena fully reset. All sessions and submissions cleared. Prompt bank intact. Status: waiting.",
+            "status": "waiting"
+        }
+
 
     @staticmethod
     def parse_prompt_ids(raw_prompt_ids) -> List[str]:

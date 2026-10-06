@@ -81,6 +81,18 @@ def update_arena_config(
     """
     return ArenaService.update_config(db, current_user, payload)
 
+@router.post("/reset")
+def reset_arena(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["admin", "judge"]))
+):
+    """
+    Judge/Admin FULL RESET. Clears all sessions, submissions, evaluations, and scoring data.
+    Returns arena to 'waiting' state. Prompt bank is NOT touched.
+    Use this to undo a test run or prepare for the real competition.
+    """
+    return ArenaService.reset_arena(db, current_user)
+
 # ---------------------------------------------------------------------------
 # Participant Challenge & Submission Endpoints
 # ---------------------------------------------------------------------------

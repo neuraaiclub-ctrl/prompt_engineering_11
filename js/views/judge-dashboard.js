@@ -165,6 +165,9 @@ export async function renderJudgeDashboard() {
             <button class="btn btn-sm btn-violet" id="btnJudgeReleaseResults" ${isResultsReleased ? 'disabled' : ''} style="padding:6px 14px; font-size:11px;">
               📢 RELEASE RESULTS
             </button>
+            <button class="btn btn-sm" id="btnJudgeResetArena" style="padding:6px 14px; font-size:11px; font-weight:700; background:rgba(255,80,80,0.12); color:#ff6b6b; border:1px solid rgba(255,80,80,0.35);" title="Full reset: clears all sessions & submissions. Prompt bank is kept.">
+              ↺ RESET ARENA
+            </button>
             <button class="btn btn-sm" id="btnJudgeRefresh" style="padding:6px 14px; font-size:11px; font-weight:700; margin-left:4px; background:rgba(255,255,255,0.05);">
               🔄 REFRESH
             </button>
@@ -693,7 +696,25 @@ function setupArenaOperationsHandlers(arenaStatus) {
     Router.showToast('Data refreshed', 'green');
   });
 
-  // 5. LOGOUT
+  // 5. RESET ARENA
+  document.getElementById('btnJudgeResetArena')?.addEventListener('click', () => {
+    showSafetyConfirmModal(
+      '⚠️ FULL ARENA RESET?',
+      'This will permanently delete ALL team sessions, submissions, evaluations, and scoring data. The arena will return to WAITING state. The prompt bank (questions) will NOT be touched. Use this to clear test runs before the real competition.',
+      '↺ YES, RESET EVERYTHING',
+      async () => {
+        const res = await store.resetArena();
+        if (res.success) {
+          Router.showToast('Arena fully reset. All sessions cleared. Status: WAITING.', 'green');
+          await renderJudgeDashboard();
+        } else {
+          Router.showToast(res.error || 'Failed to reset arena', 'red');
+        }
+      }
+    );
+  });
+
+  // 6. LOGOUT
   document.getElementById('btnJudgeLogout')?.addEventListener('click', () => {
     Router.confirmLogout('Logging out as Evaluation Judge will end your scoring and evaluation session.');
   });

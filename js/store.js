@@ -406,6 +406,25 @@ class Store {
     }
   }
 
+  async resetArena() {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/arena/reset`, {
+        method: 'POST',
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        this.data.arenaStatus = 'waiting';
+        this.data.arenaResultsReleased = false;
+        this.saveState();
+        return { success: true, ...data };
+      }
+      return { success: false, error: data.detail || 'Failed to reset arena' };
+    } catch (e) {
+      return { success: false, error: 'Connection error. Ensure backend is reachable.' };
+    }
+  }
+
   async getMyArenaChallenge() {
     try {
       const resp = await fetch(`${API_BASE_URL}/arena/my-challenge`, {
