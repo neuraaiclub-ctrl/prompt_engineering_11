@@ -199,27 +199,9 @@ async def submit_prompt(session, email, token, wave_idx, retries=5):
                 return False
     return False
 
-async def participant_lifecycle(session, email, password):
-    token = await login_user(session, email, password)
-    if not token:
-        return
-    for wave_idx in range(5):
-        challenge = await fetch_challenge(session, email, token)
-        if not challenge:
-            log(f"  [{email[:28]}] no challenge wave {wave_idx+1}, stopping")
-            break
-        await asyncio.sleep(1.0 + wave_idx * 0.5)
-        submitted = await submit_prompt(session, email, token, wave_idx)
-        if wave_idx < 4:
-            await asyncio.sleep(1.5)
-
 async def bounded_login(sem, session, email, password):
     async with sem:
         return await login_user(session, email, password)
-
-async def bounded_lifecycle(sem, session, email, password):
-    async with sem:
-        await participant_lifecycle(session, email, password)
 
 async def main():
     print("=" * 65)
@@ -260,11 +242,41 @@ async def main():
             print("No users logged in. Is the backend up and running?")
             return
 
-        log(f"PHASES 2-6: {len(authenticated)} teams running full lifecycle (staggered)...")
-        t0 = time.time()
-        life_sem = asyncio.Semaphore(25)
-        await asyncio.gather(*[bounded_lifecycle(life_sem, session, e, p) for e, p in PARTICIPANTS if e in authenticated])
-        log(f"All waves done in {time.time()-t0:.2f}s")
+        log(f"PHASE 2: Synchronized Waves Load Test ({len(authenticated)} teams)")
+        
+        for wave_idx in range(5):
+            print()
+            log(f"=== WAVE {wave_idx+1} OF 5 ===")
+            
+            # 1. Fetch Challenge
+            log(f"WAVE {wave_idx+1}: All teams fetching challenge...")
+            fetch_sem = asyncio.Semaphore(30)
+            async def bounded_fetch(email, token):
+                async with fetch_sem:
+                    return await fetch_challenge(session, email, token)
+            
+            t0 = time.time()
+            await asyncio.gather(*[bounded_fetch(email, token) for email, token in authenticated.items()])
+            log(f"WAVE {wave_idx+1}: Fetch complete in {time.time()-t0:.2f}s")
+            
+            await asyncio.sleep(2) # brief pause before hammering submissions
+            
+            # 2. Submit Challenge
+            log(f"WAVE {wave_idx+1}: All teams submitting answers SIMULTANEOUSLY...")
+            submit_sem = asyncio.Semaphore(100) # High concurrency to stress test DB and workers
+            async def bounded_submit(email, token):
+                async with submit_sem:
+                    return await submit_prompt(session, email, token, wave_idx)
+            
+            t0 = time.time()
+            await asyncio.gather(*[bounded_submit(email, token) for email, token in authenticated.items()])
+            log(f"WAVE {wave_idx+1}: Submissions complete in {time.time()-t0:.2f}s")
+
+            if wave_idx < 4:
+                log(f"WAVE {wave_idx+1}: Waiting 60s for LLM processing to catch up...")
+                await asyncio.sleep(60)
+
+        log("All synchronized waves completed.")
 
     total = time.time() - start
     sub_ok    = [s for s in results["submissions"] if s["status"] == "ok"]
