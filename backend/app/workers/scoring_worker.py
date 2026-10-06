@@ -73,6 +73,8 @@ def process_scoring_jobs():
                 
             prompt_item = db.query(PromptBankItem).filter(PromptBankItem.id == sub.prompt_bank_item_id).first()
             bad_prompt = prompt_item.original_bad_prompt if prompt_item else ""
+            if prompt_item and prompt_item.expected_good_prompt:
+                spec["expected_good_prompt"] = prompt_item.expected_good_prompt
             
             # Phase 5: Integrity
             flags = scanner.scan_submission(db, sub.submitted_prompt, bad_prompt)

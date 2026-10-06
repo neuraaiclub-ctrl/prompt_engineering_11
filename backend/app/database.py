@@ -220,6 +220,7 @@ def init_db():
                 # Dynamic dataset tags (added 2026-10-06)
                 conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN IF NOT EXISTS dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
                 conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS active_dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
+                conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN IF NOT EXISTS expected_good_prompt VARCHAR;"))
                 conn.commit()
             else:
                 result = conn.execute(text("PRAGMA table_info(teams);"))
@@ -239,6 +240,20 @@ def init_db():
                         conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN output_format_score FLOAT DEFAULT 0.0;"))
                     if "constraints_score" not in eval_cols:
                         conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN constraints_score FLOAT DEFAULT 0.0;"))
+                        
+                pb_res = conn.execute(text("PRAGMA table_info(prompt_bank_items);"))
+                pb_cols = [row[1] for row in pb_res.fetchall()]
+                if pb_cols:
+                    if "dataset_tag" not in pb_cols:
+                        conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
+                    if "expected_good_prompt" not in pb_cols:
+                        conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN expected_good_prompt VARCHAR;"))
+                        
+                conf_res = conn.execute(text("PRAGMA table_info(arena_config);"))
+                conf_cols = [row[1] for row in conf_res.fetchall()]
+                if conf_cols and "active_dataset_tag" not in conf_cols:
+                    conn.execute(text("ALTER TABLE arena_config ADD COLUMN active_dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
+
                 conn.commit()
     except Exception as e:
         print(f"[DB Migration Notice]: {e}")

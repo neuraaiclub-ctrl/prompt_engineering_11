@@ -20,6 +20,7 @@ class PromptBankItemSchema(BaseModel):
     bad_output_evidence: str
     flawed_reasons: Optional[List[str]] = []
     expected_improvements: Optional[List[str]] = []
+    expected_good_prompt: Optional[str] = ""
 
 @router.get("", include_in_schema=True)
 @router.get("/", include_in_schema=False)
@@ -52,7 +53,8 @@ def create_prompt_bank_item(
         original_bad_prompt=payload.original_bad_prompt,
         bad_output_evidence=payload.bad_output_evidence,
         flawed_reasons=payload.flawed_reasons,
-        expected_improvements=payload.expected_improvements
+        expected_improvements=payload.expected_improvements,
+        expected_good_prompt=payload.expected_good_prompt
     )
     db.add(item)
     db.commit()
@@ -116,6 +118,7 @@ def upload_csv(
             existing.bad_output_evidence = row.get("bad_output_evidence", existing.bad_output_evidence)
             existing.flawed_reasons = flawed
             existing.expected_improvements = expected
+            existing.expected_good_prompt = row.get("expected_good_prompt", existing.expected_good_prompt)
         else:
             new_item = PromptBankItem(
                 code=row["code"],
@@ -126,7 +129,8 @@ def upload_csv(
                 original_bad_prompt=row.get("original_bad_prompt", ""),
                 bad_output_evidence=row.get("bad_output_evidence", ""),
                 flawed_reasons=flawed,
-                expected_improvements=expected
+                expected_improvements=expected,
+                expected_good_prompt=row.get("expected_good_prompt", "")
             )
             db.add(new_item)
         added_count += 1
@@ -152,7 +156,8 @@ def seed_prompt_bank(
                 original_bad_prompt=p_data.get("original_bad_prompt", ""),
                 bad_output_evidence=p_data.get("bad_output_evidence", ""),
                 flawed_reasons=p_data.get("flawed_reasons", []),
-                expected_improvements=p_data.get("expected_improvements", [])
+                expected_improvements=p_data.get("expected_improvements", []),
+                expected_good_prompt=p_data.get("expected_good_prompt", "")
             )
             db.add(item)
             added += 1
@@ -185,6 +190,7 @@ def update_prompt_bank_item(
     item.bad_output_evidence = payload.bad_output_evidence
     item.flawed_reasons = payload.flawed_reasons
     item.expected_improvements = payload.expected_improvements
+    item.expected_good_prompt = payload.expected_good_prompt
     
     db.commit()
     db.refresh(item)

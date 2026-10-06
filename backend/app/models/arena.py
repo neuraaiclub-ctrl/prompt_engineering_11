@@ -17,6 +17,7 @@ class PromptBankItem(Base):
     bad_output_evidence = Column(String, nullable=False)
     flawed_reasons = Column(JSON, nullable=True) # List of weaknesses e.g. ["Too vague", "No format specified"]
     expected_improvements = Column(JSON, nullable=True) # Guidance points
+    expected_good_prompt = Column(String, nullable=True) # Reference for scoring engine
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class TeamArenaSession(Base):
