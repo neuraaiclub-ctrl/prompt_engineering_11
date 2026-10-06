@@ -425,6 +425,32 @@ class Store {
     }
   }
 
+  async getArchivedArenas() {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/arena/archives`, {
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, ...data };
+      return { success: false, error: data.detail || 'Failed to load archives' };
+    } catch (e) {
+      return { success: false, error: 'Connection error.' };
+    }
+  }
+
+  async getArchivedStandings(arenaId) {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/arena/archives/${arenaId}/standings`, {
+        headers: this.getAuthHeaders()
+      });
+      const data = await resp.json();
+      if (resp.ok) return { success: true, ...data };
+      return { success: false, error: data.detail || 'Failed to load archived standings' };
+    } catch (e) {
+      return { success: false, error: 'Connection error.' };
+    }
+  }
+
   async getMyArenaChallenge() {
     try {
       const resp = await fetch(`${API_BASE_URL}/arena/my-challenge`, {

@@ -1478,3 +1478,155 @@ class ArenaService:
             "challenges": challenges_report,
             "results_released": True
         }
+
+    # ---------------------------------------------------------------------------
+    # Archived Arena Service Methods
+    # ---------------------------------------------------------------------------
+
+    @classmethod
+    def list_archived_arenas(cls, db: Session) -> Dict[str, Any]:
+        """
+        Returns a list of all past arena runs stored in the archive tables.
+        Groups by arena_id and derives run metadata (date, team count, submission count).
+        """
+        from app.models.arena import ArchivedTeamArenaSession, ArchivedArenaSubmission
+        from sqlalchemy import func, text
+
+        # Get distinct arena_ids ordered by most recent
+        rows = db.execute(text(
+            "SELECT arena_id, COUNT(DISTINCT team_id) as team_count, "
+            "MIN(created_at) as started_at, MAX(updated_at) as ended_at "
+            "FROM archive_team_arena_sessions "
+            "GROUP BY arena_id ORDER BY MIN(created_at) DESC"
+        )).fetchall()
+
+        archives = []
+        for row in rows:
+            arena_id = row[0]
+            sub_count = db.execute(text(
+                f"SELECT COUNT(*) FROM archive_arena_submissions WHERE arena_id = :aid"
+            ), {"aid": arena_id}).scalar() or 0
+
+            eval_count = db.execute(text(
+                f"SELECT COUNT(*) FROM archive_arena_evaluations WHERE arena_id = :aid"
+            ), {"aid": arena_id}).scalar() or 0
+
+            archives.append({
+                "arena_id": arena_id,
+                "team_count": row[1],
+                "submission_count": sub_count,
+                "evaluated_count": eval_count,
+                "started_at": row[2].isoformat() + "Z" if row[2] else None,
+                "ended_at": row[3].isoformat() + "Z" if row[3] else None,
+                "has_evaluations": eval_count > 0,
+            })
+
+        return {"archives": archives, "total": len(archives)}
+
+    @classmethod
+    def get_archived_standings(cls, db: Session, arena_id: str) -> Dict[str, Any]:
+        """
+        Compute full team standings from a specific archived arena run.
+        Merges archived human evaluations and archived auto-scores.
+        Returns ranked list of teams with per-challenge breakdown.
+        """
+        from app.models.arena import (
+            ArchivedTeamArenaSession, ArchivedArenaSubmission, ArchivedArenaEvaluation
+        )
+        from sqlalchemy import text
+
+        # Verify arena_id exists
+        check = db.execute(text(
+            "SELECT COUNT(*) FROM archive_team_arena_sessions WHERE arena_id = :aid"
+        ), {"aid": arena_id}).scalar()
+        if not check:
+            raise HTTPException(status_code=404, detail=f"No archived arena found with ID: {arena_id}")
+
+        # Load all archived sessions for this run
+        sessions = db.execute(text(
+            "SELECT id, team_id, status, current_challenge_index, started_at, completed_at "
+            "FROM archive_team_arena_sessions WHERE arena_id = :aid"
+        ), {"aid": arena_id}).fetchall()
+
+        # Load all archived submissions for this run
+        subs = db.execute(text(
+            "SELECT id, team_id, challenge_index, submitted_prompt, server_timestamp "
+            "FROM archive_arena_submissions WHERE arena_id = :aid ORDER BY challenge_index ASC"
+        ), {"aid": arena_id}).fetchall()
+
+        # Load all archived evaluations for this run
+        evals = db.execute(text(
+            "SELECT submission_id, clarity_score, specificity_score, context_score, "
+            "output_format_score, constraints_score, total_score "
+            "FROM archive_arena_evaluations WHERE arena_id = :aid"
+        ), {"aid": arena_id}).fetchall()
+
+        eval_by_sub = {e[0]: e for e in evals}
+        subs_by_team: Dict[str, list] = {}
+        for s in subs:
+            subs_by_team.setdefault(s[1], []).append(s)
+
+        # Fetch team names from live teams table (they still exist)
+        team_ids = list({s[1] for s in sessions})
+        team_names: Dict[str, str] = {}
+        team_colleges: Dict[str, str] = {}
+        if team_ids:
+            team_rows = db.execute(text(
+                "SELECT id, name, college FROM teams WHERE id = ANY(:ids)"
+            ), {"ids": team_ids}).fetchall()
+            team_names = {r[0]: r[1] for r in team_rows}
+            team_colleges = {r[0]: (r[2] or "N/A") for r in team_rows}
+
+        standings = []
+        for sess in sessions:
+            sess_id, team_id, sess_status, challenge_index, started_at, completed_at = sess
+            team_subs = subs_by_team.get(team_id, [])
+
+            total_score = 0.0
+            challenges = []
+            for sub in team_subs:
+                sub_id, _, ch_idx, submitted_prompt, sub_time = sub
+                ev = eval_by_sub.get(sub_id)
+                ch_score = float(ev[6]) if ev else 0.0
+                total_score += ch_score
+                challenges.append({
+                    "challenge_index": ch_idx,
+                    "score": ch_score,
+                    "submitted_at": sub_time.isoformat() + "Z" if sub_time else None,
+                    "has_evaluation": ev is not None,
+                })
+
+            standings.append({
+                "team_id": team_id,
+                "team_name": team_names.get(team_id, f"Team {team_id[:8]}"),
+                "college": team_colleges.get(team_id, "N/A"),
+                "is_eliminated": sess_status == "eliminated",
+                "challenges_completed": len(team_subs),
+                "total_score": round(total_score, 1),
+                "average_score": round(total_score / 5.0, 2),
+                "completed_at": completed_at.isoformat() + "Z" if completed_at else None,
+                "completed_at_ts": completed_at.timestamp() if completed_at else 9999999999,
+                "challenges": challenges,
+            })
+
+        # Sort: eliminated last, then by total_score DESC, then completion time ASC
+        eligible = [s for s in standings if not s["is_eliminated"]]
+        eliminated = [s for s in standings if s["is_eliminated"]]
+        eligible.sort(key=lambda x: (-x["total_score"], x["completed_at_ts"]))
+        eliminated.sort(key=lambda x: -x["total_score"])
+
+        for i, s in enumerate(eligible, 1):
+            s["rank"] = i
+        for s in eliminated:
+            s["rank"] = None
+
+        all_standings = eligible + eliminated
+        for s in all_standings:
+            s.pop("completed_at_ts", None)
+
+        return {
+            "arena_id": arena_id,
+            "total_teams": len(standings),
+            "standings": all_standings,
+        }
+

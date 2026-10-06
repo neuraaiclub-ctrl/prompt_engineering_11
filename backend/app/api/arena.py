@@ -239,3 +239,31 @@ def get_arena_leaderboard(
     Highlights Top 3 Podium (Winner, Runner-up, 2nd Runner-up).
     """
     return ArenaService.get_leaderboard(db, current_user)
+
+# ---------------------------------------------------------------------------
+# Archived Arena Endpoints — Judge/Admin only
+# ---------------------------------------------------------------------------
+@router.get("/archives")
+def list_archived_arenas(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["admin", "judge"]))
+):
+    """
+    List all past archived arena runs (created by RESET ARENA).
+    Returns summary of each archived run including team count and date.
+    """
+    return ArenaService.list_archived_arenas(db)
+
+@router.get("/archives/{arena_id}/standings")
+def get_archived_standings(
+    arena_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["admin", "judge"]))
+):
+    """
+    Compute and return full standings for a specific archived arena run.
+    Scores are derived from archived evaluations (human judge scores) and
+    archived final scores (Groq auto-scores).
+    """
+    return ArenaService.get_archived_standings(db, arena_id)
+

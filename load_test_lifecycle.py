@@ -87,13 +87,13 @@ def log(msg):
     ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
     print(f"[{ts}] {msg}", flush=True)
 
-async def login_user(session, email, password, retries=3):
+async def login_user(session, email, password, retries=5):
     for attempt in range(retries):
         try:
             async with session.post(
                 f"{API_BASE}/auth/login",
                 json={"email": email, "password": password},
-                timeout=aiohttp.ClientTimeout(total=25)
+                timeout=aiohttp.ClientTimeout(total=45)
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
@@ -107,27 +107,29 @@ async def login_user(session, email, password, retries=3):
                 return None
         except Exception as e:
             if attempt < retries - 1:
-                await asyncio.sleep(2 + attempt * 2)  # backoff: 2s, 4s
+                await asyncio.sleep(3 + attempt * 2)  # backoff
             else:
                 log(f"  LOGIN ERROR [{email}] after {retries} attempts: {type(e).__name__}")
                 results["login_fail"].append(email)
                 return None
     return None
 
-async def fetch_challenge(session, email, token, retries=3):
+async def fetch_challenge(session, email, token, retries=5):
     headers = {"Authorization": f"Bearer {token}"}
     for attempt in range(retries):
         try:
             async with session.get(
                 f"{API_BASE}/arena/my-challenge",
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=30)
+                timeout=aiohttp.ClientTimeout(total=45)
             ) as resp:
                 data = await resp.json()
                 if resp.status == 200:
-                    # Also check if it's waiting
                     if data.get("competition_status") == "waiting":
                         log(f"  CHALLENGE [{email}]: Arena is WAITING")
+                        return None
+                    if data.get("is_completed"):
+                        log(f"  CHALLENGE [{email}]: ALREADY COMPLETED (Did you forget to RESET ARENA?)")
                         return None
                     results["challenge_ok"].append(email)
                     return data
@@ -136,14 +138,14 @@ async def fetch_challenge(session, email, token, retries=3):
                 return None
         except Exception as e:
             if attempt < retries - 1:
-                await asyncio.sleep(2 + attempt * 2)
+                await asyncio.sleep(3 + attempt * 2)
             else:
                 log(f"  CHALLENGE ERROR [{email}]: {type(e).__name__} {e}")
                 results["challenge_fail"].append(email)
                 return None
     return None
 
-async def submit_prompt(session, email, token, wave_idx, retries=3):
+async def submit_prompt(session, email, token, wave_idx, retries=5):
     headers = {"Authorization": f"Bearer {token}"}
     payload = {
         "prompt_text": WAVE_PROMPTS[wave_idx % len(WAVE_PROMPTS)],
@@ -155,14 +157,13 @@ async def submit_prompt(session, email, token, wave_idx, retries=3):
                 f"{API_BASE}/arena/submit-challenge",
                 json=payload,
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=30)
+                timeout=aiohttp.ClientTimeout(total=45)
             ) as resp:
                 try:
                     data = await resp.json()
                 except Exception:
                     data = {"raw": await resp.text()}
                 
-                # If we get a 502/503/504, we should retry
                 if resp.status in (502, 503, 504):
                     raise Exception(f"Server error {resp.status}")
 
@@ -183,12 +184,15 @@ async def submit_prompt(session, email, token, wave_idx, retries=3):
                 elif resp.status == 403:
                     log(f"  BLK W{wave_idx+1} [{email[:28]}]")
                     return False
+                elif resp.status == 400 and "completed all 5" in str(data):
+                    log(f"  FIN W{wave_idx+1} [{email[:28]}] - ALL DONE")
+                    return False
                 else:
                     log(f"  ERR W{wave_idx+1} [{email[:28]}]: {resp.status}")
                     return False
         except Exception as e:
             if attempt < retries - 1:
-                await asyncio.sleep(2 + attempt * 2)
+                await asyncio.sleep(3 + attempt * 2)
             else:
                 log(f"  NET W{wave_idx+1} [{email[:28]}]: {type(e).__name__} {e}")
                 results["submissions"].append({"email": email, "wave": wave_idx+1, "status": "error", "code": 0, "msg": str(e)})
@@ -204,12 +208,18 @@ async def participant_lifecycle(session, email, password):
         if not challenge:
             log(f"  [{email[:28]}] no challenge wave {wave_idx+1}, stopping")
             break
-        await asyncio.sleep(0.5 + wave_idx * 0.2)
+        await asyncio.sleep(1.0 + wave_idx * 0.5)
         submitted = await submit_prompt(session, email, token, wave_idx)
-        # Even if submission fails (e.g. 409 duplicate), continue to next wave
-        # so we hit all 5 challenges if possible.
         if wave_idx < 4:
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(1.5)
+
+async def bounded_login(sem, session, email, password):
+    async with sem:
+        return await login_user(session, email, password)
+
+async def bounded_lifecycle(sem, session, email, password):
+    async with sem:
+        await participant_lifecycle(session, email, password)
 
 async def main():
     print("=" * 65)
@@ -219,26 +229,29 @@ async def main():
     print("=" * 65)
     print()
     print("INSTRUCTIONS:")
-    print("  1. Start the Arena from the Judge portal first.")
-    print("  2. Watch submissions flood in on the Judge portal.")
+    print("  1. RESET ARENA from the Judge portal FIRST (important!)")
+    print("  2. Start the Arena from the Judge portal.")
+    print("  3. Watch submissions flood in on the Judge portal.")
     input("  Press ENTER when Arena is LIVE...")
     print()
 
     start = time.time()
-    connector = aiohttp.TCPConnector(limit=100, limit_per_host=100)
+    connector = aiohttp.TCPConnector(limit=250, limit_per_host=250)
     async with aiohttp.ClientSession(connector=connector) as session:
-        # Warm up Render — one ping to wake the dyno before the flood
         log("Warming up Render (sending one request to wake the dyno)...")
         try:
             async with session.get(f"{API_BASE}/arena/status", timeout=aiohttp.ClientTimeout(total=30)) as r:
                 log(f"Render is awake: {r.status}")
         except Exception as e:
             log(f"Warmup failed ({e}) — proceeding anyway")
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
 
-        log(f"PHASE 1: All {len(PARTICIPANTS)} users logging in simultaneously...")
+        log(f"PHASE 1: All {len(PARTICIPANTS)} users logging in (staggered)...")
         t0 = time.time()
-        tokens_list = await asyncio.gather(*[login_user(session, e, p) for e, p in PARTICIPANTS])
+        
+        # Stagger logins with a semaphore to prevent 502/Timeout on free dyno
+        login_sem = asyncio.Semaphore(15) 
+        tokens_list = await asyncio.gather(*[bounded_login(login_sem, session, e, p) for e, p in PARTICIPANTS])
         log(f"Login done {time.time()-t0:.2f}s - {len(results['login_ok'])} ok / {len(results['login_fail'])} failed")
         print()
 
@@ -247,9 +260,10 @@ async def main():
             print("No users logged in. Is the backend up and running?")
             return
 
-        log(f"PHASES 2-6: {len(authenticated)} teams running full lifecycle simultaneously...")
+        log(f"PHASES 2-6: {len(authenticated)} teams running full lifecycle (staggered)...")
         t0 = time.time()
-        await asyncio.gather(*[participant_lifecycle(session, e, p) for e, p in PARTICIPANTS if e in authenticated])
+        life_sem = asyncio.Semaphore(25)
+        await asyncio.gather(*[bounded_lifecycle(life_sem, session, e, p) for e, p in PARTICIPANTS if e in authenticated])
         log(f"All waves done in {time.time()-t0:.2f}s")
 
     total = time.time() - start

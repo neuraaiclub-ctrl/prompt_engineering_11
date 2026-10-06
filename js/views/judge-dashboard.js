@@ -9,7 +9,7 @@ import { Router } from '../router.js';
 import { mountRadar } from '../components/radar.js';
 import { analyzePrompt } from '../utils/prompt-coverage.js';
 
-let activeJudgeTab = 'scoring'; // 'scoring' | 'security' | 'leaderboard'
+let activeJudgeTab = 'scoring'; // 'scoring' | 'security' | 'leaderboard' | 'questions' | 'archives'
 let selectedArenaSubId = null;
 let currentRubric = {
   clarity_score: 0,
@@ -220,6 +220,9 @@ export async function renderJudgeDashboard() {
       </button>
       <button class="btn btn-sm ${activeJudgeTab === 'questions' ? 'btn-primary' : ''}" id="tabBtnQuestions" style="padding:8px 18px;">
         4. PROMPT BANK / QUESTIONS
+      </button>
+      <button class="btn btn-sm ${activeJudgeTab === 'archives' ? 'btn-primary' : ''}" id="tabBtnArchives" style="padding:8px 18px;">
+        5. ARCHIVES & HISTORY
       </button>
     </div>
 
@@ -504,6 +507,13 @@ export async function renderJudgeDashboard() {
         <!-- Loaded asynchronously -->
       </div>
     </div>
+
+    <!-- TAB 5: ARCHIVES & HISTORY -->
+    <div id="judgeTabContentArchives" style="display:${activeJudgeTab === 'archives' ? 'block' : 'none'};">
+      <div id="judgeArchivesContainer">
+        <!-- Loaded asynchronously -->
+      </div>
+    </div>
   `;
 
   // Attach Top Operations Handlers
@@ -528,11 +538,18 @@ export async function renderJudgeDashboard() {
     renderJudgeDashboard();
     loadQuestionsTab();
   });
+  document.getElementById('tabBtnArchives')?.addEventListener('click', () => {
+    activeJudgeTab = 'archives';
+    renderJudgeDashboard();
+    loadArchivesTab();
+  });
 
   if (activeJudgeTab === 'leaderboard') {
     loadLeaderboardTab();
   } else if (activeJudgeTab === 'questions') {
     loadQuestionsTab();
+  } else if (activeJudgeTab === 'archives') {
+    loadArchivesTab();
   }
 
   // Attach Rubric Scoring Handlers
@@ -1333,3 +1350,131 @@ function updateQueueUI() {
     }).join('');
   })();
 }
+
+// ----------------------------------------------------------------------
+// ARCHIVES & HISTORY TAB
+// ----------------------------------------------------------------------
+async function loadArchivesTab() {
+  const container = document.getElementById('judgeArchivesContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--muted);"><div class="spinner"></div><div style="margin-top:16px;">Loading Archives...</div></div>';
+
+  const res = await store.getArchivedArenas();
+  if (!res.success) {
+    container.innerHTML = `<div style="padding:40px; text-align:center; color:var(--red); font-family:var(--disp);">${escapeHtml(res.error || 'Failed to load archives')}</div>`;
+    return;
+  }
+
+  const archives = res.archives || [];
+  if (archives.length === 0) {
+    container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--muted); font-family:var(--disp);">No archived arena runs found.</div>';
+    return;
+  }
+
+  let html = `
+    <div style="padding:20px;">
+      <h3 style="margin-bottom:16px; font-family:var(--disp); font-size:18px;">PAST ARENA RUNS</h3>
+      <table style="width:100%; border-collapse:collapse; background:rgba(255,255,255,0.02); border-radius:8px; overflow:hidden;">
+        <thead>
+          <tr style="background:rgba(255,255,255,0.05); text-align:left; border-bottom:1px solid var(--line);">
+            <th style="padding:12px 16px; font-size:12px; color:var(--muted);">DATE / TIME</th>
+            <th style="padding:12px 16px; font-size:12px; color:var(--muted);">TEAMS</th>
+            <th style="padding:12px 16px; font-size:12px; color:var(--muted);">SUBMISSIONS</th>
+            <th style="padding:12px 16px; font-size:12px; color:var(--muted);">EVALUATED</th>
+            <th style="padding:12px 16px; font-size:12px; color:var(--muted);">ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  archives.forEach(arc => {
+    const d = new Date(arc.started_at);
+    const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+    html += `
+      <tr style="border-bottom:1px solid var(--line-subtle);">
+        <td style="padding:16px; font-family:var(--disp); font-size:14px;">${dateStr}</td>
+        <td style="padding:16px; font-size:14px;">${arc.team_count} teams</td>
+        <td style="padding:16px; font-size:14px;">${arc.submission_count}</td>
+        <td style="padding:16px; font-size:14px;">
+          ${arc.has_evaluations ? '<span class="chip chip-green">YES</span>' : '<span class="chip chip-amber">NO</span>'}
+        </td>
+        <td style="padding:16px;">
+          <button class="btn btn-sm btn-primary" onclick="window.viewArchivedStandings('${arc.arena_id}')">VIEW STANDINGS</button>
+        </td>
+      </tr>
+    `;
+  });
+
+  html += `
+        </tbody>
+      </table>
+    </div>
+    <!-- Modal for displaying standings -->
+    <div id="archivedStandingsModal" class="modal-overlay" style="display:none; z-index:9999;">
+      <div class="modal-content" style="max-width:1000px; width:90%; max-height:85vh; overflow-y:auto; background:var(--bg-card);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 style="font-family:var(--disp); margin:0;">Archived Standings</h2>
+          <button class="btn btn-sm" onclick="document.getElementById('archivedStandingsModal').style.display='none'" style="background:transparent; border:1px solid var(--line); color:var(--text); padding:4px 12px; border-radius:4px; font-family:var(--mono);">&times; CLOSE</button>
+        </div>
+        <div id="archivedStandingsContent"></div>
+      </div>
+    </div>
+  `;
+  container.innerHTML = html;
+}
+
+window.viewArchivedStandings = async function(arenaId) {
+  const content = document.getElementById('archivedStandingsContent');
+  if (!content) return;
+  document.getElementById('archivedStandingsModal').style.display = 'flex';
+  content.innerHTML = '<div style="padding:40px; text-align:center; color:var(--muted);"><div class="spinner"></div><div style="margin-top:16px;">Loading Standings...</div></div>';
+
+  const res = await store.getArchivedStandings(arenaId);
+  if (!res.success) {
+    content.innerHTML = `<div style="padding:40px; text-align:center; color:var(--red); font-family:var(--disp);">${escapeHtml(res.error || 'Failed to load standings')}</div>`;
+    return;
+  }
+
+  const stds = res.standings || [];
+  if (stds.length === 0) {
+    content.innerHTML = '<div style="padding:40px; text-align:center; color:var(--muted); font-family:var(--disp);">No teams found in this archive.</div>';
+    return;
+  }
+
+  let html = `
+    <table style="width:100%; border-collapse:collapse; background:rgba(255,255,255,0.02);">
+      <thead>
+        <tr style="background:rgba(255,255,255,0.05); text-align:left; border-bottom:1px solid var(--line);">
+          <th style="padding:12px 16px; font-size:12px; color:var(--muted);">RANK</th>
+          <th style="padding:12px 16px; font-size:12px; color:var(--muted);">TEAM</th>
+          <th style="padding:12px 16px; font-size:12px; color:var(--muted);">TOTAL SCORE</th>
+          <th style="padding:12px 16px; font-size:12px; color:var(--muted);">QUESTIONS COMPLETED</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  stds.forEach(team => {
+    html += `
+      <tr style="border-bottom:1px solid var(--line-subtle); ${team.is_eliminated ? 'opacity:0.6;' : ''}">
+        <td style="padding:16px; font-family:var(--disp); font-size:18px; font-weight:700;">
+          ${team.rank ? '#' + team.rank : (team.is_eliminated ? '<span class="chip chip-red">ELIMINATED</span>' : '—')}
+        </td>
+        <td style="padding:16px;">
+          <div style="font-family:var(--disp); font-size:15px; font-weight:600;">${escapeHtml(team.team_name)}</div>
+          <div class="mono-text" style="font-size:11px; color:var(--muted); margin-top:4px;">${escapeHtml(team.college)}</div>
+        </td>
+        <td style="padding:16px; font-family:var(--disp); font-size:18px; font-weight:700; color:var(--cyan);">
+          ${team.total_score}
+        </td>
+        <td style="padding:16px; font-size:14px; color:var(--muted);">
+          ${team.challenges_completed} / 5
+        </td>
+      </tr>
+    `;
+  });
+
+  html += '</tbody></table>';
+  content.innerHTML = html;
+};
