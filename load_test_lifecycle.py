@@ -145,59 +145,57 @@ async def fetch_challenge(session, email, token, retries=5):
                 return None
     return None
 
-async def submit_prompt(session, email, token, wave_idx, retries=5):
+async def submit_prompt(session, email, token, wave_idx, retries=1):
     headers = {"Authorization": f"Bearer {token}"}
     payload = {
         "prompt_text": WAVE_PROMPTS[wave_idx % len(WAVE_PROMPTS)],
         "diagnosis_notes": f"Load test wave {wave_idx + 1} - automated simulation"
     }
-    for attempt in range(retries):
-        try:
-            async with session.post(
-                f"{API_BASE}/arena/submit-challenge",
-                json=payload,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=45)
-            ) as resp:
-                try:
-                    data = await resp.json()
-                except Exception:
-                    data = {"raw": await resp.text()}
-                
-                if resp.status in (502, 503, 504):
-                    raise Exception(f"Server error {resp.status}")
+    try:
+        async with session.post(
+            f"{API_BASE}/arena/submit-challenge",
+            json=payload,
+            headers=headers,
+            timeout=aiohttp.ClientTimeout(total=120)  # Increased timeout to 120s to wait in thread queue
+        ) as resp:
+            try:
+                data = await resp.json()
+            except Exception:
+                data = {"raw": await resp.text()}
+            
+            if resp.status in (502, 503, 504):
+                raise Exception(f"Server error {resp.status}")
 
-                entry = {
-                    "email": email,
-                    "wave": wave_idx + 1,
-                    "status": "ok" if resp.status in (200, 201) else "fail",
-                    "code": resp.status,
-                    "msg": str(data)[:200]
-                }
-                results["submissions"].append(entry)
-                if resp.status in (200, 201):
-                    log(f"  OK  W{wave_idx+1} [{email[:28]}]")
-                    return True
-                elif resp.status == 409:
-                    log(f"  DUP W{wave_idx+1} [{email[:28]}]")
-                    return False
-                elif resp.status == 403:
-                    log(f"  BLK W{wave_idx+1} [{email[:28]}]")
-                    return False
-                elif resp.status == 400 and "completed all 5" in str(data):
-                    log(f"  FIN W{wave_idx+1} [{email[:28]}] - ALL DONE")
-                    return False
-                else:
-                    log(f"  ERR W{wave_idx+1} [{email[:28]}]: {resp.status}")
-                    return False
-        except Exception as e:
-            if attempt < retries - 1:
-                await asyncio.sleep(3 + attempt * 2)
-            else:
-                log(f"  NET W{wave_idx+1} [{email[:28]}]: {type(e).__name__} {e}")
-                results["submissions"].append({"email": email, "wave": wave_idx+1, "status": "error", "code": 0, "msg": str(e)})
+            entry = {
+                "email": email,
+                "wave": wave_idx + 1,
+                "status": "ok" if resp.status in (200, 201) else "fail",
+                "code": resp.status,
+                "msg": str(data)[:200]
+            }
+            results["submissions"].append(entry)
+            if resp.status in (200, 201):
+                log(f"  OK  W{wave_idx+1} [{email[:28]}]")
+                return True
+            elif resp.status == 409:
+                log(f"  DUP W{wave_idx+1} [{email[:28]}]")
                 return False
-    return False
+            elif resp.status == 403:
+                log(f"  BLK W{wave_idx+1} [{email[:28]}]")
+                return False
+            elif resp.status == 400 and "completed all 5" in str(data):
+                log(f"  FIN W{wave_idx+1} [{email[:28]}] - ALL DONE")
+                return False
+            elif resp.status == 400:
+                log(f"  BAD W{wave_idx+1} [{email[:28]}]: {str(data)}")
+                return False
+            else:
+                log(f"  ERR W{wave_idx+1} [{email[:28]}]: {resp.status}")
+                return False
+    except Exception as e:
+        log(f"  NET W{wave_idx+1} [{email[:28]}]: {type(e).__name__} {e}")
+        results["submissions"].append({"email": email, "wave": wave_idx+1, "status": "error", "code": 0, "msg": str(e)})
+        return False
 
 async def bounded_login(sem, session, email, password):
     async with sem:
