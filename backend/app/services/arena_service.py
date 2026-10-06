@@ -3,7 +3,7 @@ import json
 import random
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -262,11 +262,18 @@ class ArenaService:
         conf = cls.get_or_create_config(db)
         server_now = datetime.utcnow()
 
+        ends_at_val = None
+        if conf.status == "live" and conf.started_at:
+            ends_at_val = (conf.started_at + timedelta(minutes=30)).isoformat()
+        elif conf.ended_at:
+            ends_at_val = conf.ended_at.isoformat()
+
         response: Dict[str, Any] = {
             "status": conf.status,
             "server_time": server_now.isoformat(),
             "started_at": conf.started_at.isoformat() if conf.started_at else None,
             "ended_at": conf.ended_at.isoformat() if conf.ended_at else None,
+            "ends_at": ends_at_val,
             "results_released_at": conf.results_released_at.isoformat() if conf.results_released_at else None,
             "config": {
                 "challenges_count": conf.challenges_count,
@@ -1010,10 +1017,17 @@ class ArenaService:
             "flagged_teams_list": flagged_list
         }
 
+        ends_at_val = None
+        if conf.status == "live" and conf.started_at:
+            ends_at_val = (conf.started_at + timedelta(minutes=30)).isoformat()
+        elif conf.ended_at:
+            ends_at_val = conf.ended_at.isoformat()
+
         return {
             "status": conf.status,
             "is_results_released": getattr(conf, 'is_results_released', False),
             "started_at": conf.started_at.isoformat() if conf.started_at else None,
+            "ends_at": ends_at_val,
             "active_dataset_tag": getattr(conf, 'active_dataset_tag', None),
             "metrics": metrics_dict,
             "stats": metrics_dict,

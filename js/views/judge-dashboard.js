@@ -22,6 +22,7 @@ let currentRubric = {
 let activeSubIdForRubric = null;
 let judgeOverviewCache = null;
 let judgeAutoSyncInterval = null;
+let judgeTimerInterval = null;
 
 if (!window.openTeamAccordionIds) {
   window.openTeamAccordionIds = new Set();
@@ -152,6 +153,7 @@ export async function renderJudgeDashboard() {
           <div style="display:flex; align-items:center; gap:8px;">
             <span class="mono-text" style="font-size:11px; color:var(--muted);">STATUS:</span>
             ${statusBadge}
+            ${judgeOverviewCache?.ends_at ? `<div id="judgeGlobalTimer" style="font-family:var(--font-mono); font-size:14px; font-weight:700; color:var(--cyan); margin-left:8px; background:rgba(0,255,255,0.08); padding:4px 10px; border-radius:4px; border:1px solid rgba(0,255,255,0.2);">--:--</div>` : ''}
           </div>
 
           <!-- Operation Action Buttons -->
@@ -542,6 +544,33 @@ export async function renderJudgeDashboard() {
     const radar = mountRadar(radarMount, { tone: 'violet', title: 'Heuristic Draft Coverage' });
     const scores = analyzePrompt(selectedSub.submitted_prompt);
     radar.set(scores);
+  }
+
+  // Set up judge global timer
+  const timerEl = document.getElementById('judgeGlobalTimer');
+  if (timerEl && judgeOverviewCache?.ends_at) {
+    if (judgeTimerInterval) clearInterval(judgeTimerInterval);
+    const endsAt = Date.parse(judgeOverviewCache.ends_at);
+    if (!Number.isNaN(endsAt)) {
+      const updateTimer = () => {
+        const left = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+        const m = Math.floor(left / 60);
+        const s = left % 60;
+        const el = document.getElementById('judgeGlobalTimer');
+        if (el) {
+          el.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+          if (left <= 300) {
+            el.style.color = '#ff6b6b'; // Red when <= 5 mins
+            el.style.borderColor = 'rgba(255,107,107,0.4)';
+            el.style.background = 'rgba(255,107,107,0.1)';
+          }
+        } else {
+          clearInterval(judgeTimerInterval);
+        }
+      };
+      updateTimer();
+      judgeTimerInterval = setInterval(updateTimer, 1000);
+    }
   }
 }
 
