@@ -833,7 +833,7 @@ class Store {
   // ==========================================
   async getPromptBank() {
     try {
-      const resp = await fetch(`${API_BASE_URL}/prompt-bank/`, {
+      const resp = await fetch(`${API_BASE_URL}/prompt-bank`, {
         headers: this.getAuthHeaders()
       });
       const text = await resp.text();
@@ -856,7 +856,7 @@ class Store {
 
   async createPrompt(payload) {
     try {
-      const resp = await fetch(`${API_BASE_URL}/prompt-bank/`, {
+      const resp = await fetch(`${API_BASE_URL}/prompt-bank`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(payload)
