@@ -33,40 +33,55 @@ from app.schemas.arena import (
 # ---------------------------------------------------------------------------
 # Groq Contextual Scoring — runs in a background thread after each submission
 # ---------------------------------------------------------------------------
-_GROQ_EVAL_PROMPT = """You are an expert prompt engineering judge evaluating a student's prompt rewrite.
+_GROQ_EVAL_PROMPT = """You are an expert prompt engineering judge. Your job is to evaluate whether a student correctly fixed a specific broken prompt.
 
-## Task Context
+## THE BROKEN PROMPT THE STUDENT HAD TO FIX
 Challenge Title: {challenge_title}
 Category: {category}
 
-## Original (Broken) Prompt
+<broken_prompt>
 {original_bad_prompt}
+</broken_prompt>
 
-## Reference (Expert) Prompt
+## EXPERT REFERENCE FIX (for calibration only)
+<reference_fix>
 {expected_good_prompt}
+</reference_fix>
 
-## Student's Submitted Prompt
+## STUDENT'S SUBMITTED ANSWER
+<student_submission>
 {submitted_prompt}
+</student_submission>
 
 ---
-Score the student's submission on 5 dimensions. Each dimension is worth 0, 10, or 20 marks.
-CRITICAL: Also check if the submission is actually RELEVANT to the challenge task.
-If the student submitted a completely off-topic or generic prompt unrelated to "{challenge_title}", give 0 across all dimensions.
 
-Scoring rubric (per dimension):
-- 0  = Missing, off-topic, or clearly copied from elsewhere
-- 10 = Partially addresses the dimension but has significant gaps
-- 20 = Strong, complete, directly applicable to this specific challenge
+## STEP 1 — MANDATORY RELEVANCE GATE
 
-Respond ONLY with valid JSON (no markdown, no explanation):
-{{
-  "clarity_score": <0|10|20>,
-  "specificity_score": <0|10|20>,
-  "context_score": <0|10|20>,
-  "output_format_score": <0|10|20>,
-  "constraints_score": <0|10|20>,
-  "relevance_note": "<one sentence explaining your decision>"
-}}"""
+First, decide: Is the student's submission a genuine attempt to fix THIS specific broken prompt about "{challenge_title}"?
+
+AUTOMATIC ZERO (all 5 scores = 0) if ANY of the following are true:
+- The submission is about a completely different topic or domain than the broken prompt
+- The submission addresses a different task goal than what the broken prompt was trying to accomplish
+- The submission appears to be a generic, pre-written, or copy-pasted prompt for a different use case
+- Example: broken prompt is about computing expected value of a probability game → student submits a business earnings-call summarization prompt → AUTOMATIC ZERO
+
+If ANY of the above are true, output EXACTLY this and stop:
+{{"clarity_score": 0, "specificity_score": 0, "context_score": 0, "output_format_score": 0, "constraints_score": 0, "relevance_note": "FAIL relevance gate: <one-line reason why it is off-topic>"}}
+
+## STEP 2 — RUBRIC SCORING (only if the submission passed the relevance gate)
+
+Score each dimension 0, 10, or 20. Scores must be one of those three values only.
+
+- clarity_score: Is the prompt's intent clear and unambiguous for this specific task?
+- specificity_score: Does it add task-specific details that directly improve the broken prompt?
+- context_score: Does it provide sufficient context so an AI can execute the task correctly?
+- output_format_score: Does it define a clear, appropriate output format for this task?
+- constraints_score: Does it add boundaries/rules/constraints suited to this specific task?
+
+Scale: 0=missing or wrong, 10=partial, 20=strong and directly applicable.
+
+Output valid JSON only, no markdown:
+{{"clarity_score": <0|10|20>, "specificity_score": <0|10|20>, "context_score": <0|10|20>, "output_format_score": <0|10|20>, "constraints_score": <0|10|20>, "relevance_note": "<one sentence on relevance and scoring rationale>"}}"""
 
 def _groq_eval_worker(submission_id: str, submitted_prompt: str, original_bad_prompt: str,
                        expected_good_prompt: str, challenge_title: str, category: str):
@@ -90,7 +105,7 @@ def _groq_eval_worker(submission_id: str, submitted_prompt: str, original_bad_pr
         )
 
         payload = {
-            "model": "llama3-8b-8192",   # fast & cheap — 8b is enough for rubric scoring
+            "model": "llama3-70b-8192",  # 70b for more accurate relevance judgement
             "messages": [{"role": "user", "content": prompt_text}],
             "temperature": 0.0,
             "max_tokens": 256,
