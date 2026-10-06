@@ -636,26 +636,25 @@ async function renderResults(container) {
   clearInterval(clockId);
   const res = await store.getMyArenaResults();
 
-  if (!(res.success && res.challenges && res.challenges.length)) {
-    const rep = await store.getArenaReport();
-    if (!rep.success) {
-      panel(container, {
-        tone: 'violet',
-        title: 'Scores are being finalised',
-        body: 'The panel is finishing its scoring. This page updates on its own.',
-        actions: '<button class="btn btn-primary" id="btnRecheck">Check now</button>'
-      });
-      document.getElementById('btnRecheck')?.addEventListener('click', async () => {
-        renderedKey = null;
-        await refresh(container);
-      });
-      return;
-    }
-    const r = rep.report || rep;
+  if (!res.success || !res.results_released) {
+    panel(container, {
+      tone: 'violet',
+      title: 'Scores are being finalised',
+      body: 'The panel is finishing its scoring. This page updates on its own.',
+      actions: '<button class="btn btn-primary" id="btnRecheck">Check now</button>'
+    });
+    document.getElementById('btnRecheck')?.addEventListener('click', async () => {
+      renderedKey = null;
+      await refresh(container);
+    });
+    return;
+  }
+
+  if (!res.challenges || res.challenges.length === 0) {
     container.innerHTML = `
       <div class="ar-center"><div class="ar-panel">
-        <h1 class="heading-lg">${escapeHtml(r.team_name)}</h1>
-        <p class="ar-panel-body">${r.challenges_completed} of 5 prompts scored · ${r.total_score} points${r.current_rank ? ` · rank #${r.current_rank}` : ''}</p>
+        <h1 class="heading-lg">${escapeHtml(res.team_name || 'Your Team')}</h1>
+        <p class="ar-panel-body">No prompts were scored for your team.</p>
         <div class="ar-panel-actions">
           <button class="btn btn-violet" id="btnViewArenaLeaderboard">View the leaderboard</button>
           <button class="btn btn-ghost" id="btnReportLogout">Sign out</button>
@@ -731,7 +730,7 @@ async function renderResults(container) {
 }
 
 function wireResultButtons() {
-  document.getElementById('btnViewArenaLeaderboard')?.addEventListener('click', () => Router.navigate('spectator-view'));
+  document.getElementById('btnViewArenaLeaderboard')?.addEventListener('click', () => window.location.href = 'live.html');
   document.getElementById('btnReportLogout')?.addEventListener('click', () => Router.confirmLogout());
 }
 
