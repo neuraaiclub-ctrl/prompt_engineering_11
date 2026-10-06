@@ -221,6 +221,8 @@ def init_db():
                 conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN IF NOT EXISTS dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
                 conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS active_dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
                 conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN IF NOT EXISTS expected_good_prompt VARCHAR;"))
+                conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS title VARCHAR NOT NULL DEFAULT 'Main Arena';"))
+                conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;"))
                 conn.commit()
             else:
                 result = conn.execute(text("PRAGMA table_info(teams);"))
@@ -251,8 +253,13 @@ def init_db():
                         
                 conf_res = conn.execute(text("PRAGMA table_info(arena_config);"))
                 conf_cols = [row[1] for row in conf_res.fetchall()]
-                if conf_cols and "active_dataset_tag" not in conf_cols:
-                    conn.execute(text("ALTER TABLE arena_config ADD COLUMN active_dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
+                if conf_cols:
+                    if "active_dataset_tag" not in conf_cols:
+                        conn.execute(text("ALTER TABLE arena_config ADD COLUMN active_dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
+                    if "title" not in conf_cols:
+                        conn.execute(text("ALTER TABLE arena_config ADD COLUMN title VARCHAR NOT NULL DEFAULT 'Main Arena';"))
+                    if "is_active" not in conf_cols:
+                        conn.execute(text("ALTER TABLE arena_config ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1;"))
 
                 conn.commit()
     except Exception as e:
