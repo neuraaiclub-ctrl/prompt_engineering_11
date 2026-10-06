@@ -122,6 +122,17 @@ def _groq_eval_worker(submission_id: str, submitted_prompt: str, original_bad_pr
             resp.raise_for_status()
 
         content = resp.json()["choices"][0]["message"]["content"]
+        
+        # Clean markdown code blocks if Llama-3 adds them
+        content = content.strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        elif content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+            
         scores = _json.loads(content)
 
         # Validate scores are in allowed set {0, 10, 20}
@@ -149,7 +160,9 @@ def _groq_eval_worker(submission_id: str, submitted_prompt: str, original_bad_pr
         finally:
             db.close()
 
-    except Exception:
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Groq evaluation failed for submission {submission_id}: {type(e).__name__} {str(e)}")
         pass   # Never crash submission because of background scoring failure
 
 
@@ -768,13 +781,24 @@ class ArenaService:
             db.flush()
 
             # Compute instant Evaluation Engine scores (5 dimensions: 0, 10, 20 marks each)
-            def _analyze_text(txt):
+            def _analyze_text(txt, challenge_title=""):
                 if not txt or len(txt.strip()) < 8:
                     return [0, 0, 0, 0, 0]
+                
                 lower = txt.lower()
-                words = len(txt.split())
-                lines = len([l for l in txt.split('\n') if l.strip()])
                 import re
+                
+                # Heuristic Relevance Gate
+                if challenge_title:
+                    title_words = set(re.findall(r'\b[a-z]{4,}\b', challenge_title.lower()))
+                    title_words -= {"question", "write", "create", "generate", "draft", "make", "good", "clear", "with", "this", "that", "what", "how", "when", "where", "why", "who", "which"}
+                    if title_words:
+                        overlap = sum(1 for w in title_words if w in lower)
+                        if overlap == 0:
+                            # Completely off-topic based on heuristic
+                            return [0, 0, 0, 0, 0]
+
+                words = len(txt.split())
                 
                 # Clarity
                 clarity = 0
@@ -832,7 +856,7 @@ class ArenaService:
 
                 return [map_s(clarity), map_s(specificity), map_s(context), map_s(fmt), map_s(constraints)]
 
-            scores = _analyze_text(normalized_prompt)
+            scores = _analyze_text(normalized_prompt, prompt_item.title if prompt_item else "")
             tot = sum(scores)
 
             from app.models.arena_scoring import ArenaFinalScore
