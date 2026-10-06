@@ -1,6 +1,10 @@
+import time
+import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 db_url = settings.DATABASE_URL
 if db_url.startswith("postgres://"):
@@ -9,7 +13,18 @@ if db_url.startswith("postgres://"):
 from sqlalchemy.pool import NullPool
 
 # Configure SQLite or PostgreSQL connect args
-connect_args = {"check_same_thread": False} if db_url.startswith("sqlite") else {}
+# For PostgreSQL, we add TCP keepalive settings to prevent Supabase from
+# abruptly dropping SSL connections under high concurrent load.
+if db_url.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+else:
+    connect_args = {
+        "keepalives": 1,
+        "keepalives_idle": 10,
+        "keepalives_interval": 5,
+        "keepalives_count": 3,
+        "connect_timeout": 10,
+    }
 
 engine_kwargs = {"connect_args": connect_args, "echo": False}
 if not db_url.startswith("sqlite"):
@@ -24,11 +39,37 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    """
+    FastAPI dependency that provides a SQLAlchemy session with automatic retry
+    on transient SSL/connection errors from Supabase under high concurrent load.
+    """
+    MAX_RETRIES = 3
+    for attempt in range(MAX_RETRIES):
+        db = SessionLocal()
+        try:
+            yield db
+            return  # Success — exit the retry loop
+        except Exception as e:
+            db.close()
+            err_str = str(e).lower()
+            is_transient = (
+                "ssl connection has been closed" in err_str
+                or "connection refused" in err_str
+                or "could not connect" in err_str
+                or "connection reset by peer" in err_str
+                or "emaxconnsession" in err_str
+            )
+            if is_transient and attempt < MAX_RETRIES - 1:
+                wait = 0.3 * (2 ** attempt)  # 0.3s, 0.6s, 1.2s
+                logger.warning(f"[DB] Transient connection error (attempt {attempt+1}/{MAX_RETRIES}), retrying in {wait:.1f}s: {e}")
+                time.sleep(wait)
+                continue
+            raise  # Non-transient or final attempt — propagate the error
+        finally:
+            try:
+                db.close()
+            except Exception:
+                pass
 
 def seed_initial_data():
     from app.models.user import User, Role
