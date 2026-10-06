@@ -588,6 +588,23 @@ class Store {
     }
   }
 
+  async uneliminateTeam(teamId, reason) {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/arena/judge/uneliminate`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ team_id: teamId, reason })
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        return { success: true, ...data };
+      }
+      return { success: false, error: data.detail || 'Failed to restore team' };
+    } catch (e) {
+      return { success: false, error: 'Connection error while restoring team' };
+    }
+  }
+
   async getMyArenaResults() {
     try {
       const resp = await fetch(`${API_BASE_URL}/arena/my-results`, {

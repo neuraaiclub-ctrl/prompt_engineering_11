@@ -179,6 +179,17 @@ def eliminate_team(
     """
     return ArenaService.eliminate_team(db, current_user, payload)
 
+@router.post("/judge/uneliminate")
+def uneliminate_team(
+    payload: EliminateTeamRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["admin", "judge"]))
+):
+    """
+    Reverse an elimination.
+    """
+    return ArenaService.uneliminate_team(db, current_user, payload)
+
 @router.get("/judge/scoring/preflight")
 def get_scoring_preflight(
     db: Session = Depends(get_db),

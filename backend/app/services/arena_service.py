@@ -931,6 +931,44 @@ class ArenaService:
         }
 
     @classmethod
+    def uneliminate_team(cls, db: Session, current_user: User, payload: EliminateTeamRequest) -> Dict[str, Any]:
+        team = db.query(Team).filter(Team.id == payload.team_id).first()
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found.")
+
+        prev_status = team.status
+        team.status = "active"
+
+        session = db.query(TeamArenaSession).filter(TeamArenaSession.team_id == team.id).first()
+        if session:
+            # Check if they have 5 challenges done
+            submissions = db.query(ArenaSubmission).filter(ArenaSubmission.team_id == team.id).count()
+            session.status = "completed" if submissions >= 5 else "active"
+
+        db.add(AuditLog(
+            actor_user_id=current_user.id,
+            action="arena.team_uneliminated",
+            target_type="Team",
+            target_id=team.id,
+            audit_metadata={
+                "reason": payload.reason,
+                "previous_status": prev_status,
+                "uneliminated_by": current_user.email,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        ))
+        db.commit()
+
+        return {
+            "success": True,
+            "message": f"Team '{team.name}' has been restored to active status.",
+            "team_id": team.id,
+            "team_name": team.name,
+            "status": team.status,
+            "reason": payload.reason
+        }
+
+    @classmethod
     def get_performance_report(cls, db: Session, current_user: User) -> Dict[str, Any]:
         team = cls.get_user_team(db, current_user)
         if not team:

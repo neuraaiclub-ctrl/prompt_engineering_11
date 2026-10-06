@@ -811,7 +811,9 @@ async function loadLeaderboardTab() {
                       ELIMINATE
                     </button>
                   ` : `
-                    <span class="mono-text" style="font-size:10px; color:var(--red);">DISQUALIFIED</span>
+                    <button class="btn btn-sm btn-ghost" onclick="window.uneliminateTeam('${row.team_id}')" style="padding:3px 8px; font-size:10px; font-weight:700; color:var(--red);">
+                      RESTORE
+                    </button>
                   `}
                 </td>
               </tr>
@@ -882,6 +884,18 @@ function showEliminationConfirmationModal(teamId, teamName) {
   });
 }
 window.openEliminateModal = showEliminationConfirmationModal;
+
+window.uneliminateTeam = async (teamId) => {
+  if (confirm("Restore this team to active status?")) {
+    const res = await store.uneliminateTeam(teamId, "Reversing previous elimination.");
+    if (res.success) {
+      Router.showToast(res.message || "Team restored.", "green");
+      await renderJudgeDashboard();
+    } else {
+      Router.showToast(res.error || "Failed to restore team.", "red");
+    }
+  }
+};
 
 // QUESTIONS TAB ADDITION
 async function loadQuestionsTab() {

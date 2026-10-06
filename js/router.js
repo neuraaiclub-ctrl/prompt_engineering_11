@@ -8,7 +8,7 @@ import { setupStaffModal } from './components/staff-modal.js';
 import { setWormholeMood, warpWormhole } from './components/wormhole.js';
 
 export const ROLE_PERMISSIONS = {
-  participant: ['arena', 'r1', 'team'],
+  participant: ['arena', 'r1', 'team', 'live'],
   judge: ['judge', 'arena', 'live'],
   admin: ['admin', 'judge', 'arena', 'live']
 };
@@ -115,7 +115,7 @@ export class Router {
     const isAuth = store.isAuthenticated();
 
     const visibleFor = {
-      participant: ['arena', 'team'],
+      participant: ['arena', 'team', 'live'],
       judge: ['judge', 'live', 'arena'],
       admin: ['admin', 'live', 'arena']
     };
