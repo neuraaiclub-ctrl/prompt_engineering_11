@@ -914,7 +914,7 @@ async function loadQuestionsTab() {
         <div style="color:var(--red); font-family:var(--mono); font-size:13px; font-weight:700; margin-bottom:8px;">⚠ BACKEND UNAVAILABLE</div>
         <p style="color:var(--muted); font-size:12px;">${escapeHtml(prompts.error || 'Could not load questions.')}</p>
         <p style="color:var(--muted); font-size:11px; margin-top:8px;">Check that your Render service is fully deployed and running, then refresh.</p>
-        <button class="btn btn-sm btn-primary" onclick="loadQuestionsTab()" style="margin-top:16px; padding:6px 18px;">↻ Retry</button>
+        <button class="btn btn-sm btn-primary" onclick="window.loadQuestionsTab()" style="margin-top:16px; padding:6px 18px;">↻ Retry</button>
       </div>`;
     return;
   }
@@ -925,6 +925,7 @@ async function loadQuestionsTab() {
 
   renderQuestionsTabContent(prompts);
 }
+window.loadQuestionsTab = loadQuestionsTab;
 
 window.setQuestionsFilter = (difficulty) => {
   window.promptBankFilter = difficulty;
