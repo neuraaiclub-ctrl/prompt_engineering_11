@@ -12,6 +12,7 @@ from app.models.team import Team, TeamMember
 from app.models.hackathon import Hackathon
 from app.core.security import hash_password
 from app.core.audit import log_audit_event
+from app.models.audit import AuditLog
 from app.schemas.team import CreateTeamSchema, JoinTeamSchema, AdminRegisterTeamSchema
 
 class TeamService:
