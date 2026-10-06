@@ -92,7 +92,9 @@ def _groq_eval_worker(submission_id: str, submitted_prompt: str, original_bad_pr
         from app.models.arena_scoring import ArenaFinalScore
         import httpx, json as _json
 
-        groq_key = settings.GROQ_API_KEY or settings.LLM_P1_A_KEY
+        groq_key = (settings.GROQ_API_KEY or settings.LLM_P1_A_KEY 
+                    or settings.LLM_P1_B_KEY or settings.LLM_P2_A_KEY 
+                    or settings.LLM_P2_B_KEY or settings.TEST_RUN_KEY)
         if not groq_key or groq_key == "mock":
             return  # No key configured — keep heuristic score
 
@@ -799,6 +801,7 @@ class ArenaService:
                             return [0, 0, 0, 0, 0]
 
                 words = len(txt.split())
+                lines = len([l for l in txt.split('\n') if l.strip()])
                 
                 # Clarity
                 clarity = 0
@@ -841,14 +844,14 @@ class ArenaService:
                 if re.search(r'[:{}\[\]```\-*#]', txt):
                     fmt += 0.25
 
-                # Constraints
+                # Constraints — only explicit constraint/rule language, NOT common words
                 constraints = 0
-                if re.search(r'\b(must|never|do not|don\'t|cannot|cant|avoid|only|always|forbid|forbidden|prohibit|prohibited|ensure|restrict|restricted|prevent)\b', lower):
-                    constraints += 0.35
-                if re.search(r'\b(if|when|unless|otherwise|fallback|null|n\/a|unknown|missing|invalid|empty|unclear|ambiguous|edge case|error|exception|exceptionally)\b', lower):
-                    constraints += 0.35
-                if re.search(r'\b(tone|style|length|word|words|character|characters|sentence|sentences|limit|limits|max|maximum|min|minimum|rule|rules|guideline|guidelines|guardrail|guardrails|do not hallucinate|no hallucination|factual|fact-based)\b', lower):
-                    constraints += 0.35
+                if re.search(r'\b(must not|never|do not|don\'t|cannot|forbidden|prohibit|prohibited|restrict|restricted|prevent|avoid using|exclude|no [a-z]+)\b', lower):
+                    constraints += 0.4
+                if re.search(r'\b(unless|fallback|edge case|do not hallucinate|no hallucination|fact-based|factual only|guardrail|guardrails)\b', lower):
+                    constraints += 0.4
+                if re.search(r'\b(tone|style|max [0-9]|maximum [0-9]|min [0-9]|minimum [0-9]|word limit|character limit|sentence limit|banned words|banned:)\b', lower):
+                    constraints += 0.4
 
                 def map_s(v):
                     v_cap = min(1.0, max(0.0, v))
