@@ -91,7 +91,17 @@ def reset_arena(
     Returns arena to 'waiting' state. Prompt bank is NOT touched.
     Use this to undo a test run or prepare for the real competition.
     """
-    return ArenaService.reset_arena(db, current_user)
+    import time
+    from sqlalchemy.exc import OperationalError
+    for attempt in range(3):
+        try:
+            return ArenaService.reset_arena(db, current_user)
+        except OperationalError as e:
+            db.rollback()
+            if "deadlock" in str(e).lower() and attempt < 2:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            raise
 
 # ---------------------------------------------------------------------------
 # Participant Challenge & Submission Endpoints
@@ -152,8 +162,19 @@ def get_judge_overview(
 ):
     """
     Aggregates competition statistics, submissions queue, and security flags for the Judge Portal.
+    Automatically retries up to 3 times on transient deadlock errors from concurrent reset/submit ops.
     """
-    return ArenaService.get_judge_overview(db, current_user)
+    import time
+    from sqlalchemy.exc import OperationalError
+    for attempt in range(3):
+        try:
+            return ArenaService.get_judge_overview(db, current_user)
+        except OperationalError as e:
+            db.rollback()
+            if "deadlock" in str(e).lower() and attempt < 2:
+                time.sleep(0.3 * (attempt + 1))
+                continue
+            raise
 
 @router.post("/judge/score")
 def score_arena_submission(
