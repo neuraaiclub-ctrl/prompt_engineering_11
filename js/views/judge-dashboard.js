@@ -932,6 +932,11 @@ window.setQuestionsFilter = (difficulty) => {
   renderQuestionsTabContent(window.currentPromptBankData);
 };
 
+window.setQuestionsTagFilter = (tag) => {
+  window.promptBankTagFilter = tag;
+  renderQuestionsTabContent(window.currentPromptBankData);
+};
+
 window.triggerCsvUpload = () => {
   document.getElementById('fileUploadCsv').click();
 };
@@ -1012,11 +1017,17 @@ function renderQuestionsTabContent(prompts) {
   if (!container) return;
 
   const filter = window.promptBankFilter || 'all';
-  const filteredPrompts = prompts.filter(p => filter === 'all' ? true : p.difficulty === filter);
+  const tagFilter = window.promptBankTagFilter || 'all';
+
+  const filteredPrompts = prompts.filter(p => {
+    const passDiff = filter === 'all' || p.difficulty === filter;
+    const passTag = tagFilter === 'all' || (p.dataset_tag || 'default') === tagFilter;
+    return passDiff && passTag;
+  });
 
   let rowsHtml = '';
   if (filteredPrompts.length === 0) {
-    rowsHtml = `<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:24px;">No questions match the selected filter.</td></tr>`;
+    rowsHtml = `<tr><td colspan="7" style="text-align:center; color:var(--muted); padding:24px;">No questions match the selected filters.</td></tr>`;
   } else {
     filteredPrompts.forEach(p => {
       const badSnippet = (p.original_bad_prompt || '').substring(0, 40) + '...';
@@ -1087,11 +1098,22 @@ function renderQuestionsTabContent(prompts) {
         </div>
       </div>
 
-      <div style="display:flex; gap:10px; margin-bottom:20px;">
-        <button class="btn btn-sm ${btnAll}" onclick="window.setQuestionsFilter('all')" style="padding:6px 14px;">ALL</button>
-        <button class="btn btn-sm ${btnEasy}" onclick="window.setQuestionsFilter('easy')" style="padding:6px 14px;">EASY</button>
-        <button class="btn btn-sm ${btnMed}" onclick="window.setQuestionsFilter('medium')" style="padding:6px 14px;">MEDIUM</button>
-        <button class="btn btn-sm ${btnHard}" onclick="window.setQuestionsFilter('hard')" style="padding:6px 14px;">HARD</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-sm ${btnAll}" onclick="window.setQuestionsFilter('all')" style="padding:6px 14px;">ALL</button>
+          <button class="btn btn-sm ${btnEasy}" onclick="window.setQuestionsFilter('easy')" style="padding:6px 14px;">EASY</button>
+          <button class="btn btn-sm ${btnMed}" onclick="window.setQuestionsFilter('medium')" style="padding:6px 14px;">MEDIUM</button>
+          <button class="btn btn-sm ${btnHard}" onclick="window.setQuestionsFilter('hard')" style="padding:6px 14px;">HARD</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase;">Filter by Tag:</span>
+          <select class="neura-input" style="padding:4px 8px; font-size:12px; height:auto; width:auto; min-width:120px;" onchange="window.setQuestionsTagFilter(this.value)">
+            <option value="all" ${window.promptBankTagFilter === 'all' ? 'selected' : ''}>All Tags</option>
+            ${Array.from(new Set(prompts.map(p => p.dataset_tag || 'default'))).sort().map(tag => 
+              `<option value="${tag}" ${window.promptBankTagFilter === tag ? 'selected' : ''}>${escapeHtml(tag)}</option>`
+            ).join('')}
+          </select>
+        </div>
       </div>
 
       <table class="lb-table">
