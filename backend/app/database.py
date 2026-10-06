@@ -40,36 +40,53 @@ Base = declarative_base()
 
 def get_db():
     """
-    FastAPI dependency that provides a SQLAlchemy session with automatic retry
-    on transient SSL/connection errors from Supabase under high concurrent load.
+    FastAPI dependency that provides a SQLAlchemy session.
+    Retries connection setup (before yield) to handle Supabase transient errors.
+    Uses a single yield with proper finally cleanup — compatible with Python 3.12+.
     """
     MAX_RETRIES = 3
+    db = None
+    last_err = None
+
     for attempt in range(MAX_RETRIES):
-        db = SessionLocal()
         try:
-            yield db
-            return  # Success — exit the retry loop
+            db = SessionLocal()
+            db.execute(__import__('sqlalchemy').text("SELECT 1"))  # Validate connection
+            break  # Connection is good, exit retry loop
         except Exception as e:
-            db.close()
+            if db is not None:
+                try:
+                    db.close()
+                except Exception:
+                    pass
+                db = None
+            last_err = e
             err_str = str(e).lower()
             is_transient = (
-                "ssl connection has been closed" in err_str
-                or "connection refused" in err_str
+                "ssl" in err_str
+                or "connection" in err_str
+                or "timeout" in err_str
                 or "could not connect" in err_str
-                or "connection reset by peer" in err_str
-                or "emaxconnsession" in err_str
+                or "too many clients" in err_str
+                or "remaining connection slots" in err_str
             )
             if is_transient and attempt < MAX_RETRIES - 1:
-                wait = 0.3 * (2 ** attempt)  # 0.3s, 0.6s, 1.2s
+                wait = 0.3 * (2 ** attempt)  # 0.3s, 0.6s
                 logger.warning(f"[DB] Transient connection error (attempt {attempt+1}/{MAX_RETRIES}), retrying in {wait:.1f}s: {e}")
                 time.sleep(wait)
-                continue
-            raise  # Non-transient or final attempt — propagate the error
-        finally:
-            try:
-                db.close()
-            except Exception:
-                pass
+            else:
+                raise  # Non-transient or exhausted retries
+
+    if db is None:
+        raise last_err
+
+    try:
+        yield db
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
 
 def seed_initial_data():
     from app.models.user import User, Role
