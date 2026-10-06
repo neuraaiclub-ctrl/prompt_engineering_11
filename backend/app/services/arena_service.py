@@ -1,5 +1,7 @@
 import hashlib
+import json
 import random
+import threading
 import uuid
 from datetime import datetime
 from typing import List, Optional, Dict, Any
@@ -28,7 +30,128 @@ from app.schemas.arena import (
     ArenaConfigUpdateRequest
 )
 
+# ---------------------------------------------------------------------------
+# Groq Contextual Scoring — runs in a background thread after each submission
+# ---------------------------------------------------------------------------
+_GROQ_EVAL_PROMPT = """You are an expert prompt engineering judge evaluating a student's prompt rewrite.
+
+## Task Context
+Challenge Title: {challenge_title}
+Category: {category}
+
+## Original (Broken) Prompt
+{original_bad_prompt}
+
+## Reference (Expert) Prompt
+{expected_good_prompt}
+
+## Student's Submitted Prompt
+{submitted_prompt}
+
+---
+Score the student's submission on 5 dimensions. Each dimension is worth 0, 10, or 20 marks.
+CRITICAL: Also check if the submission is actually RELEVANT to the challenge task.
+If the student submitted a completely off-topic or generic prompt unrelated to "{challenge_title}", give 0 across all dimensions.
+
+Scoring rubric (per dimension):
+- 0  = Missing, off-topic, or clearly copied from elsewhere
+- 10 = Partially addresses the dimension but has significant gaps
+- 20 = Strong, complete, directly applicable to this specific challenge
+
+Respond ONLY with valid JSON (no markdown, no explanation):
+{{
+  "clarity_score": <0|10|20>,
+  "specificity_score": <0|10|20>,
+  "context_score": <0|10|20>,
+  "output_format_score": <0|10|20>,
+  "constraints_score": <0|10|20>,
+  "relevance_note": "<one sentence explaining your decision>"
+}}"""
+
+def _groq_eval_worker(submission_id: str, submitted_prompt: str, original_bad_prompt: str,
+                       expected_good_prompt: str, challenge_title: str, category: str):
+    """Background worker: calls Groq and updates ArenaFinalScore with contextual scores."""
+    try:
+        from app.config import settings
+        from app.database import SessionLocal
+        from app.models.arena_scoring import ArenaFinalScore
+        import httpx, json as _json
+
+        groq_key = settings.GROQ_API_KEY or settings.LLM_P1_A_KEY
+        if not groq_key or groq_key == "mock":
+            return  # No key configured — keep heuristic score
+
+        prompt_text = _GROQ_EVAL_PROMPT.format(
+            challenge_title=challenge_title,
+            category=category,
+            original_bad_prompt=original_bad_prompt or "(not provided)",
+            expected_good_prompt=expected_good_prompt or "(not provided)",
+            submitted_prompt=submitted_prompt
+        )
+
+        payload = {
+            "model": "llama3-8b-8192",   # fast & cheap — 8b is enough for rubric scoring
+            "messages": [{"role": "user", "content": prompt_text}],
+            "temperature": 0.0,
+            "max_tokens": 256,
+            "response_format": {"type": "json_object"}
+        }
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json"
+        }
+
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post("https://api.groq.com/openai/v1/chat/completions",
+                               headers=headers, json=payload)
+            resp.raise_for_status()
+
+        content = resp.json()["choices"][0]["message"]["content"]
+        scores = _json.loads(content)
+
+        # Validate scores are in allowed set {0, 10, 20}
+        allowed = {0, 10, 20}
+        clarity     = scores.get("clarity_score",      0) if scores.get("clarity_score",      0) in allowed else 0
+        specificity = scores.get("specificity_score",  0) if scores.get("specificity_score",  0) in allowed else 0
+        context     = scores.get("context_score",      0) if scores.get("context_score",      0) in allowed else 0
+        output_fmt  = scores.get("output_format_score",0) if scores.get("output_format_score",0) in allowed else 0
+        constraints = scores.get("constraints_score",  0) if scores.get("constraints_score",  0) in allowed else 0
+        total       = clarity + specificity + context + output_fmt + constraints
+
+        # Update the existing ArenaFinalScore row in a fresh session
+        db = SessionLocal()
+        try:
+            row = db.query(ArenaFinalScore).filter(ArenaFinalScore.submission_id == submission_id).first()
+            if row:
+                row.clarity_score      = float(clarity)
+                row.specificity_score  = float(specificity)
+                row.context_score      = float(context)
+                row.output_format_score = float(output_fmt)
+                row.constraints_score  = float(constraints)
+                row.total              = float(total)
+                row.source             = "groq"
+                db.commit()
+        finally:
+            db.close()
+
+    except Exception:
+        pass   # Never crash submission because of background scoring failure
+
+
+def _fire_groq_eval(submission_id: str, submitted_prompt: str, original_bad_prompt: str,
+                     expected_good_prompt: str, challenge_title: str, category: str):
+    """Spawn a daemon thread to run Groq eval without blocking the API response."""
+    t = threading.Thread(
+        target=_groq_eval_worker,
+        args=(submission_id, submitted_prompt, original_bad_prompt,
+              expected_good_prompt, challenge_title, category),
+        daemon=True
+    )
+    t.start()
+
+
 class ArenaService:
+
     @staticmethod
     def get_or_create_config(db: Session) -> ArenaConfig:
         conf = db.query(ArenaConfig).filter(ArenaConfig.id == "default-arena-config").first()
@@ -195,6 +318,30 @@ class ArenaService:
             ArenaFinalScore, ArenaIntegrityFlag, ArenaScoringJob, 
             ArenaScoringRun, ArenaTestResult, ArenaDimensionScore
         )
+        # --- ARCHIVE EXISTING DATA BEFORE DELETING ---
+        import uuid
+        from sqlalchemy import text
+        arena_id = str(uuid.uuid4())
+        
+        # Archive Sessions
+        db.execute(text(
+            f"INSERT INTO archive_team_arena_sessions (archive_pk, arena_id, id, team_id, hackathon_id, prompt_ids, current_challenge_index, status, started_at, completed_at, created_at, updated_at) "
+            f"SELECT id || '-' || '{arena_id}', '{arena_id}', id, team_id, hackathon_id, prompt_ids, current_challenge_index, status, started_at, completed_at, created_at, updated_at FROM team_arena_sessions"
+        ))
+        
+        # Archive Submissions
+        db.execute(text(
+            f"INSERT INTO archive_arena_submissions (archive_pk, arena_id, id, team_id, prompt_bank_item_id, challenge_index, submitted_prompt, diagnosis_notes, server_timestamp, status) "
+            f"SELECT id || '-' || '{arena_id}', '{arena_id}', id, team_id, prompt_bank_item_id, challenge_index, submitted_prompt, diagnosis_notes, server_timestamp, status FROM arena_submissions"
+        ))
+        
+        # Archive Evaluations
+        db.execute(text(
+            f"INSERT INTO archive_arena_evaluations (archive_pk, arena_id, id, submission_id, judge_user_id, clarity_score, specificity_score, context_score, output_format_score, output_structure_score, constraints_score, relevance_score, total_score, judge_feedback, created_at) "
+            f"SELECT id || '-' || '{arena_id}', '{arena_id}', id, submission_id, judge_user_id, clarity_score, specificity_score, context_score, output_format_score, output_structure_score, constraints_score, relevance_score, total_score, judge_feedback, created_at FROM arena_evaluations"
+        ))
+        
+        # Delete original data
         db.query(ArenaTestResult).delete(synchronize_session=False)
         db.query(ArenaDimensionScore).delete(synchronize_session=False)
         db.query(ArenaScoringRun).delete(synchronize_session=False)
@@ -351,6 +498,30 @@ class ArenaService:
             ArenaFinalScore, ArenaIntegrityFlag, ArenaScoringJob,
             ArenaScoringRun, ArenaTestResult, ArenaDimensionScore
         )
+        # --- ARCHIVE EXISTING DATA BEFORE DELETING ---
+        import uuid
+        from sqlalchemy import text
+        arena_id = str(uuid.uuid4())
+        
+        # Archive Sessions
+        db.execute(text(
+            f"INSERT INTO archive_team_arena_sessions (archive_pk, arena_id, id, team_id, hackathon_id, prompt_ids, current_challenge_index, status, started_at, completed_at, created_at, updated_at) "
+            f"SELECT id || '-' || '{arena_id}', '{arena_id}', id, team_id, hackathon_id, prompt_ids, current_challenge_index, status, started_at, completed_at, created_at, updated_at FROM team_arena_sessions"
+        ))
+        
+        # Archive Submissions
+        db.execute(text(
+            f"INSERT INTO archive_arena_submissions (archive_pk, arena_id, id, team_id, prompt_bank_item_id, challenge_index, submitted_prompt, diagnosis_notes, server_timestamp, status) "
+            f"SELECT id || '-' || '{arena_id}', '{arena_id}', id, team_id, prompt_bank_item_id, challenge_index, submitted_prompt, diagnosis_notes, server_timestamp, status FROM arena_submissions"
+        ))
+        
+        # Archive Evaluations
+        db.execute(text(
+            f"INSERT INTO archive_arena_evaluations (archive_pk, arena_id, id, submission_id, judge_user_id, clarity_score, specificity_score, context_score, output_format_score, output_structure_score, constraints_score, relevance_score, total_score, judge_feedback, created_at) "
+            f"SELECT id || '-' || '{arena_id}', '{arena_id}', id, submission_id, judge_user_id, clarity_score, specificity_score, context_score, output_format_score, output_structure_score, constraints_score, relevance_score, total_score, judge_feedback, created_at FROM arena_evaluations"
+        ))
+        
+        # Delete original data
         db.query(ArenaTestResult).delete(synchronize_session=False)
         db.query(ArenaDimensionScore).delete(synchronize_session=False)
         db.query(ArenaScoringRun).delete(synchronize_session=False)
@@ -685,6 +856,17 @@ class ArenaService:
             ))
 
             db.commit()
+
+            # Fire Groq contextual evaluation in a background thread
+            # (submission API responds instantly; Groq updates score asynchronously)
+            _fire_groq_eval(
+                submission_id=sub.id,
+                submitted_prompt=normalized_prompt,
+                original_bad_prompt=prompt_item.original_bad_prompt if prompt_item else "",
+                expected_good_prompt=prompt_item.expected_good_prompt if prompt_item else "",
+                challenge_title=prompt_item.title if prompt_item else "",
+                category=prompt_item.category if prompt_item else ""
+            )
         except IntegrityError as ie:
             db.rollback()
             raise HTTPException(

@@ -24,7 +24,8 @@ class TeamArenaSession(Base):
     __tablename__ = "team_arena_sessions"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    team_id = Column(String, ForeignKey("teams.id"), unique=True, nullable=False, index=True)
+    arena_id = Column(String, ForeignKey("arena_config.id"), nullable=False, default="default-arena-config")
+    team_id = Column(String, ForeignKey("teams.id"), nullable=False, index=True)
     hackathon_id = Column(String, ForeignKey("hackathons.id"), nullable=False)
     prompt_ids = Column(JSON, nullable=False) # List of 5 prompt_bank_items.id assigned to this team
     current_challenge_index = Column(Integer, default=1, nullable=False) # 1 to 5, 6 when completed
@@ -35,11 +36,16 @@ class TeamArenaSession(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     team = relationship("Team")
+    
+    __table_args__ = (
+        UniqueConstraint("team_id", "arena_id", name="unique_team_arena_session"),
+    )
 
 class ArenaSubmission(Base):
     __tablename__ = "arena_submissions"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    arena_id = Column(String, ForeignKey("arena_config.id"), nullable=False, default="default-arena-config")
     team_id = Column(String, ForeignKey("teams.id"), nullable=False, index=True)
     prompt_bank_item_id = Column(String, ForeignKey("prompt_bank_items.id"), nullable=False)
     challenge_index = Column(Integer, nullable=False) # 1 to 5
@@ -54,7 +60,7 @@ class ArenaSubmission(Base):
     evaluations = relationship("ArenaEvaluation", back_populates="submission", cascade="all, delete-orphan")
 
     __table_args__ = (
-        UniqueConstraint("team_id", "challenge_index", name="unique_team_challenge_submission"),
+        UniqueConstraint("team_id", "arena_id", "challenge_index", name="unique_team_arena_challenge_submission"),
     )
 
 class ArenaEvaluation(Base):
@@ -88,6 +94,7 @@ class ArenaSecurityEvent(Base):
     __tablename__ = "arena_security_events"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    arena_id = Column(String, ForeignKey("arena_config.id"), nullable=False, default="default-arena-config")
     team_id = Column(String, ForeignKey("teams.id"), nullable=False, index=True)
     event_type = Column(String, nullable=False) # tab_switch, window_blur, window_focus, fullscreen_exit, paste_attempt
     violation_count = Column(Integer, default=1, nullable=False)
@@ -99,7 +106,9 @@ class ArenaSecurityEvent(Base):
 class ArenaConfig(Base):
     __tablename__ = "arena_config"
 
-    id = Column(String, primary_key=True, default="default-arena-config")
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String, nullable=False, default="Main Arena")
+    is_active = Column(Boolean, default=True, nullable=False)
     hackathon_id = Column(String, ForeignKey("hackathons.id"), nullable=False, default="hk-2026")
     status = Column(String, default="waiting", nullable=False) # waiting, live, completed, results_available
     started_at = Column(DateTime, nullable=True)
@@ -123,3 +132,49 @@ class ArenaConfig(Base):
     def is_results_released(self) -> bool:
         """Phase 0 / Defect #6: computed property so overview can read it safely."""
         return self.status == "results_available"
+
+class ArchivedTeamArenaSession(Base):
+    __tablename__ = 'archive_team_arena_sessions'
+    archive_pk = Column(String, primary_key=True)
+    arena_id = Column(String, nullable=False)
+    id = Column(String, nullable=False)
+    team_id = Column(String, nullable=False)
+    hackathon_id = Column(String, nullable=False)
+    prompt_ids = Column(JSON, nullable=False)
+    current_challenge_index = Column(Integer, nullable=False)
+    status = Column(String, nullable=False)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+class ArchivedArenaSubmission(Base):
+    __tablename__ = 'archive_arena_submissions'
+    archive_pk = Column(String, primary_key=True)
+    arena_id = Column(String, nullable=False)
+    id = Column(String, nullable=False)
+    team_id = Column(String, nullable=False)
+    prompt_bank_item_id = Column(String, nullable=False)
+    challenge_index = Column(Integer, nullable=False)
+    submitted_prompt = Column(String, nullable=False)
+    diagnosis_notes = Column(String, nullable=True)
+    server_timestamp = Column(DateTime, nullable=False)
+    status = Column(String, nullable=False)
+
+class ArchivedArenaEvaluation(Base):
+    __tablename__ = 'archive_arena_evaluations'
+    archive_pk = Column(String, primary_key=True)
+    arena_id = Column(String, nullable=False)
+    id = Column(String, nullable=False)
+    submission_id = Column(String, nullable=False)
+    judge_user_id = Column(String, nullable=False)
+    clarity_score = Column(Float, nullable=False)
+    specificity_score = Column(Float, nullable=False)
+    context_score = Column(Float, nullable=False)
+    output_format_score = Column(Float, nullable=True)
+    output_structure_score = Column(Float, nullable=False)
+    constraints_score = Column(Float, nullable=True)
+    relevance_score = Column(Float, nullable=False)
+    total_score = Column(Float, nullable=False)
+    judge_feedback = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=True)

@@ -1,0 +1,251 @@
+ID,Code,Title,Category,Difficulty,Dataset Tag
+62c01727-240d-4cd9-b8f3-344fb01b4aa3,P001,Vague Marketing Copy Request,marketing,easy,default
+f30b699d-bf4b-4c9d-8caa-5ade7ab2340a,P002,Contradictory Length and Completeness Bounds,summarization,medium,default
+e96d6879-2a06-4f94-85f3-f3b3dd1ce796,P003,Missing JSON Schema Definition,extraction,easy,default
+ea437182-8351-4a96-84f0-19ddbc52af28,P004,Missing Persona & Target Audience Context,role_context,medium,default
+fa0a407e-3696-49fd-b30e-1a99c663e3d6,P005,Unspecified Edge Cases & Language Specs,coding,medium,default
+417bf98d-0c9f-478d-a9ad-2994156efe3d,P006,Vague Customer Escalation Response,customer_support,easy,default
+98239956-227f-4318-821e-6fae1ed81f85,P007,Unfocused Technical Documentation Guide,technical_writing,medium,default
+66767bd1-d58e-4bec-ad97-215be5c58136,P008,Hallucination Bait Without Source Constraints,hallucination_guard,hard,default
+cb916923-3e70-4a5b-91a9-fb42b73ef4d6,P009,Ambiguous SQL Query Generation,database,medium,default
+a0e6501a-2d4b-418f-b29b-57f3fe74f795,P010,Idiomatic Translation Trap,localization,medium,default
+797b59f4-c01c-4c14-b955-2cfaa8943cba,P011,Unbounded Creative Ideation,brainstorming,easy,default
+c4c2e9b5-9bad-4ae3-982e-39b9677a60d5,P012,Ambiguous Multi-Class Sentiment Parsing,classification,easy,default
+7fdfe783-22f6-41af-93bb-5d5d719ad028,P013,Address & Entity Extraction Without Normalization,extraction,medium,default
+6f546270-fb8f-435d-934a-876ced2120de,P014,Unfocused Resume Critique,career,medium,default
+60e421ed-a94c-488f-b669-49ec99a4ddda,P015,Contradictory Tone Requirements,tone_style,hard,default
+986fdfde-80f0-4943-b3a8-7c1981840c43,P016,Ambiguous Legal Terms Synthesis,legal,hard,default
+e79fbd9c-2443-4697-8728-477d896be572,P017,Unconstrained Educational Quiz Generator,education,easy,default
+86f51841-c329-47eb-8ed1-65a82f37f8ed,P018,Unbroken Multi-Step Composite Request,workflow,hard,default
+36a03f55-be8d-4229-8d7f-bdd1722fb890,P019,Missing Negative Constraints & User Criteria,recommendation,easy,default
+2fbf539a-084e-489b-9114-5e3fb0fb9c64,P020,Vague Stack Trace & Bug Analysis,debugging,medium,default
+d542739a-dfb7-4df2-abc3-09894a1f37bc,P021,Marketing Slogan Literal Translation to Hindi,localization,medium,default
+83d08cbd-3c31-4fcb-af3c-026cf0cac33c,P022,Campaign Ideas With No Budget or Audience,brainstorming,medium,default
+ce8ca847-1131-4cb0-b0ee-586ed925cc1a,P023,Multi-Class Sentiment With Unparseable Output,classification,easy,default
+8a0ed606-429d-46fa-8edf-e3ab1a90b5dd,P024,Startup Revenue Forecast Without Assumptions,legal_finance,medium,default
+10d2fcc1-3b44-4f58-816c-bfdf91208eed,P025,Data Breach Inquiry Reply With Liability Risk,customer_support,hard,default
+98d376ef-0191-4beb-9a08-bf8825469ecc,P026,Fix Request With No Code or Error,coding,easy,default
+8df37617-d323-4820-8168-734bd89a3fba,P027,Web Scraper With No Ethics or Error Handling,coding,medium,default
+70f3aafa-8db8-445f-a061-cb1099ce6e20,P028,"Unbroken Composite Rewrite, Optimize, Test, and Deploy Request",coding,hard,default
+b1ee5794-1aae-4545-beac-8f2cc3a4734d,P029,Date Extraction With Mixed Formats,extraction,easy,default
+c2eef883-6004-4da4-a67d-c53f74171cff,P030,Entity Extraction With Invalid JSON and Mixed Types,extraction,medium,default
+8b5234ab-8e93-4cb1-9604-930aa79695cf,P031,Generic Article Summary Request,summarization,easy,default
+ce8ea2db-2c66-471a-a811-69373ba274d1,P032,Feedback Summary Without Themes or Counts,summarization,medium,default
+b546a467-e6e8-47ab-a899-01d9c2b71442,P033,Social Caption With No Brand Voice,marketing,easy,default
+36d5c0a8-f617-44ce-94ab-2e317f27fa64,P034,Supplement Copy With Unverifiable Health Claims,marketing,hard,default
+775f6dab-4399-4ab2-bca5-0de8c97202e3,P035,Public Review Reply That Turns Defensive,customer_support,medium,default
+b1a53cf8-eb55-44d9-b7c8-0a56cfc15944,P036,Chatbot Greeting That Is Long and Robotic,customer_support,easy,default
+5e79de9f-5f57-4e2c-8f96-791324428c8f,P037,API Documentation Missing Parameters and Errors,technical_writing,medium,default
+dad1393e-3f52-41a5-8881-5b80e7d1006f,P038,Setup Tutorial With No OS or Verification,technical_writing,easy,default
+f51f9d4d-eb56-478e-a941-7ff3ec4d83f4,P039,Features of a Product the Model Has No Data On,hallucination_guard,medium,default
+7c571d5a-b4bf-4922-b4e3-6d51de4af45e,P040,Fabricated Case Law Citations,hallucination_guard,hard,default
+e978f04b-2444-4d6c-8521-007bdfde4054,P041,Slow Query Optimization With No Query or Plan,database,medium,default
+43028151-dd35-4002-a257-d9d63140eb92,P042,Zero-Downtime Table Rename Without Dependency Awareness,database,hard,default
+ffeff9cc-c058-4bc1-ae7a-0b8196e20de9,P043,Translation With No Dialect or Register,localization,easy,default
+349cc89c-14f3-4799-8b0c-96decc076e7c,P044,UI String Translation That Breaks Placeholders,localization,medium,default
+1fb7d857-4c5f-4a87-82fb-31e69d2a3661,P045,Blog Name Ideas With No Niche,brainstorming,easy,default
+f0773862-9a0e-4f22-a01f-5a2168162c57,P046,Feature Ideas With No Market or Capacity Limits,brainstorming,medium,default
+02187d2d-d7ad-4459-8b52-480bf87ef751,P047,Single-Label Ticket Tagging for Multi-Issue Tickets,classification,medium,default
+99070b3c-b182-48d7-b12a-526c772ad532,P048,Spam Classifier Vulnerable to Prompt Injection,classification,hard,default
+e9bbc04b-e6a2-4872-bf18-7e571c4d2e93,P049,Contract Risk Summary Without Role or Jurisdiction,legal_finance,medium,default
+ea130133-f3f1-46e3-8b18-74c9841a1d31,P050,Investment Tips With No Profile or Risk Guardrails,legal_finance,medium,default
+119116b0-8aa3-413b-a15b-3e39129aea26,P051,Sorting Function With No Language or Data Spec,coding,easy,default
+18eff60c-c65d-41ea-a766-d18873287373,P052,React Form With No Validation or Accessibility Spec,coding,medium,default
+f8d9c464-3c4e-4fe3-8a65-6ff0779c9503,P053,Address Extraction With Inconsistent Formats,extraction,medium,default
+3e207b5a-b793-497c-8b63-8a0da276b125,P054,Clinical Note Extraction With Privacy and Hallucination Risk,extraction,hard,default
+8a22e2d2-1f1b-4259-a6b8-a91870b13273,P055,Earnings Report Summary With No Prioritization,summarization,medium,default
+f33a1c16-8d30-48c6-96da-251b870a0f03,P056,'Make This Shorter' With No Target,summarization,easy,default
+c85f0447-dea6-4ec9-a723-e267695aacbe,P057,Product Launch Email Without Segment or Offer,marketing,medium,default
+f3176780-4f6b-43c9-ad55-961047d79169,P058,Bakery Slogan With No Brand Information,marketing,easy,default
+29c06685-98e1-456f-ab9d-0681d085b3ab,P059,Legal Threat Response Without Escalation Rules,customer_support,hard,default
+514d956c-c53b-4b45-959c-eff90dc1ff94,P060,Decline Message With No Alternatives or Empathy,customer_support,easy,default
+91b1fe8a-bcfd-4747-81d3-6a40348095fb,P061,Release Notes From Raw Commit Log,technical_writing,medium,default
+e1fb4bcf-57eb-4921-ab73-1c7a466296fd,P062,API Explanation With No Audience,technical_writing,easy,default
+68ebfa53-8451-4f60-86b4-b1c1c2ea75f2,P063,Competitor News Request With No Source,hallucination_guard,medium,default
+c8392f95-1bcb-409d-a013-ae1711bc925a,P064,Local Business Contact Details From Memory,hallucination_guard,easy,default
+4f7d38ad-57eb-4ac1-8a88-0083b4d053a1,P065,Duplicate Detection Query With No Schema,database,medium,default
+280cec1f-fa52-4c29-a236-f38a0db1cc33,P066,Production Cleanup Script With No Safety Rules,database,hard,default
+d23be464-6c4e-42d4-9790-f17013e58be3,P067,Product Page Localization Ignoring Formats,localization,medium,default
+da502edd-9243-40b2-8e43-2925668e57dc,P068,Business Email to Japan With No Honorific Guidance,localization,medium,default
+f662e839-69bc-4da1-a697-47b2f5b831e8,P069,Million-Dollar App Ideas With No Constraints,brainstorming,medium,default
+a465ae20-e864-4cfb-9c67-b773302fde95,P070,"Party Ideas With No Age, Budget, or Venue",brainstorming,easy,default
+0d173899-0526-492b-9919-98fa65c8e8fb,P071,Tweet Emotion Tagging With Undefined Labels,classification,medium,default
+f5ee5c85-eca4-4c88-948e-58d9b98803f7,P072,Toxicity Check With No Threshold or Policy,classification,medium,default
+bf1aac0f-7ead-4fd4-962b-3460c99fccf8,P073,Clause Explanation With No Reader Level or Risk View,legal_finance,medium,default
+2d8b93ca-fbc1-4c05-bdf6-688eb9540e65,P074,Tax Reduction Advice With No Data or Jurisdiction,legal_finance,hard,default
+6da0a681-f64a-4117-b979-f38a8fc33df8,P075,Full E-Commerce Site in One Prompt,coding,hard,default
+b28e8266-24b0-4c74-a829-b4a8f2c4ebb8,P076,File Reader With No Language or Error Handling,coding,easy,default
+24478a54-8e5c-4f4a-8b8b-a0f46ab1cc34,P077,Email Regex With No Validation Policy,coding,medium,default
+8f5bc103-c64a-447d-9643-86b139b01f38,P078,Thread-Safety and Speed Request With No Code,coding,hard,default
+41f24e49-d893-4e3e-ad91-f02f10f29e3c,P079,Phone Number Extraction With Mixed Formats,extraction,easy,default
+dce9b719-7780-4d76-8e86-223c3f2a106c,P080,Table Extraction With Lost Units and Merged Cells,extraction,medium,default
+dcda40d8-a991-4ae3-b936-5374f51ce6ae,P081,Contract Obligations With Contradictory Output Demands,extraction,medium,default
+2c827423-af11-4317-b2a3-c4040f2174ab,P082,Video Summary From a Link With No Transcript,summarization,easy,default
+ddf6e00f-e1c5-4f1c-a8e4-349861d0cbaf,P083,Email Thread Summary That Loses Decisions,summarization,medium,default
+53f22892-5c15-4622-aec4-a172549e3943,P084,SEO Blog Post With Unrealistic Ranking Goal,marketing,medium,default
+e6de797b-590b-4500-90d1-135956f87218,P085,Fear-Based Insurance Ad Targeting Seniors,marketing,hard,default
+6fa1f4d6-cbd7-4aa6-a2be-5369b48fb14d,P086,FAQ Answer With No Knowledge Base,customer_support,easy,default
+f5dcc59a-7269-4534-b5bc-ba98e76187ef,P087,Ticket Escalation Decision With No Criteria,customer_support,medium,default
+7d2b2ec8-46f0-4d88-84ec-3bac40947f4e,P088,Migration Guide With No Version or Rollback Info,technical_writing,medium,default
+3f2222f6-8c4b-44d0-8d9d-fdbe03090023,P089,Function Documentation With No Format,technical_writing,easy,default
+85043d00-32bc-4cf5-9e34-7096eb5a475f,P090,Future Statistic Requested as Fact,hallucination_guard,easy,default
+e7469ed8-727b-47b3-8049-f4167aad9e2d,P091,Summary of an Attachment That Was Never Provided,hallucination_guard,hard,default
+90b172c8-8f53-4e05-93c1-1ab4dd3e1aa3,P092,School Database Design With No Requirements,database,medium,default
+b9391482-8e09-457f-8bf8-8d503de43baf,P093,Ambiguous Natural-Language Sales Query,database,easy,default
+f871c552-e169-4556-a703-2436cb506e88,P094,Code-Mixed Review Translation for Analysis,localization,medium,default
+fab76d6c-528f-46ce-b632-4404320380b4,P095,Team-Building Ideas With No Group Context,brainstorming,easy,default
+070f95bd-9c04-446c-a532-1285146547f6,P096,Email Routing With Overlapping Departments,classification,medium,default
+53d2d310-d38f-4d77-9223-0a1a555665c9,P097,Candidate Screening With Bias Risk,classification,hard,default
+631cd5ab-e7aa-4198-b785-3429d5ca6028,P098,Freelance Contract With No Parties or Terms,legal_finance,medium,default
+095b36af-e19e-4fc4-a192-4efebaed9c69,P099,Fraud Flagging With No Criteria and Profiling Risk,legal_finance,hard,default
+76c215aa-35fa-4c34-b7a1-fb8965b99330,P100,Unit Tests Requested With No Code or Framework,coding,medium,default
+3b02a3e7-5adc-4a19-87aa-4b278f94dc8b,P101,Prime Checker With No Edge Cases or Performance Needs,coding,easy,default
+2904ae2f-76e5-48a3-b965-248d633b197a,P102,Bulk File Rename Script With No Safety Rules,coding,medium,default
+8fe49f30-e9c8-4ba1-806f-6a7d62802097,P103,Password Storage Request Using the Wrong Concept,coding,hard,default
+5d593cab-054f-490e-b687-063e0a525338,P104,Price Extraction With Mixed Currencies and Discounts,extraction,easy,default
+da9a3a3d-2cab-418f-8319-61c37c0a8917,P105,Action Items With No Owner or Date Normalization,extraction,medium,default
+83e189d9-7ebf-4d2d-8ba7-49494e516ca3,P106,Neutral Summary Mixed With Opinion and Persuasion,summarization,hard,default
+04fa78c4-6847-492e-bdcf-e063309a0e59,P107,Chat Log Summary Without Participants or Outcomes,summarization,medium,default
+568f0269-5608-4dcf-9504-dd633763546e,P108,Headphone Description With No Specs or Audience,marketing,easy,default
+ce03c38e-8cc4-4bef-b797-92aa1cfa84eb,P109,Google Ads Copy Ignoring Character Limits,marketing,medium,default
+bd1ef3b1-7053-4781-ac8a-255f0baeeba7,P110,Support Chatbot System Prompt With No Boundaries,customer_support,medium,default
+4cef4681-e8f4-437b-b0ff-013c2a619062,P111,Reply Disclosing Account Details to Unverified Caller,customer_support,hard,default
+82935d1c-f4ec-4eeb-80bc-49adcda0aa01,P112,Wi-Fi Troubleshooting Guide With No Branching,technical_writing,medium,default
+ebc6aebb-71d5-4893-b068-9731afb18c64,P113,Commit Message With No Diff or Convention,technical_writing,easy,default
+0f23131a-edd3-41c5-91d1-fadc3b2828ef,P114,Latest Framework Version Asked Without a Source,hallucination_guard,medium,default
+c4aa2121-3cb2-4a6d-b4e4-f9ea62338664,P115,Biography of a Little-Known Person,hallucination_guard,hard,default
+9d05e4b9-b543-4e8c-b96d-c9e86155cf88,P116,Index Recommendations With No Workload Information,database,medium,default
+4990bbce-15f2-45db-afc8-fdc30351a876,P117,Join Query With Unspecified Join Type,database,easy,default
+76dd363e-dcf6-4571-9a6b-7b01775aeea5,P118,Legal Terms Translation to Arabic Without RTL or Review Rules,localization,medium,default
+af8a219c-c5db-401a-b0a9-ead3b977a89e,P119,Chinese Translation With No Script or Dialect,localization,easy,default
+169de1f3-1046-4d5d-b6a6-0989cf0b62f3,P120,Product Names With No Naming Criteria,brainstorming,medium,default
+a42c9708-85af-4a70-98ee-35a9bd0e5fe3,P121,Competitor Takedown Tactics With No Ethical Bounds,brainstorming,hard,default
+93292de2-e84e-4a67-bff2-b35fcc5d304c,P122,Email Importance With No Criteria,classification,easy,default
+2c3361ed-2427-478e-81c9-daa8c7b27aa7,P123,Ticket Language Tagging on Mixed-Language Text,classification,medium,default
+4e0c387f-2b06-4fb7-bfed-9101032d0be4,P124,Privacy Policy Summary That Hides Risks,legal_finance,medium,default
+f08c7b69-d818-4264-b4d7-19ee8c71dd7b,P125,Loan Decision With Protected Attributes and No Policy,legal_finance,hard,default
+6ba6722b-889b-45d8-9d45-d006ee64b98e,P126,Palindrome Checker With No Normalization Rules,coding,easy,default
+49896442-bfca-4a81-a51d-9a1e950ae01a,P127,API Fetch Script Ignoring Pagination and Rate Limits,coding,medium,default
+4b539d90-0987-462b-b741-ff250363c8c7,P128,Comment Sanitizer Built With Naive Regex,coding,hard,default
+9f643d07-184f-42d8-aabe-3f08b542347a,P129,Name Extraction With Titles and Duplicates,extraction,easy,default
+36b5da2d-0706-4ded-ac0b-53223401137e,P130,Job Posting Extraction With Ranges and Optional Fields,extraction,medium,default
+478c978b-84b2-4672-909c-6d5c20cc4ad6,P131,Receipt Extraction With Conflicting Totals,extraction,hard,default
+dad92379-d893-4f35-9951-02ebe8b8c573,P132,Textbook Chapter Summary With No Learner Level,summarization,easy,default
+2c5b0659-f3c7-4a34-996d-8a7987d3e333,P133,Sales Call Summary for CRM With No Fields,summarization,medium,default
+1c3242ad-f957-4085-8e90-2111842b281f,P134,Event Tweet With No Details or Constraints,marketing,easy,default
+536c3866-29bc-49da-ba5f-01d3f892af70,P135,Competitor Comparison Page With Unverified Claims,marketing,medium,default
+fdd480f4-7e7e-4e12-a61c-312fc6708b4e,P136,Outage Apology With No Facts or Commitments,customer_support,easy,default
+bd759921-1fcf-4caa-b583-a049694cef77,P137,Cancellation Reply That Uses Dark Patterns,customer_support,medium,default
+ac263950-8c90-4eae-9aa2-bf7f7dc9bfe7,P138,Password Reset Instructions With Missing Context,technical_writing,easy,default
+f8b0cf33-5057-4d19-a404-f268e10f9179,P139,Incident Postmortem With Blame and No Timeline,technical_writing,medium,default
+bb3fca34-9d74-4927-a889-21309feb7328,P140,Exact Quote Requested From Memory,hallucination_guard,easy,default
+1c7773b7-0ee9-46e9-ac76-61f607fd94a5,P141,Presentation Statistics With No Sources,hallucination_guard,medium,default
+80484d9b-7165-4f4b-b59d-418c6395bfe7,P142,Row Count Query With No Table or Filter,database,easy,default
+c05bd875-3358-46fa-a711-993359480fc2,P143,Oracle to PostgreSQL Conversion With No Context,database,medium,default
+99868091-9649-4899-b408-c1ccef92aa95,P144,Date and Time Strings Not Adapted to Locale,localization,easy,default
+0e5f81fc-6780-41ee-8586-543e16e1830a,P145,Multi-Region Campaign Localization Ignoring Cultural Fit,localization,hard,default
+7c1ef560-2a38-48c4-8816-63e117122fe8,P146,Gift Ideas With No Recipient or Budget,brainstorming,easy,default
+8ffa2f40-e7b9-47ce-b797-4511551a0104,P147,News Topic Tagging With Single Label Only,classification,medium,default
+1d5cdaad-3a21-46fa-8afd-b249ee7431b0,P148,PII Detection That Repeats the Sensitive Data,classification,hard,default
+0a19648a-6e15-42b9-9b45-03bd5e03546a,P149,GDPR Compliance Checklist With No Business Context,legal_finance,medium,default
+c6620f88-41b6-4e4d-be33-407f4b95b30e,P150,Crypto Investment Pitch With Guaranteed Returns,legal_finance,hard,default
+c3d9f587-447e-458f-8a13-d8cfb8afac51,P151,Average Function With No Empty-Input Handling,coding,easy,default
+cb70a55b-95b6-4d9b-b9e5-eb9b783b6230,P152,CSV to JSON Converter With Naive Parsing,coding,medium,default
+dc8b03b4-b911-4e10-bdb0-2df3733008de,P153,Rate Limiter With No Algorithm or Deployment Context,coding,hard,default
+d4dc7a9e-cf19-48ab-a692-bc8b3dcd5e5f,P154,Keyword Extraction With Stopwords and No Count,extraction,easy,default
+7bda481c-fa08-4432-8e6a-6020bb03731a,P155,Pros and Cons From Reviews Without Attribution or Counts,extraction,medium,default
+7d08efb3-be86-494e-9ccb-ee998603a614,P156,Scanned Form Extraction That Fills In Missing Values,extraction,hard,default
+d7f0cc33-12f6-49f1-8231-838f362f2306,P157,YouTube Channel Ideas With No Niche or Resources,brainstorming,easy,default
+767c1e2b-fb63-4ff7-803f-5bee10456e9c,P158,Interview Synthesis That Erases Minority Views,summarization,medium,default
+a7f30aee-7bb0-460f-a48e-20c999b056ce,P159,Medical Paper Summary That Gives Treatment Advice,summarization,hard,default
+cb224df1-69e8-4ecf-962d-47e0c11e09e6,P160,Gym Tagline With No Positioning,marketing,easy,default
+dc538436-927d-4210-965d-7a4669c658d5,P161,Funding Announcement With Invented Facts,marketing,medium,default
+3a404a83-ef96-4d69-8872-573989ed6fd3,P162,Delayed Refund Email With No Timeline,customer_support,easy,default
+6af80949-f898-403c-88a0-9c72afda2cba,P163,Matching a Rude Customer's Tone,customer_support,medium,default
+0774fe06-d389-452a-b165-1767672c3fd0,P164,Architecture Document With No System Details,technical_writing,medium,default
+65423a84-6e18-474f-9848-d9e00aab35c3,P165,Login Error Message That Leaks Account Information,technical_writing,easy,default
+20b6998e-08c6-4b11-b797-87277dd46792,P166,Plot Summary of a Book That Does Not Exist,hallucination_guard,easy,default
+68dea062-c743-489d-bd33-0019346a4be9,P167,Usage Example for a Library Method That Does Not Exist,hallucination_guard,medium,default
+34dade9f-7679-44d4-8a07-42376e2c46e8,P168,Competitor's Internal Data Requested,hallucination_guard,hard,default
+442440c4-3acc-43c3-8ee4-4857f36f760e,P169,Second Highest Salary With Ties and NULL Pitfalls,database,medium,default
+c3004b0b-cdb3-4604-9020-3a8729c90662,P170,Multi-Tenant Schema With Weak Isolation,database,hard,default
+2da94fd8-fb4b-4246-a0bc-a16408eceef9,P171,Brand Names and UI Labels Translated,localization,easy,default
+18c1aa7e-900b-4718-bf82-bfb0f8a9730c,P172,Subtitle Translation Ignoring Timing and Line Limits,localization,medium,default
+d35789ef-fa0e-4c80-a459-1aa421fb31f4,P173,Loan Comparison With No Inputs or Fees,legal_finance,medium,default
+fb6346be-eb7d-43af-8218-0969a960d4d1,P174,Mass Layoff Plan Designed to Avoid Obligations,legal_finance,hard,default
+dacf10fa-6f05-43bb-81d4-e8674b3239b2,P175,Aspect-Based Sentiment With Sarcasm and Negation,classification,hard,default
+ad382352-622b-4ede-817a-fd739e274226,P176,Factorial Function With No Input Rules,coding,easy,default
+38b029b1-c88c-4fb1-b568-1e27fe1fb908,P177,Database Backup Script With No Safety or Verification,coding,medium,default
+797f8d07-0c5d-41e2-8817-7cd1e68cbe05,P178,Money Transfer Function With Race Conditions,coding,hard,default
+24f8f867-8d4a-4703-a80d-3b1f7e1777d8,P179,Email Extraction With Obfuscation and Duplicates,extraction,easy,default
+23e81119-21cb-49a1-b26a-f5bfe90ec5f3,P180,Product Specs With Mixed Units,extraction,medium,default
+e88b5028-47e6-4a2f-8161-fded495127bc,P181,Contract Parties With Defined Terms and Aliases,extraction,hard,default
+8927ae50-ab50-4ab3-8026-3204877bea23,P182,Thread Summary Request With No Format,summarization,easy,default
+5505c828-da32-4ba3-a32a-c26e5b4070b2,P183,Court Judgment Summary That Misstates the Outcome,summarization,medium,default
+55be3154-a850-4e33-b61b-4dc20e04ba4f,P184,Merging Conflicting Reports Into One Narrative,summarization,hard,default
+e479a5c6-8ace-4b78-9179-de58cfaa7fed,P185,About Us Page With Invented Company Facts,marketing,easy,default
+db724980-c4dc-4852-837b-474aef53ce10,P186,Monthly Newsletter With No Focus or Segment,marketing,medium,default
+a6a69a97-27ee-42dd-9f61-8353b735fc8b,P187,Fabricated Customer Testimonials,marketing,hard,default
+893fb9ee-fb8a-48f9-b063-250f7a12e53a,P188,Welcome Email With No Onboarding Content,customer_support,easy,default
+ce36898e-a3df-48c9-bf82-15485280211c,P189,Call Summary for Next Agent Missing Commitments,customer_support,medium,default
+19beb156-36ee-4481-998d-61f90e6b3f1a,P190,Late-Payment Template Sent to a Distressed Customer,customer_support,hard,default
+2b7d3b64-6907-40d4-9ffd-0ef6f0516b65,P191,Git Tutorial With No Audience or Scope,technical_writing,easy,default
+73a842c3-8053-4457-ac2e-4d40d8de5a4b,P192,Database Restart Runbook With No Safeguards,technical_writing,medium,default
+5b48491d-fe75-4079-85ba-d80114c0b458,P193,Security Advisory With Exploit Details and No Fix Guidance,technical_writing,hard,default
+4a23a507-d71e-40c9-82f5-110fdb1d7424,P194,Live Weather Requested With No Data Source,hallucination_guard,easy,default
+9377efa3-2a2f-4fc4-975b-517aa99f4606,P195,Side Effects of a Drug That Cannot Be Verified,hallucination_guard,medium,default
+50563002-9e60-4140-b43a-2f91e6ebec0e,P196,Latest Order Per Customer With Ties and Dialect Issues,database,easy,default
+6262539e-faae-46de-8740-5e19732099f8,P197,Inventory Stored Procedure Without Concurrency Safety,database,medium,default
+5e92d240-2f63-4951-949d-52e14f058114,P198,Cheers Translated Without Context,localization,easy,default
+6d03d51e-dd47-488e-809a-d83fefb41a69,P199,Cost-Cutting Ideas With No Guardrails,brainstorming,medium,default
+8b64c9c6-b4ea-45fc-a704-5375881f3cd8,P200,NDA Review With a Request for a Safety Verdict,legal_finance,medium,default
+106e362a-644f-4bbe-a2ad-9a2b429135b5,P201,String Reversal With No Language or Unicode Rules,coding,easy,default
+4d472c32-3190-4cb5-b784-87a1780160a1,P202,Retry Decorator That Retries Forever,coding,medium,default
+a75d924f-47b1-4cad-a88c-6e49f680e2c2,P203,Calculator Endpoint Built on eval(),coding,hard,default
+172d353f-b1d2-4815-a557-283ce5c281fc,P204,Hashtag and Mention Extraction With Noise,extraction,easy,default
+d25d4885-fe7e-42ad-9843-38643e8742e7,P205,Education History With Inconsistent Degrees and Grades,extraction,medium,default
+8d4bc113-5046-4f9b-ad62-6e10145f2552,P206,Knowledge Graph Triples With Pronouns and Contradictions,extraction,hard,default
+0a24fcdd-8c36-4f76-a467-3adc8df21634,P207,Podcast Transcript Summary Full of Banter,summarization,easy,default
+044b4566-a7d0-4341-a4df-925bc94a45da,P208,Pull Request Summary That Hides Risk,summarization,medium,default
+e90c8f6f-3408-42e3-b50f-d27bf4309da5,P209,Yoga Class Ad With Health Claims and No Offer,marketing,easy,default
+11b9bf1d-7797-4757-9214-291e3499f3dc,P210,Press Release With Invented Quotes and Statistics,marketing,medium,default
+eab0b88c-beb3-43e0-8620-17638509e29c,P211,Where Is My Order Reply With No Order Data,customer_support,easy,default
+c0cbee6e-98a2-437a-898a-fc24bfc48a01,P212,Discount Request Reply That Invents a Coupon,customer_support,medium,default
+905dabed-7b12-44dc-b905-5367ecfe0276,P213,App FAQ With Invented Features,technical_writing,easy,default
+23235b5c-2817-4745-a64a-9612316ab50d,P214,Error Code Reference With Invented Codes,technical_writing,medium,default
+26ea13ce-cb82-4269-a9ce-dab0177cba21,P215,Library Recommendation With a Nonexistent Package,hallucination_guard,medium,default
+22068f8f-1d36-4f0a-b2ed-8f6a82b8fcfc,P216,Research Results Fabricated Before the Experiment,hallucination_guard,hard,default
+9d86d4d8-8731-4657-9d1d-9f83ad6472c6,P217,Oldest Employee Query With NULLs and Ties,database,easy,default
+c3b0bde4-0a0c-4f59-88ef-2518e7486d07,P218,Monthly Active Users Counted as Events,database,medium,default
+fbbce562-3efc-4631-82bb-184990b6004e,P219,Adding a Required Column to a Huge Live Table,database,hard,default
+627cb97b-8b39-43cf-acfb-1f2467370360,P220,US Recipe Localized for UK Readers by Spelling Only,localization,easy,default
+9d03de61-f8e0-45b2-a812-e9ebdc99410e,P221,Interview Questions With Legal and Relevance Problems,brainstorming,medium,default
+60c391c7-fa57-415c-a393-aabb48d13cb0,P222,Expense Categorization With No Category List,classification,easy,default
+9342bc33-abf1-459c-b006-35163562173c,P223,Chatbot Intent Detection With Multiple Intents,classification,medium,default
+91e8adbc-3f7f-4c35-9335-fecc775aaaaa,P224,Course Refund Policy With Invented Terms,legal_finance,medium,default
+aac77b8a-57dc-4735-a8d3-241c9e078f44,P225,Revenue Disclosure Rewritten to Mislead Auditors,legal_finance,hard,default
+3d8cfedc-0b9f-4e28-a7fa-d6abd406316f,P226,Fibonacci Function With No Input Bounds,coding,easy,default
+4f5f99e5-dc6d-44bd-a5b7-5019de721c7a,P227,Log Parser With No Format or Scale Spec,coding,medium,default
+16db470f-7f3c-424c-b4a4-d163f25dc0a7,P228,File Upload Handler Trusting the Client,coding,hard,default
+5b20d208-b755-4ffb-8f5a-ecefb2780824,P229,URL Extraction With Trailing Punctuation,extraction,easy,default
+fe6aebcc-4d92-4685-b921-aefb7ebc9aee,P230,Q&A Pair Extraction From a Transcript With Rhetorical Questions,extraction,medium,default
+06b39b9c-c8ba-4616-add8-65fb1ab404ce,P231,Medication Table From Patient Notes With Dose Changes,extraction,hard,default
+2c4446cb-71db-428e-96e0-9daea5173be3,P232,Changelog Summary With No Audience Filter,summarization,medium,default
+20c5cb2b-e081-47e0-9d6d-24c9d7d2e491,P233,Abstract Written From a Paper's Title Only,summarization,easy,default
+3943ba9b-1df9-4bab-8b42-e247b495a1b7,P234,Webinar Invitation Email With No Details,marketing,easy,default
+898de7da-55a4-450a-9cce-902e695b2661,P235,Influencer Brief With No Disclosure or Deliverables,marketing,medium,default
+87dad614-bc02-46ed-ac14-1f63678c30c4,P236,Product Defect Complaint With Possible Safety Risk,customer_support,hard,default
+5959277b-0999-46f1-8e5e-fcd8a79545be,P237,Environment Variable Docs That Expose Secrets,technical_writing,medium,default
+278c0a45-07c9-40e4-80fd-4912aa2e94bd,P238,Onboarding Doc With No Role or Order of Steps,technical_writing,medium,default
+bf67f8f0-247d-4edd-9495-96afc19b49a7,P239,Legal Deadline Stated With Certainty,hallucination_guard,hard,default
+656048ae-f97b-4430-be65-0cf22dce94aa,P240,Summary of a Webpage the Model Cannot Open,hallucination_guard,easy,default
+624562b0-f342-4cac-8f1d-3f5e10e2890f,P241,Fabricated Historical Detail Through a Leading Question,hallucination_guard,medium,default
+cb3470fc-546b-4945-800b-835142e1f45b,P242,Running Total Query With No Ordering or Partition Rules,database,medium,default
+bc7fc005-1503-4e6b-82ce-e823d858265a,P243,Data Anonymization Script That Is Easily Reversible,database,hard,default
+06b27b81-f3fe-4cfb-be48-e03649f04f81,P244,Currency and Pricing Display for Multiple Markets,localization,medium,default
+264533eb-ae9f-4a41-8bb4-cfb2d21ea757,P245,Error Messages Translated Without Context for Developers,localization,easy,default
+bceb32ec-6cbd-437c-9e80-85a94dc4c4fb,P246,Names for Characters in a Story Without Cultural Context,brainstorming,easy,default
+b6fa3511-81e0-42c3-b979-ebc77313ead8,P247,Support Ticket Priority With Customer-Supplied Urgency,classification,medium,default
+5fc5f480-2e7b-4c0e-840f-f5b99424fb86,P248,Content Moderation of Self-Harm Posts With Binary Labels,classification,hard,default
+e6ce650a-9f3f-40c0-825c-14ec3238a5b2,P249,Invoice Dispute Letter Citing Laws That May Not Apply,legal_finance,medium,default
+a190df1c-109e-4eda-9182-09496cef1ecb,P250,End-to-End Report Request Combining Many Tasks,workflow,hard,default
