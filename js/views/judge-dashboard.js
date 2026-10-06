@@ -979,6 +979,20 @@ window.seedDefaultQuestions = async () => {
   }
 };
 
+window.saveDatasetTag = async () => {
+  const input = document.getElementById('inputActiveDatasetTag');
+  if (!input) return;
+  const tag = input.value.trim() || 'default';
+  
+  const res = await store.updateArenaConfig({ active_dataset_tag: tag });
+  if (res.success) {
+    if (judgeOverviewCache) judgeOverviewCache.active_dataset_tag = tag;
+    Router.showToast(`Active dataset tag updated to '${tag}'`, 'green');
+  } else {
+    Router.showToast(res.error || 'Failed to update dataset tag', 'red');
+  }
+};
+
 function renderQuestionsTabContent(prompts) {
   const container = document.getElementById('judgeQuestionsContainer');
   if (!container) return;
@@ -994,9 +1008,11 @@ function renderQuestionsTabContent(prompts) {
       const badSnippet = (p.original_bad_prompt || '').substring(0, 40) + '...';
       const diffColor = p.difficulty === 'hard' ? 'var(--red)' : p.difficulty === 'medium' ? 'var(--amber)' : 'var(--green)';
       const diffLabel = p.difficulty ? p.difficulty.toUpperCase() : 'MEDIUM';
+      const tagLabel = p.dataset_tag && p.dataset_tag !== 'default' ? p.dataset_tag : 'default';
       rowsHtml += `
         <tr>
           <td style="font-family:var(--mono); font-weight:700;">${escapeHtml(p.code)}</td>
+          <td style="font-family:var(--mono); font-size:10px; color:var(--cyan);">${escapeHtml(tagLabel)}</td>
           <td style="font-weight:600; color:var(--text);">${escapeHtml(p.title)}</td>
           <td class="mono-text" style="font-size:12px; color:var(--muted);">${escapeHtml(p.category)}</td>
           <td>
@@ -1046,6 +1062,17 @@ function renderQuestionsTabContent(prompts) {
         </div>
       </div>
 
+      <div class="glass-card" style="padding:16px; margin-bottom:20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; background:rgba(0,243,255,0.02); border-color:var(--line-subtle);">
+        <div style="flex-grow:1;">
+          <h3 style="font-family:var(--mono); font-size:12px; font-weight:700; color:var(--cyan); margin:0 0 4px 0;">ACTIVE DATASET TAG</h3>
+          <p style="font-size:12px; color:var(--muted); margin:0; line-height:1.4;">Only questions matching this tag will be assigned to teams when the Arena starts. Leave as <b>default</b> to use the standard pool.</p>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="inputActiveDatasetTag" class="neura-input" value="${escapeHtml(judgeOverviewCache?.active_dataset_tag || 'default')}" style="width:160px; padding:6px 10px; font-size:13px;" placeholder="e.g. set-1">
+          <button class="btn btn-sm" onclick="window.saveDatasetTag()" style="padding:6px 16px; font-weight:700;">SAVE</button>
+        </div>
+      </div>
+
       <div style="display:flex; gap:10px; margin-bottom:20px;">
         <button class="btn btn-sm ${btnAll}" onclick="window.setQuestionsFilter('all')" style="padding:6px 14px;">ALL</button>
         <button class="btn btn-sm ${btnEasy}" onclick="window.setQuestionsFilter('easy')" style="padding:6px 14px;">EASY</button>
@@ -1057,6 +1084,7 @@ function renderQuestionsTabContent(prompts) {
         <thead>
           <tr>
             <th>Code</th>
+            <th>Tag</th>
             <th>Title</th>
             <th>Category</th>
             <th>Difficulty</th>

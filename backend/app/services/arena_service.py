@@ -824,6 +824,7 @@ class ArenaService:
             "status": conf.status,
             "is_results_released": getattr(conf, 'is_results_released', False),
             "started_at": conf.started_at.isoformat() if conf.started_at else None,
+            "active_dataset_tag": getattr(conf, 'active_dataset_tag', None),
             "metrics": metrics_dict,
             "stats": metrics_dict,
             "submissions": sub_list,

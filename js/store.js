@@ -571,6 +571,23 @@ class Store {
     }
   }
 
+  async updateArenaConfig(payload) {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/arena/config`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        return { success: true, ...data };
+      }
+      return { success: false, error: data.detail || 'Failed to update config' };
+    } catch (e) {
+      return { success: false, error: 'Connection error' };
+    }
+  }
+
   async eliminateTeam(teamId, reason) {
     try {
       const resp = await fetch(`${API_BASE_URL}/arena/judge/eliminate`, {
