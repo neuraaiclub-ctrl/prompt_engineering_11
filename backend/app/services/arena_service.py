@@ -57,10 +57,12 @@ class ArenaService:
             return db.query(Team).filter(Team.id == membership.team_id).first()
         return db.query(Team).filter(func.lower(Team.name) == func.lower(user.name)).first()
 
-    @staticmethod
-    def assign_unique_prompts_for_team(db: Session, team: Team) -> List[str]:
-        all_prompts = db.query(PromptBankItem).order_by(PromptBankItem.code.asc()).all()
-        if not all_prompts:
+    @classmethod
+    def assign_unique_prompts_for_team(cls, db: Session, team: Team) -> List[str]:
+        conf = cls.get_or_create_config(db)
+        active_tag = conf.active_dataset_tag
+        all_prompts = db.query(PromptBankItem).filter(PromptBankItem.dataset_tag == active_tag).order_by(PromptBankItem.code.asc()).all()
+        if not all_prompts and active_tag == "default":
             from app.core.arena_seed_data import ARENA_PROMPT_BANK
             for p_data in ARENA_PROMPT_BANK:
                 item = PromptBankItem(
@@ -75,7 +77,7 @@ class ArenaService:
                 )
                 db.add(item)
             db.commit()
-            all_prompts = db.query(PromptBankItem).order_by(PromptBankItem.code.asc()).all()
+            all_prompts = db.query(PromptBankItem).filter(PromptBankItem.dataset_tag == "default").order_by(PromptBankItem.code.asc()).all()
 
         if not all_prompts:
             raise HTTPException(status_code=500, detail="Prompt bank is empty. Seed initial prompt data.")
@@ -91,17 +93,46 @@ class ArenaService:
             if s.prompt_ids and s.team_id != team.id
         }
 
+        easy_prompts = [p for p in all_prompts if p.difficulty.lower() == "easy"]
+        medium_prompts = [p for p in all_prompts if p.difficulty.lower() == "medium"]
+        hard_prompts = [p for p in all_prompts if p.difficulty.lower() == "hard"]
+
         seed_str = f"{team.id}_{team.name}_{team.invite_code}"
         salt_idx = 0
         while True:
             cur_seed_str = f"{seed_str}_{salt_idx}" if salt_idx > 0 else seed_str
             seed_val = int(hashlib.sha256(cur_seed_str.encode()).hexdigest()[:8], 16)
             rng = random.Random(seed_val)
-            sampled = rng.sample(all_prompts, 5)
+            
+            if len(easy_prompts) >= 1 and len(medium_prompts) >= 3 and len(hard_prompts) >= 1:
+                sampled = (
+                    rng.sample(easy_prompts, 1) +
+                    rng.sample(medium_prompts, 3) +
+                    rng.sample(hard_prompts, 1)
+                )
+                rng.shuffle(sampled)
+            else:
+                sampled = rng.sample(all_prompts, 5)
+                
             candidate = [p.id for p in sampled]
             if tuple(candidate) not in assigned_sets or salt_idx > 1000:
                 return candidate
             salt_idx += 1
+
+    @classmethod
+    def update_config(cls, db: Session, current_user: User, payload: Any) -> Dict[str, Any]:
+        conf = cls.get_or_create_config(db)
+        if payload.desktop_required is not None: conf.desktop_required = payload.desktop_required
+        if payload.fullscreen_required is not None: conf.fullscreen_required = payload.fullscreen_required
+        if payload.copy_paste_allowed is not None: conf.copy_paste_allowed = payload.copy_paste_allowed
+        if payload.tab_switch_monitoring is not None: conf.tab_switch_monitoring = payload.tab_switch_monitoring
+        if payload.max_allowed_violations is not None: conf.max_allowed_violations = payload.max_allowed_violations
+        if payload.active_dataset_tag is not None: conf.active_dataset_tag = payload.active_dataset_tag
+        db.commit()
+        db.refresh(conf)
+        return {"success": True, "message": "Arena config updated successfully.", "config": {
+            "active_dataset_tag": conf.active_dataset_tag
+        }}
 
     @classmethod
     def get_status(cls, db: Session, current_user: Optional[User] = None) -> Dict[str, Any]:

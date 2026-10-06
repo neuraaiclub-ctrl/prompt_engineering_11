@@ -55,3 +55,4 @@ class ArenaConfigUpdateRequest(BaseModel):
     copy_paste_allowed: Optional[bool] = None
     tab_switch_monitoring: Optional[bool] = None
     max_allowed_violations: Optional[int] = None
+    active_dataset_tag: Optional[str] = None

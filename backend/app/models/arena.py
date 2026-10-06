@@ -9,6 +9,7 @@ class PromptBankItem(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     code = Column(String, unique=True, nullable=False, index=True) # e.g. P001, P002...
+    dataset_tag = Column(String, default="default", nullable=False, index=True)
     category = Column(String, nullable=False) # marketing, coding, extraction, etc.
     title = Column(String, nullable=False)
     difficulty = Column(String, default="medium") # easy, medium, hard
@@ -103,6 +104,7 @@ class ArenaConfig(Base):
     started_at = Column(DateTime, nullable=True)
     ended_at = Column(DateTime, nullable=True)
     results_released_at = Column(DateTime, nullable=True)
+    active_dataset_tag = Column(String, default="default", nullable=False)
     
     # Configurable rules
     challenges_count = Column(Integer, default=5, nullable=False)

@@ -12,6 +12,7 @@ router = APIRouter(prefix="/prompt-bank", tags=["Admin Content Management"])
 
 class PromptBankItemSchema(BaseModel):
     code: str
+    dataset_tag: Optional[str] = "default"
     category: str
     title: str
     difficulty: Optional[str] = "medium"
@@ -42,6 +43,7 @@ def create_prompt_bank_item(
         
     item = PromptBankItem(
         code=payload.code,
+        dataset_tag=payload.dataset_tag,
         category=payload.category,
         title=payload.title,
         difficulty=payload.difficulty,
@@ -72,12 +74,12 @@ from fastapi.responses import StreamingResponse
 def get_demo_csv():
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(["code", "category", "title", "difficulty", "original_bad_prompt", "bad_output_evidence", "flawed_reasons", "expected_improvements"])
-    writer.writerow(["DEMO01", "Coding", "SQL Query Fix", "medium", "write me a sql for users", "It returns everything without limits", "Lack of constraints|Vague", "Add LIMIT|Specify columns"])
-    writer.writerow(["DEMO02", "Writing", "Blog Post", "easy", "write a blog about AI", "Too short and generic", "No target audience|Too broad", "Specify word count|Define audience"])
-    writer.writerow(["DEMO03", "Logic", "Math Problem", "hard", "solve 2+2", "Too simple", "No steps requested", "Ask for reasoning steps"])
-    writer.writerow(["DEMO04", "Data", "Extract JSON", "medium", "extract names", "Returns unstructured text", "No format specified", "Demand valid JSON schema"])
-    writer.writerow(["DEMO05", "Creative", "Poem", "easy", "write poem", "Boring style", "No tone specified", "Specify tone and structure"])
+    writer.writerow(["code", "dataset_tag", "category", "title", "difficulty", "original_bad_prompt", "bad_output_evidence", "flawed_reasons", "expected_improvements"])
+    writer.writerow(["DEMO01", "default", "Coding", "SQL Query Fix", "medium", "write me a sql for users", "It returns everything without limits", "Lack of constraints|Vague", "Add LIMIT|Specify columns"])
+    writer.writerow(["DEMO02", "default", "Writing", "Blog Post", "easy", "write a blog about AI", "Too short and generic", "No target audience|Too broad", "Specify word count|Define audience"])
+    writer.writerow(["DEMO03", "default", "Logic", "Math Problem", "hard", "solve 2+2", "Too simple", "No steps requested", "Ask for reasoning steps"])
+    writer.writerow(["DEMO04", "default", "Data", "Extract JSON", "medium", "extract names", "Returns unstructured text", "No format specified", "Demand valid JSON schema"])
+    writer.writerow(["DEMO05", "default", "Creative", "Poem", "easy", "write poem", "Boring style", "No tone specified", "Specify tone and structure"])
     
     response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = "attachment; filename=demo_prompts.csv"
@@ -104,6 +106,7 @@ def upload_csv(
         expected = row.get("expected_improvements", "").split("|") if row.get("expected_improvements") else []
         
         if existing:
+            existing.dataset_tag = row.get("dataset_tag", existing.dataset_tag)
             existing.category = row.get("category", existing.category)
             existing.title = row.get("title", existing.title)
             existing.difficulty = row.get("difficulty", existing.difficulty)
@@ -114,6 +117,7 @@ def upload_csv(
         else:
             new_item = PromptBankItem(
                 code=row["code"],
+                dataset_tag=row.get("dataset_tag", "default"),
                 category=row.get("category", "General"),
                 title=row["title"],
                 difficulty=row.get("difficulty", "medium"),
@@ -171,6 +175,7 @@ def update_prompt_bank_item(
         raise HTTPException(status_code=400, detail=f"Code {payload.code} is used by another prompt.")
 
     item.code = payload.code
+    item.dataset_tag = payload.dataset_tag
     item.category = payload.category
     item.title = payload.title
     item.difficulty = payload.difficulty

@@ -70,6 +70,17 @@ def release_arena_results(
     """
     return ArenaService.release_results(db, current_user)
 
+@router.put("/config")
+def update_arena_config(
+    payload: ArenaConfigUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["admin", "judge"]))
+):
+    """
+    Judge/Admin endpoint to update arena configuration, including the active dataset tag.
+    """
+    return ArenaService.update_config(db, current_user, payload)
+
 # ---------------------------------------------------------------------------
 # Participant Challenge & Submission Endpoints
 # ---------------------------------------------------------------------------
