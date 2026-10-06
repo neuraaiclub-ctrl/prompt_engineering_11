@@ -20,5 +20,8 @@
   "homepage": "https://github.com/neuraaiclub-ctrl/prompt_engineering_11#readme",
   "devDependencies": {
     "eslint": "^10.11.0"
+  },
+  "dependencies": {
+    "playwright": "^1.63.0"
   }
 }

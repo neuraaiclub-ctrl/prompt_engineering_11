@@ -341,11 +341,11 @@ class Store {
       if (resp.ok) {
         return await resp.json();
       }
-      return { success: false, status: 'waiting', error: 'Server returned error status' };
+      return { success: false, status: 'error', error: 'Server returned error status' };
     } catch (e) {
       return {
         success: false,
-        status: 'waiting',
+        status: 'error',
         error: 'Connection error. Ensure backend is reachable.'
       };
     }

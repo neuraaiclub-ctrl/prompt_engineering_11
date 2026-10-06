@@ -41,6 +41,15 @@ def login(request: Request, payload: LoginSchema, db: Session = Depends(get_db))
     if not user:
         user = db.query(User).filter(User.email == email_lower).first()
 
+    # Fallback search by Team invite_code
+    if not user:
+        from app.models.team import Team, TeamMember
+        team = db.query(Team).filter(func.lower(Team.invite_code) == email_lower).first()
+        if team:
+            member = db.query(TeamMember).filter(TeamMember.team_id == team.id).first()
+            if member:
+                user = db.query(User).filter(User.id == member.user_id).first()
+
     if not user or not verify_password(payload.password, user.password_hash):
         log_audit_event(
             db,

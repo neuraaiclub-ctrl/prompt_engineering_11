@@ -1,20 +1,16 @@
+
 import asyncio
 from playwright.async_api import async_playwright
 
-async def check():
+async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch()
         page = await browser.new_page()
-        page.on("console", lambda msg: print(f"[CONSOLE {msg.type}] {msg.text}"))
-        page.on("pageerror", lambda err: print(f"[PAGE ERROR] {err}"))
-        print("Navigating...")
+        page.on('console', lambda msg: print('CONSOLE:', msg.text))
+        page.on('pageerror', lambda err: print('ERROR:', err))
         
-        await page.goto("http://localhost:5500")
-        await page.evaluate("localStorage.setItem('neura_role', 'admin')")
-        await page.evaluate("localStorage.setItem('neura_token', 'mock_token')")
-        await page.goto("http://localhost:5500")
-        
-        await asyncio.sleep(5)
+        await page.goto('http://localhost:8080/arena.html')
+        await page.wait_for_timeout(2000)
         await browser.close()
 
-asyncio.run(check())
+asyncio.run(main())

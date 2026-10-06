@@ -13,8 +13,8 @@ connect_args = {"check_same_thread": False} if db_url.startswith("sqlite") else 
 engine_kwargs = {"connect_args": connect_args, "echo": False}
 if not db_url.startswith("sqlite"):
     engine_kwargs.update({
-        "pool_size": 25,
-        "max_overflow": 35,
+        "pool_size": 8,
+        "max_overflow": 7,
         "pool_recycle": 1800,
         "pool_pre_ping": True
     })
