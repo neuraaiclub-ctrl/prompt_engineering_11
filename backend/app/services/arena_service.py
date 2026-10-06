@@ -675,8 +675,11 @@ class ArenaService:
         ).group_by(ArenaSecurityEvent.team_id).all()
         
         flagged_team_map = {t_id: count for t_id, count in flagged_query if count >= 3}
-
-        submissions = db.query(ArenaSubmission).order_by(ArenaSubmission.server_timestamp.desc()).all()
+        from sqlalchemy.orm import joinedload
+        submissions = db.query(ArenaSubmission).options(
+            joinedload(ArenaSubmission.team),
+            joinedload(ArenaSubmission.prompt_item)
+        ).order_by(ArenaSubmission.server_timestamp.desc()).all()
         from app.models.arena_scoring import ArenaFinalScore
         sub_ids = [s.id for s in submissions]
         eval_records = db.query(ArenaFinalScore).filter(ArenaFinalScore.submission_id.in_(sub_ids)).all() if sub_ids else []
@@ -712,7 +715,7 @@ class ArenaService:
                 } if eval_record else None
             })
 
-        recent_events = db.query(ArenaSecurityEvent).order_by(ArenaSecurityEvent.created_at.desc()).limit(25).all()
+        recent_events = db.query(ArenaSecurityEvent).options(joinedload(ArenaSecurityEvent.team)).order_by(ArenaSecurityEvent.created_at.desc()).limit(25).all()
         events_list = []
         for ev in recent_events:
             t = ev.team
