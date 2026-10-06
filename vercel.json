@@ -1,8 +1,9 @@
 {
+  "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/api/v1/:path*",
-      "destination": "https://prompt-engineering-behind.onrender.com/api/v1/:path*"
+      "source": "/api/:path*",
+      "destination": "https://prompt-engineering-behind.onrender.com/api/:path*"
     }
   ]
 }

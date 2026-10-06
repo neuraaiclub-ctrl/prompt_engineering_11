@@ -21,7 +21,8 @@ class PromptBankItemSchema(BaseModel):
     flawed_reasons: Optional[List[str]] = []
     expected_improvements: Optional[List[str]] = []
 
-@router.get("/")
+@router.get("", include_in_schema=True)
+@router.get("/", include_in_schema=False)
 def get_prompt_bank(
     db: Session = Depends(get_db),
     admin_user: User = Depends(require_roles(["admin", "judge"]))
@@ -30,7 +31,8 @@ def get_prompt_bank(
     items = db.query(PromptBankItem).all()
     return items
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED, include_in_schema=True)
+@router.post("/", status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def create_prompt_bank_item(
     payload: PromptBankItemSchema,
     db: Session = Depends(get_db),
