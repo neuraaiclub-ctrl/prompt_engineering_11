@@ -836,11 +836,21 @@ class Store {
       const resp = await fetch(`${API_BASE_URL}/prompt-bank/`, {
         headers: this.getAuthHeaders()
       });
-      const data = await resp.json();
-      return Array.isArray(data) ? data : [];
+      const text = await resp.text();
+      if (!resp.ok) {
+        console.error(`[getPromptBank] ${resp.status}: ${text.substring(0, 120)}`);
+        return { error: `Backend returned ${resp.status}. Is Render fully deployed?` };
+      }
+      try {
+        const data = JSON.parse(text);
+        return Array.isArray(data) ? data : [];
+      } catch {
+        console.error('[getPromptBank] Non-JSON response:', text.substring(0, 120));
+        return { error: 'Backend returned an invalid response. Check Render deploy status.' };
+      }
     } catch (e) {
-      console.error(e);
-      return [];
+      console.error('[getPromptBank] Network error:', e);
+      return { error: 'Cannot reach backend. Check Render is running.' };
     }
   }
 
