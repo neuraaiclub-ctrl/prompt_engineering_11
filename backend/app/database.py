@@ -6,17 +6,15 @@ db_url = settings.DATABASE_URL
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
 
+from sqlalchemy.pool import NullPool
+
 # Configure SQLite or PostgreSQL connect args
 connect_args = {"check_same_thread": False} if db_url.startswith("sqlite") else {}
 
-# Engine connection pool options for PostgreSQL high concurrency (50+ teams)
 engine_kwargs = {"connect_args": connect_args, "echo": False}
 if not db_url.startswith("sqlite"):
     engine_kwargs.update({
-        "pool_size": 2,
-        "max_overflow": 2,
-        "pool_recycle": 300,
-        "pool_pre_ping": True
+        "poolclass": NullPool
     })
 
 engine = create_engine(db_url, **engine_kwargs)
