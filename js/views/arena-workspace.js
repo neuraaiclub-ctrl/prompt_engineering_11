@@ -93,6 +93,10 @@ async function refresh(container, isBackground = false) {
         navName.textContent = res.team_name;
       }
     }
+    
+    if (res.security_violation_count !== undefined) {
+      securityViolationCount = res.security_violation_count;
+    }
     if (!res.success) {
       if (res.status === 'eliminated' || (res.error && res.error.toLowerCase().includes('eliminated'))) {
         return show(container, 'eliminated', () => renderEliminated(container, res));
@@ -246,6 +250,9 @@ function renderStandby(container, res = {}) {
 
 /* 3 – 2 – 1 – go, with a wormhole surge on each beat */
 async function playStartCountdown() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
   const overlay = document.createElement('div');
   overlay.className = 'ar-countdown';
   overlay.setAttribute('role', 'status');
@@ -314,7 +321,9 @@ function renderChallenge(container, res) {
         </div>
       </header>
 
-      <div class="ar-notice" id="arenaSecurityBanner" role="status" ${securityViolationCount > 0 ? '' : 'hidden'}></div>
+      <div class="ar-notice" id="arenaSecurityBanner" role="status" ${securityViolationCount > 0 ? '' : 'hidden'}>
+        ${securityViolationCount > 0 ? `<span><strong>Logged:</strong> Previous rule violations detected from server. That’s ${securityViolationCount} on record. Every event is visible to the judges.</span>` : ''}
+      </div>
       <div class="ar-notice" id="arenaWarningBanner" role="status" hidden style="background: rgba(251, 191, 36, 0.15); border-color: rgba(251, 191, 36, 0.45); color: var(--text);"></div>
 
       <main class="ar-bench">
@@ -888,3 +897,38 @@ function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; 
 function safeGet(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch { /* storage full or blocked */ } }
 function safeRemove(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
+
+function checkFullscreen() {
+  const isLive = isLiveNow();
+  if (isLive && !document.fullscreenElement) {
+    showFullscreenOverlay();
+  } else if (!isLive && document.fullscreenElement) {
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  } else if (document.fullscreenElement) {
+    hideFullscreenOverlay();
+  }
+}
+
+function showFullscreenOverlay() {
+  let overlay = document.getElementById('arFullscreenOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'arFullscreenOverlay';
+    overlay.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(4,5,11,0.85); backdrop-filter:blur(10px); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family:var(--disp);';
+    overlay.innerHTML = `
+      <h2 style="font-size:32px; margin-bottom:16px;">Fullscreen Required</h2>
+      <p style="font-size:18px; color:var(--text-dim); margin-bottom:24px;">The arena requires fullscreen mode to continue.</p>
+      <button class="btn" onclick="document.documentElement.requestFullscreen().catch(e => console.log('Fullscreen error:', e))">Enter Fullscreen</button>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
+}
+
+function hideFullscreenOverlay() {
+  const overlay = document.getElementById('arFullscreenOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+document.addEventListener('fullscreenchange', checkFullscreen);
+setInterval(checkFullscreen, 1000);

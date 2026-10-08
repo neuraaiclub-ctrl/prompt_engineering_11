@@ -688,6 +688,7 @@ class ArenaService:
             "total_challenges": conf.challenges_count,
             "team_name": team.name,
             "college": team.college,
+            "security_violation_count": violation_count,
             "challenge": {
                 "id": prompt_item.id,
                 "code": prompt_item.code,
