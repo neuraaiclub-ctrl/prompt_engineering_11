@@ -174,7 +174,19 @@ def register_db_exception_handlers(app):
     instead of a 500 with a traceback."""
     from fastapi.responses import JSONResponse
 
+    last_log = {"t": 0.0}
+
     async def _handler(request, exc):
+        # Rate-limited diagnostics: which error caused this 503, and how busy
+        # the pool is. (Pool timeouts are otherwise completely silent.)
+        now = time.monotonic()
+        if now - last_log["t"] > 2.0:
+            last_log["t"] = now
+            try:
+                pool_info = engine.pool.status()
+            except Exception:
+                pool_info = "n/a"
+            print(f"[DB] 503 from {type(exc).__name__}: {str(exc)[:160]} | {pool_info}", flush=True)
         return JSONResponse(
             status_code=503,
             content={"detail": "Database temporarily unavailable. Please retry shortly."},

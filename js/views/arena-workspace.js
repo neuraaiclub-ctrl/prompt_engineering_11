@@ -53,10 +53,31 @@ export function renderArenaWorkspace() {
 
   if (!antiCheatReady) { setupAntiCheatListeners(); antiCheatReady = true; }
 
-  refresh(container).then(() => {
-    pollId = setInterval(() => {
-      if (container.classList.contains('active') && store.isAuthenticated()) refresh(container, true);
-    }, 8000);
+  let isPollingActive = true;
+  pollId = setInterval(() => {}, 100000); // dummy for clearInterval
+  
+  refresh(container).then(async () => {
+    while (isPollingActive && container.classList.contains('active') && store.isAuthenticated()) {
+      if (document.hidden) {
+        await sleep(2000);
+        continue;
+      }
+      
+      const baseMs = 5000;
+      const jitterMs = Math.random() * 5000;
+      let extraSleepMs = 0;
+      
+      try {
+        const res = await refresh(container, true);
+        if (res && res.retryAfter) {
+          extraSleepMs = res.retryAfter * 1000;
+        }
+      } catch (e) {
+        // silent fail for polling loop
+      }
+      
+      await sleep(baseMs + jitterMs + extraSleepMs);
+    }
   });
 }
 
@@ -76,11 +97,11 @@ async function refresh(container, isBackground = false) {
     const st = status.status || 'waiting';
     syncClock(status);
 
-    if (st === 'eliminated') return show(container, 'eliminated', () => renderEliminated(container, status));
+    if (st === 'eliminated') { show(container, 'eliminated', () => renderEliminated(container, status)); return status; }
 
     if (status.is_results_released || st === 'results_available') {
       if (renderedKey !== 'results') { renderedKey = 'results'; document.body.classList.remove('focus-mode'); setWormholeMood('calm'); await renderResults(container); }
-      return;
+      return status;
     }
 
     // Always fetch my-challenge even if waiting, so we can pull the live team_name
@@ -102,7 +123,7 @@ async function refresh(container, isBackground = false) {
         return show(container, 'eliminated', () => renderEliminated(container, res));
       }
       if (!isBackground) show(container, 'error', () => renderError(container, res.error), { mood: 'dim' });
-      return;
+      return res;
     }
 
     // Team's own status can lag behind global status — guard all per-team states
@@ -136,8 +157,11 @@ async function refresh(container, isBackground = false) {
       }
     }
     show(container, key, () => renderChallenge(container, res), { focus: true, mood: 'focus' });
+    
+    return res.retryAfter ? res : status;
   } catch (err) {
     console.error('Error refreshing arena view:', err);
+    return { retryAfter: 3 };
   }
 }
 

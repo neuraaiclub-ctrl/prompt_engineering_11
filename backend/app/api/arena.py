@@ -1,4 +1,6 @@
 from typing import Optional, Dict, Any
+import time
+import threading
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
@@ -24,9 +26,10 @@ assign_unique_prompts_for_team = ArenaService.assign_unique_prompts_for_team
 
 router = APIRouter(prefix="/arena", tags=["Prompt Fixing Arena"])
 
-# ---------------------------------------------------------------------------
-# Competition Lifecycle & Status Endpoints
-# ---------------------------------------------------------------------------
+_status_cache = {}
+_status_lock = threading.Lock()
+ROUTER_CACHE_TTL = 3.0
+
 @router.get("/status")
 def get_arena_status(
     db: Session = Depends(get_db),
@@ -36,7 +39,23 @@ def get_arena_status(
     Public / Participant status polling endpoint.
     Returns authoritative server state, start time, and participant session progress if authenticated.
     """
-    return ArenaService.get_status(db, current_user)
+    now = time.monotonic()
+    user_key = current_user.id if current_user else "guest"
+    
+    with _status_lock:
+        cached = _status_cache.get(user_key)
+        if cached and now - cached["ts"] < ROUTER_CACHE_TTL:
+            return cached["data"]
+            
+    # Cache miss
+    data = ArenaService.get_status(db, current_user)
+    
+    with _status_lock:
+        if len(_status_cache) > 2000:
+            _status_cache.clear()
+        _status_cache[user_key] = {"data": data, "ts": now}
+        
+    return data
 
 @router.post("/start")
 def start_arena(
@@ -103,9 +122,9 @@ def reset_arena(
                 continue
             raise
 
-# ---------------------------------------------------------------------------
-# Participant Challenge & Submission Endpoints
-# ---------------------------------------------------------------------------
+_challenge_cache = {}
+_challenge_lock = threading.Lock()
+
 @router.get("/my-challenge")
 def get_my_arena_challenge(
     db: Session = Depends(get_db),
@@ -118,7 +137,21 @@ def get_my_arena_challenge(
     """
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required to access the Arena.")
-    return ArenaService.get_my_challenge(db, current_user)
+        
+    now = time.monotonic()
+    with _challenge_lock:
+        cached = _challenge_cache.get(current_user.id)
+        if cached and now - cached["ts"] < ROUTER_CACHE_TTL:
+            return cached["data"]
+            
+    data = ArenaService.get_my_challenge(db, current_user)
+    
+    with _challenge_lock:
+        if len(_challenge_cache) > 2000:
+            _challenge_cache.clear()
+        _challenge_cache[current_user.id] = {"data": data, "ts": now}
+        
+    return data
 
 @router.post("/submit-challenge")
 def submit_arena_challenge(

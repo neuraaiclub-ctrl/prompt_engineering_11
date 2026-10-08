@@ -341,7 +341,11 @@ class Store {
       if (resp.ok) {
         return await resp.json();
       }
-      return { success: false, status: 'error', error: 'Server returned error status' };
+      let retryAfter = 0;
+      if (resp.status === 503) {
+        retryAfter = parseInt(resp.headers.get("Retry-After") || "0", 10);
+      }
+      return { success: false, status: 'error', error: 'Server returned error status', retryAfter };
     } catch (e) {
       return {
         success: false,
