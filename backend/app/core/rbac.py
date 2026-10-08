@@ -1,4 +1,6 @@
 from typing import List, Optional
+import time
+import threading
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -7,6 +9,10 @@ from app.core.security import decode_access_token
 from app.models.user import User, Role
 
 security_scheme = HTTPBearer(auto_error=False)
+
+_user_cache = {}
+_user_cache_lock = threading.Lock()
+USER_CACHE_TTL = 1.0  # Aggressive 1s cache to match arena_service
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
@@ -28,6 +34,14 @@ def get_current_user(
         )
     
     user_id = payload["sub"]
+    now_ts = time.time()
+    
+    with _user_cache_lock:
+        cached = _user_cache.get(user_id)
+        if cached and now_ts - cached[0] < USER_CACHE_TTL:
+            # Merge the detached cached user into the current session without querying the DB
+            return db.merge(cached[1], load=False)
+            
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
@@ -40,6 +54,11 @@ def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is suspended"
         )
+        
+    with _user_cache_lock:
+        if len(_user_cache) > 2000:
+            _user_cache.clear()
+        _user_cache[user_id] = (now_ts, user)
     
     return user
 
