@@ -60,6 +60,7 @@ Category: {category}
 First, decide: Is the student's submission a genuine attempt to fix THIS specific broken prompt about "{challenge_title}"?
 
 AUTOMATIC ZERO (all 5 scores = 0) if ANY of the following are true:
+- The submission is identical or nearly identical to the original broken prompt (the student must actually make changes)
 - The submission is about a completely different topic or domain than the broken prompt
 - The submission addresses a different task goal than what the broken prompt was trying to accomplish
 - The submission appears to be a generic, pre-written, or copy-pasted prompt for a different use case
