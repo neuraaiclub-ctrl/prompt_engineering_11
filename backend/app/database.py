@@ -1,6 +1,8 @@
+import os
 import time
 import logging
-from sqlalchemy import create_engine
+import threading
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.config import settings
 
@@ -10,40 +12,61 @@ db_url = settings.DATABASE_URL
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-from sqlalchemy.pool import NullPool
+IS_SQLITE = db_url.startswith("sqlite")
 
-# Configure SQLite or PostgreSQL connect args
-# For PostgreSQL, we add TCP keepalive settings to prevent Supabase from
-# abruptly dropping SSL connections under high concurrent load.
-if db_url.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
+# ---------------------------------------------------------------------------
+# Engine
+# ---------------------------------------------------------------------------
+# NullPool was opening a brand-new TCP+SSL connection (plus SQLAlchemy's
+# hstore lookup) for EVERY request. Against the Supabase pooler that burns
+# through the client limit under load and produces
+# "SSL connection has been closed unexpectedly".
+# A small real pool + pre-ping reuses connections and transparently replaces
+# dead ones.
+if IS_SQLITE:
+    engine = create_engine(
+        db_url,
+        connect_args={"check_same_thread": False},
+        echo=False,
+    )
 else:
     connect_args = {
         "keepalives": 1,
-        "keepalives_idle": 10,
-        "keepalives_interval": 5,
-        "keepalives_count": 3,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5,
         "connect_timeout": 10,
     }
+    if "sslmode" not in db_url:
+        connect_args["sslmode"] = "require"
 
-engine_kwargs = {"connect_args": connect_args, "echo": False}
-if not db_url.startswith("sqlite"):
-    engine_kwargs.update({
-        "poolclass": NullPool
-    })
-
-engine = create_engine(db_url, **engine_kwargs)
+    engine = create_engine(
+        db_url,
+        connect_args=connect_args,
+        echo=False,
+        pool_pre_ping=True,      # test connection before use, replace if dead
+        pool_recycle=240,        # recycle before Supabase/pooler idles it out
+        pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
+        max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "5")),
+        pool_timeout=15,
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+# Set to True once init_db() has completed successfully.
+DB_READY = False
+
+
 def get_db():
     """
     FastAPI dependency that provides a SQLAlchemy session.
-    Retries connection setup (before yield) to handle Supabase transient errors.
-    Uses a single yield with proper finally cleanup — compatible with Python 3.12+.
+    Checks out a (pre-pinged) connection up front and retries briefly on
+    transient errors, then yields the session.
     """
+    from fastapi import HTTPException
+
     MAX_RETRIES = 3
     db = None
     last_err = None
@@ -51,8 +74,8 @@ def get_db():
     for attempt in range(MAX_RETRIES):
         try:
             db = SessionLocal()
-            db.execute(__import__('sqlalchemy').text("SELECT 1"))  # Validate connection
-            break  # Connection is good, exit retry loop
+            db.connection()  # checks out a pooled connection (pre-ping applies)
+            break
         except Exception as e:
             if db is not None:
                 try:
@@ -69,18 +92,26 @@ def get_db():
                 or "could not connect" in err_str
                 or "too many clients" in err_str
                 or "remaining connection slots" in err_str
+                or "max clients" in err_str
             )
             if is_transient and attempt < MAX_RETRIES - 1:
-                wait = 0.3 * (2 ** attempt)  # 0.3s, 0.6s
-                logger.warning(f"[DB] Transient connection error (attempt {attempt+1}/{MAX_RETRIES}), retrying in {wait:.1f}s: {e}")
+                wait = 0.3 * (2 ** attempt)
+                logger.warning(
+                    f"[DB] Transient connection error (attempt {attempt+1}/{MAX_RETRIES}), "
+                    f"retrying in {wait:.1f}s: {e}"
+                )
                 time.sleep(wait)
             else:
-                from fastapi import HTTPException
-                raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry.") from e
+                raise HTTPException(
+                    status_code=503,
+                    detail="Database temporarily unavailable. Please retry.",
+                ) from e
 
     if db is None:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry.")
+        raise HTTPException(
+            status_code=503,
+            detail="Database temporarily unavailable. Please retry.",
+        ) from last_err
 
     try:
         yield db
@@ -89,6 +120,18 @@ def get_db():
             db.close()
         except Exception:
             pass
+
+
+def check_db() -> bool:
+    """Lightweight DB probe for a /health/db endpoint."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except Exception as e:
+        logger.warning(f"[DB] check_db failed: {e}")
+        return False
+
 
 def seed_initial_data():
     from app.models.user import User, Role
@@ -185,9 +228,11 @@ def seed_initial_data():
                 return {_fix_str(k): _fix_str(v) for k, v in val.items()}
             return val
 
+        # Load all existing codes in ONE query instead of one query per item
+        existing_codes = {row[0] for row in db.query(PromptBankItem.code).all()}
+
         for p_data in ARENA_PROMPT_BANK:
-            existing_p = db.query(PromptBankItem).filter(PromptBankItem.code == p_data["code"]).first()
-            if not existing_p:
+            if p_data["code"] not in existing_codes:
                 item = PromptBankItem(
                     code=_fix_str(p_data["code"]),
                     category=_fix_str(p_data["category"]),
@@ -200,16 +245,15 @@ def seed_initial_data():
                 )
                 db.add(item)
 
-        # (Removed test teams, legacy accounts, and pending registrations as per user request)
-
         db.commit()
-    except Exception as e:
+    except Exception:
         db.rollback()
-        raise e
+        raise
     finally:
         db.close()
 
-def init_db():
+
+def _import_models():
     import app.models.user
     import app.models.team
     import app.models.hackathon
@@ -222,90 +266,117 @@ def init_db():
     import app.models.arena
     import app.models.arena_scoring
     import app.models.registration
-    try:
-        Base.metadata.create_all(bind=engine)
-    except Exception as e:
-        print(f"[DB Init Error] Could not run create_all, continuing boot: {e}")
 
-    # Safe SQLite and PostgreSQL column migration for existing databases
-    try:
-        from sqlalchemy import text
-        with engine.connect() as conn:
-            db_url = settings.DATABASE_URL.lower()
-            is_postgres = db_url.startswith("postgresql") or "postgres" in db_url
 
-            if is_postgres:
-                conn.execute(text("ALTER TABLE teams ADD COLUMN IF NOT EXISTS college VARCHAR;"))
-                conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN IF NOT EXISTS diagnosis_notes VARCHAR;"))
-                conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN IF NOT EXISTS output_format_score FLOAT DEFAULT 0.0;"))
-                conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN IF NOT EXISTS constraints_score FLOAT DEFAULT 0.0;"))
-                # Dynamic dataset tags (added 2026-10-06)
-                conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN IF NOT EXISTS dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
-                conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS active_dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
-                conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN IF NOT EXISTS expected_good_prompt VARCHAR;"))
-                conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS title VARCHAR NOT NULL DEFAULT 'Main Arena';"))
-                conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;"))
-                
-                # Encapsulated Arena context
-                conn.execute(text("ALTER TABLE team_arena_sessions ADD COLUMN IF NOT EXISTS arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
-                conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN IF NOT EXISTS arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
-                conn.execute(text("ALTER TABLE arena_security_events ADD COLUMN IF NOT EXISTS arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
-                conn.commit()
-            else:
-                result = conn.execute(text("PRAGMA table_info(teams);"))
-                cols = [row[1] for row in result.fetchall()]
-                if cols and "college" not in cols:
-                    conn.execute(text("ALTER TABLE teams ADD COLUMN college VARCHAR;"))
+def _migrate_columns():
+    """Safe SQLite and PostgreSQL column migration for existing databases.
+    All statements are idempotent, so retrying the whole thing is safe."""
+    with engine.connect() as conn:
+        if not IS_SQLITE:
+            conn.execute(text("ALTER TABLE teams ADD COLUMN IF NOT EXISTS college VARCHAR;"))
+            conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN IF NOT EXISTS diagnosis_notes VARCHAR;"))
+            conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN IF NOT EXISTS output_format_score FLOAT DEFAULT 0.0;"))
+            conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN IF NOT EXISTS constraints_score FLOAT DEFAULT 0.0;"))
+            # Dynamic dataset tags (added 2026-10-06)
+            conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN IF NOT EXISTS dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
+            conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS active_dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
+            conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN IF NOT EXISTS expected_good_prompt VARCHAR;"))
+            conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS title VARCHAR NOT NULL DEFAULT 'Main Arena';"))
+            conn.execute(text("ALTER TABLE arena_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;"))
 
-                sub_res = conn.execute(text("PRAGMA table_info(arena_submissions);"))
-                sub_cols = [row[1] for row in sub_res.fetchall()]
-                if sub_cols and "diagnosis_notes" not in sub_cols:
-                    conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN diagnosis_notes VARCHAR;"))
+            # Encapsulated Arena context
+            conn.execute(text("ALTER TABLE team_arena_sessions ADD COLUMN IF NOT EXISTS arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
+            conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN IF NOT EXISTS arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
+            conn.execute(text("ALTER TABLE arena_security_events ADD COLUMN IF NOT EXISTS arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
+            conn.commit()
+        else:
+            result = conn.execute(text("PRAGMA table_info(teams);"))
+            cols = [row[1] for row in result.fetchall()]
+            if cols and "college" not in cols:
+                conn.execute(text("ALTER TABLE teams ADD COLUMN college VARCHAR;"))
 
-                eval_res = conn.execute(text("PRAGMA table_info(arena_evaluations);"))
-                eval_cols = [row[1] for row in eval_res.fetchall()]
-                if eval_cols:
-                    if "output_format_score" not in eval_cols:
-                        conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN output_format_score FLOAT DEFAULT 0.0;"))
-                    if "constraints_score" not in eval_cols:
-                        conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN constraints_score FLOAT DEFAULT 0.0;"))
-                        
-                pb_res = conn.execute(text("PRAGMA table_info(prompt_bank_items);"))
-                pb_cols = [row[1] for row in pb_res.fetchall()]
-                if pb_cols:
-                    if "dataset_tag" not in pb_cols:
-                        conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
-                    if "expected_good_prompt" not in pb_cols:
-                        conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN expected_good_prompt VARCHAR;"))
-                        
-                conf_res = conn.execute(text("PRAGMA table_info(arena_config);"))
-                conf_cols = [row[1] for row in conf_res.fetchall()]
-                if conf_cols:
-                    if "active_dataset_tag" not in conf_cols:
-                        conn.execute(text("ALTER TABLE arena_config ADD COLUMN active_dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
-                    if "title" not in conf_cols:
-                        conn.execute(text("ALTER TABLE arena_config ADD COLUMN title VARCHAR NOT NULL DEFAULT 'Main Arena';"))
-                    if "is_active" not in conf_cols:
-                        conn.execute(text("ALTER TABLE arena_config ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1;"))
+            sub_res = conn.execute(text("PRAGMA table_info(arena_submissions);"))
+            sub_cols = [row[1] for row in sub_res.fetchall()]
+            if sub_cols and "diagnosis_notes" not in sub_cols:
+                conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN diagnosis_notes VARCHAR;"))
 
-                tas_res = conn.execute(text("PRAGMA table_info(team_arena_sessions);"))
-                tas_cols = [row[1] for row in tas_res.fetchall()]
-                if tas_cols and "arena_id" not in tas_cols:
-                    conn.execute(text("ALTER TABLE team_arena_sessions ADD COLUMN arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
-                    
-                sub_cols = [row[1] for row in conn.execute(text("PRAGMA table_info(arena_submissions);")).fetchall()]
-                if sub_cols and "arena_id" not in sub_cols:
-                    conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
-                    
-                sec_res = conn.execute(text("PRAGMA table_info(arena_security_events);"))
-                sec_cols = [row[1] for row in sec_res.fetchall()]
-                if sec_cols and "arena_id" not in sec_cols:
-                    conn.execute(text("ALTER TABLE arena_security_events ADD COLUMN arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
+            eval_res = conn.execute(text("PRAGMA table_info(arena_evaluations);"))
+            eval_cols = [row[1] for row in eval_res.fetchall()]
+            if eval_cols:
+                if "output_format_score" not in eval_cols:
+                    conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN output_format_score FLOAT DEFAULT 0.0;"))
+                if "constraints_score" not in eval_cols:
+                    conn.execute(text("ALTER TABLE arena_evaluations ADD COLUMN constraints_score FLOAT DEFAULT 0.0;"))
 
-                conn.commit()
-    except Exception as e:
-        print(f"[DB Migration Notice]: {e}")
+            pb_res = conn.execute(text("PRAGMA table_info(prompt_bank_items);"))
+            pb_cols = [row[1] for row in pb_res.fetchall()]
+            if pb_cols:
+                if "dataset_tag" not in pb_cols:
+                    conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
+                if "expected_good_prompt" not in pb_cols:
+                    conn.execute(text("ALTER TABLE prompt_bank_items ADD COLUMN expected_good_prompt VARCHAR;"))
+
+            conf_res = conn.execute(text("PRAGMA table_info(arena_config);"))
+            conf_cols = [row[1] for row in conf_res.fetchall()]
+            if conf_cols:
+                if "active_dataset_tag" not in conf_cols:
+                    conn.execute(text("ALTER TABLE arena_config ADD COLUMN active_dataset_tag VARCHAR NOT NULL DEFAULT 'default';"))
+                if "title" not in conf_cols:
+                    conn.execute(text("ALTER TABLE arena_config ADD COLUMN title VARCHAR NOT NULL DEFAULT 'Main Arena';"))
+                if "is_active" not in conf_cols:
+                    conn.execute(text("ALTER TABLE arena_config ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1;"))
+
+            tas_res = conn.execute(text("PRAGMA table_info(team_arena_sessions);"))
+            tas_cols = [row[1] for row in tas_res.fetchall()]
+            if tas_cols and "arena_id" not in tas_cols:
+                conn.execute(text("ALTER TABLE team_arena_sessions ADD COLUMN arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
+
+            sub_cols = [row[1] for row in conn.execute(text("PRAGMA table_info(arena_submissions);")).fetchall()]
+            if sub_cols and "arena_id" not in sub_cols:
+                conn.execute(text("ALTER TABLE arena_submissions ADD COLUMN arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
+
+            sec_res = conn.execute(text("PRAGMA table_info(arena_security_events);"))
+            sec_cols = [row[1] for row in sec_res.fetchall()]
+            if sec_cols and "arena_id" not in sec_cols:
+                conn.execute(text("ALTER TABLE arena_security_events ADD COLUMN arena_id VARCHAR NOT NULL DEFAULT 'default-arena-config';"))
+
+            conn.commit()
+
+
+def init_db():
+    """Create tables, run column migrations, seed data. Raises on failure."""
+    global DB_READY
+    _import_models()
+    Base.metadata.create_all(bind=engine)
+    _migrate_columns()
     seed_initial_data()
+    DB_READY = True
 
-# Auto-initialize tables on module import
-init_db()
+
+def _init_db_with_retry(max_attempts: int = 12):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            init_db()
+            logger.info("[DB Init] Completed successfully.")
+            print("[DB Init] Completed successfully.", flush=True)
+            return
+        except Exception as e:
+            wait = min(3 * attempt, 30)
+            msg = f"[DB Init] attempt {attempt}/{max_attempts} failed: {e}. Retrying in {wait}s"
+            logger.warning(msg)
+            print(msg, flush=True)
+            time.sleep(wait)
+    print("[DB Init] Gave up after all retries. App stays up; DB endpoints will return 503.", flush=True)
+
+
+def init_db_async():
+    """Run init_db in the background so the web server binds its port
+    immediately, even if the database is unreachable at boot."""
+    t = threading.Thread(target=_init_db_with_retry, name="db-init", daemon=True)
+    t.start()
+    return t
+
+
+# Initialise in the background on module import. The port now opens right
+# away instead of the whole process dying if the DB is down at boot.
+init_db_async()
