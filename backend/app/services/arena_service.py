@@ -647,11 +647,15 @@ class ArenaService:
                 if not session:
                     raise HTTPException(status_code=500, detail="Failed to initialize arena session due to concurrent load.")
 
+        violation_count = db.query(ArenaSecurityEvent).filter(ArenaSecurityEvent.team_id == team.id).count()
+
         if session.current_challenge_index > conf.challenges_count:
             return {
                 "competition_status": conf.status,
                 "is_completed": True,
                 "message": "All 5 challenges completed.",
+                "team_name": team.name,
+                "security_violation_count": violation_count,
                 "completed_at": session.completed_at.isoformat() if session.completed_at else None,
                 "results_available": conf.status == "results_available"
             }
@@ -662,6 +666,8 @@ class ArenaService:
                 "is_completed": False,
                 "current_challenge_index": session.current_challenge_index,
                 "total_challenges": conf.challenges_count,
+                "team_name": team.name,
+                "security_violation_count": violation_count,
                 "challenge": None,
                 "message": "Waiting for the Judge to start the competition."
             }
