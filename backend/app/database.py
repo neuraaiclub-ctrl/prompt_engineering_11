@@ -58,6 +58,76 @@ Base = declarative_base()
 # Set to True once init_db() has completed successfully.
 DB_READY = False
 
+# ---------------------------------------------------------------------------
+# Circuit breaker ("automatic suspension")
+# ---------------------------------------------------------------------------
+# After DB_BREAKER_THRESHOLD consecutive failed requests, the breaker OPENS:
+# for DB_BREAKER_COOLDOWN seconds every request fails instantly with 503 and
+# NO connection attempts are made, giving Supabase room to recover. After the
+# cooldown ONE probe request is let through (half-open); if it succeeds the
+# breaker closes, otherwise it re-opens for another cooldown.
+BREAKER_THRESHOLD = int(os.getenv("DB_BREAKER_THRESHOLD", "5"))
+BREAKER_COOLDOWN = float(os.getenv("DB_BREAKER_COOLDOWN", "30"))
+
+_breaker_lock = threading.Lock()
+_breaker = {"failures": 0, "open_until": 0.0, "probing": False}
+
+
+def _breaker_allow():
+    """Returns (allowed, retry_after_seconds)."""
+    now = time.monotonic()
+    with _breaker_lock:
+        if _breaker["failures"] < BREAKER_THRESHOLD:
+            return True, 0
+        if now < _breaker["open_until"]:
+            return False, int(_breaker["open_until"] - now) + 1
+        if _breaker["probing"]:
+            return False, 1
+        _breaker["probing"] = True  # this request is the probe
+        return True, 0
+
+
+def _breaker_success():
+    with _breaker_lock:
+        if _breaker["failures"] >= BREAKER_THRESHOLD:
+            logger.warning("[DB] Circuit breaker CLOSED - database is reachable again.")
+            print("[DB] Circuit breaker CLOSED - database is reachable again.", flush=True)
+        _breaker["failures"] = 0
+        _breaker["open_until"] = 0.0
+        _breaker["probing"] = False
+
+
+def _breaker_failure():
+    opened = False
+    with _breaker_lock:
+        _breaker["failures"] += 1
+        _breaker["probing"] = False
+        if _breaker["failures"] >= BREAKER_THRESHOLD:
+            _breaker["open_until"] = time.monotonic() + BREAKER_COOLDOWN
+            opened = _breaker["failures"] == BREAKER_THRESHOLD
+    if opened:
+        msg = (f"[DB] Circuit breaker OPEN - pausing all DB access for "
+               f"{BREAKER_COOLDOWN:.0f}s after {BREAKER_THRESHOLD} consecutive failures.")
+        logger.error(msg)
+        print(msg, flush=True)
+    if _breaker["failures"] >= BREAKER_THRESHOLD:
+        try:
+            engine.dispose()  # drop any dead pooled connections
+        except Exception:
+            pass
+
+
+def db_breaker_status() -> dict:
+    """For a health endpoint."""
+    with _breaker_lock:
+        now = time.monotonic()
+        is_open = _breaker["failures"] >= BREAKER_THRESHOLD and now < _breaker["open_until"]
+        return {
+            "state": "open" if is_open else ("half-open" if _breaker["failures"] >= BREAKER_THRESHOLD else "closed"),
+            "consecutive_failures": _breaker["failures"],
+            "retry_in_seconds": max(0, int(_breaker["open_until"] - now)) if is_open else 0,
+        }
+
 
 def get_db():
     """
@@ -67,7 +137,15 @@ def get_db():
     """
     from fastapi import HTTPException
 
-    MAX_RETRIES = 3
+    allowed, retry_after = _breaker_allow()
+    if not allowed:
+        raise HTTPException(
+            status_code=503,
+            detail="Database temporarily unavailable. Please retry shortly.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    MAX_RETRIES = 2
     db = None
     last_err = None
 
@@ -75,6 +153,7 @@ def get_db():
         try:
             db = SessionLocal()
             db.connection()  # checks out a pooled connection (pre-ping applies)
+            _breaker_success()
             break
         except Exception as e:
             if db is not None:
@@ -102,15 +181,19 @@ def get_db():
                 )
                 time.sleep(wait)
             else:
+                _breaker_failure()
                 raise HTTPException(
                     status_code=503,
                     detail="Database temporarily unavailable. Please retry.",
+                    headers={"Retry-After": "5"},
                 ) from e
 
     if db is None:
+        _breaker_failure()
         raise HTTPException(
             status_code=503,
             detail="Database temporarily unavailable. Please retry.",
+            headers={"Retry-After": "5"},
         ) from last_err
 
     try:
