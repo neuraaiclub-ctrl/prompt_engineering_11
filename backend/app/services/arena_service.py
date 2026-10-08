@@ -1348,7 +1348,12 @@ class ArenaService:
                 "standings": []
             }
 
-        teams = db.query(Team).all()
+        # ── Filter out test/dev teams — never shown in leaderboard ──────────
+        TEST_TEAM_NAMES = {"test", "test2", "topibazz"}
+        teams = [
+            t for t in db.query(Team).all()
+            if t.name.strip().lower() not in TEST_TEAM_NAMES
+        ]
         eligible_standings = []
         eliminated_standings = []
         
@@ -1364,6 +1369,14 @@ class ArenaService:
             subs_by_team.setdefault(s.team_id, []).append(s)
             
         all_engine_scores = {es.submission_id: es for es in db.query(ArenaFinalScore).all()}
+
+        from sqlalchemy import func
+        from app.models.arena import ArenaSecurityEvent
+        flagged_query = db.query(
+            ArenaSecurityEvent.team_id,
+            func.count(ArenaSecurityEvent.id).label("violation_count")
+        ).group_by(ArenaSecurityEvent.team_id).all()
+        violation_counts = {t_id: count for t_id, count in flagged_query}
 
         for t in teams:
             session = all_sessions.get(t.id)
@@ -1384,6 +1397,26 @@ class ArenaService:
             avg_score = round(total_score / 5.0, 2)
             completed_time = session.completed_at if session else None
             
+            total_time_taken = 9999999999.0
+            average_lockin_time = 9999999999.0
+            violations = violation_counts.get(t.id, 0)
+            
+            if session and session.started_at:
+                started = session.started_at
+                last_time = started
+                total_lockin = 0.0
+                submissions.sort(key=lambda s: s.server_timestamp)
+                for sub in submissions:
+                    time_taken = (sub.server_timestamp - last_time).total_seconds()
+                    total_lockin += max(0, time_taken)
+                    last_time = sub.server_timestamp
+                
+                if submissions:
+                    average_lockin_time = total_lockin / len(submissions)
+                
+                if len(submissions) >= 5 and session.completed_at:
+                    total_time_taken = (session.completed_at - session.started_at).total_seconds()
+            
             item = {
                 "team_id": t.id,
                 "team_name": t.name,
@@ -1391,8 +1424,11 @@ class ArenaService:
                 "total_score": round(total_score, 1),
                 "average_score": avg_score,
                 "completed_challenges": len(submissions),
-                "completed_at": completed_time.isoformat() if completed_time else None,
-                "completed_at_sort": completed_time.timestamp() if completed_time else 9999999999,
+                "completed_at": completed_time.isoformat() + "Z" if completed_time else None,
+                "total_time_taken": total_time_taken,
+                "average_lockin_time": average_lockin_time,
+                "violations": violations,
+                "created_at": t.created_at.timestamp() if t.created_at else 0,
                 "is_eliminated": is_eliminated,
                 "status": "eliminated" if is_eliminated else ("completed" if len(submissions) >= 5 else (t.status or "active"))
             }
@@ -1400,18 +1436,73 @@ class ArenaService:
             if is_eliminated:
                 item["rank"] = None
                 item["podium"] = None
-                del item["completed_at_sort"]
+                item["tie_breaker_reason"] = None
                 eliminated_standings.append(item)
             else:
                 eligible_standings.append(item)
 
-        # Authoritative Sorting: Average Score DESC, then Earliest Completion Timestamp ASC (tie-break)
-        eligible_standings.sort(key=lambda x: (-x["total_score"], x["completed_at_sort"]))
+        # ── Authoritative 5-tier sort (draws broken by time then violations) ──
+        # Tier 1: Total score (higher is better)
+        # Tier 2: Total completion time (lower = faster = better)
+        # Tier 3: Average per-prompt lock-in time (lower = faster responses)
+        # Tier 4: Fewer security violations (lower is better)
+        # Tier 5: Earlier registration (team created_at, lower is earlier)
+        eligible_standings.sort(key=lambda x: (
+            -x["total_score"],
+            x["total_time_taken"],
+            x["average_lockin_time"],
+            x["violations"],
+            x["created_at"]
+        ))
+
+        from collections import Counter
+        score_counts = Counter(x["total_score"] for x in eligible_standings)
 
         for idx, entry in enumerate(eligible_standings):
             entry["rank"] = idx + 1
             entry["podium"] = "winner" if idx == 0 else "runner_up" if idx == 1 else "second_runner_up" if idx == 2 else None
-            del entry["completed_at_sort"]
+
+            tied_peers = [
+                e for e in eligible_standings
+                if e["total_score"] == entry["total_score"] and e["team_id"] != entry["team_id"]
+            ]
+
+            if not tied_peers:
+                # No draw — no tiebreaker needed
+                entry["tie_breaker_reason"] = None
+            else:
+                # Determine which tier actually resolved the tie for this entry
+                # Tier 2: total completion time differed among tied peers?
+                peer_times = [e["total_time_taken"] for e in tied_peers]
+                all_same_time = all(t == entry["total_time_taken"] for t in peer_times)
+
+                if not all_same_time and entry["total_time_taken"] < 9999999999.0:
+                    entry["tie_breaker_reason"] = (
+                        f"Tiebreak \u2192 Completion time: {round(entry['total_time_taken']/60, 1)}m"
+                    )
+                else:
+                    # Tier 3: average per-prompt lock-in time
+                    peer_lockins = [e["average_lockin_time"] for e in tied_peers]
+                    all_same_lockin = all(l == entry["average_lockin_time"] for l in peer_lockins)
+
+                    if not all_same_lockin and entry["average_lockin_time"] < 9999999999.0:
+                        entry["tie_breaker_reason"] = (
+                            f"Tiebreak \u2192 Avg lock-in: {round(entry['average_lockin_time'], 1)}s/prompt"
+                        )
+                    else:
+                        # Tier 4: violations
+                        peer_violations = [e["violations"] for e in tied_peers]
+                        all_same_violations = all(v == entry["violations"] for v in peer_violations)
+
+                        if not all_same_violations:
+                            entry["tie_breaker_reason"] = (
+                                f"Tiebreak \u2192 Violations: {entry['violations']}"
+                            )
+                        else:
+                            # Tier 5: registration time
+                            entry["tie_breaker_reason"] = "Tiebreak \u2192 Earlier registration"
+            
+            # Clean up sort keys to reduce payload size if desired, but we can leave them for debug
 
         return {
             "results_available": conf.status == "results_available",
@@ -1618,6 +1709,15 @@ class ArenaService:
             team_names = {r[0]: r[1] for r in team_rows}
             team_colleges = {r[0]: (r[2] or "N/A") for r in team_rows}
 
+        # Fetch team members
+        team_members: Dict[str, list] = {}
+        if team_ids:
+            members = db.execute(text(
+                "SELECT tm.team_id, u.name, u.email FROM team_members tm JOIN users u ON tm.user_id = u.id WHERE tm.team_id = ANY(:ids)"
+            ), {"ids": team_ids}).fetchall()
+            for m in members:
+                team_members.setdefault(m[0], []).append({"name": m[1], "email": m[2]})
+
         standings = []
         for sess in sessions:
             sess_id, team_id, sess_status, challenge_index, started_at, completed_at = sess
@@ -1625,6 +1725,25 @@ class ArenaService:
 
             total_score = 0.0
             challenges = []
+            
+            total_time_taken = 9999999999.0
+            average_lockin_time = 9999999999.0
+            
+            if started_at:
+                last_time = started_at
+                total_lockin = 0.0
+                team_subs.sort(key=lambda x: x[4])
+                for sub in team_subs:
+                    sub_time = sub[4]
+                    if sub_time:
+                        time_taken = (sub_time - last_time).total_seconds()
+                        total_lockin += max(0, time_taken)
+                        last_time = sub_time
+                if team_subs:
+                    average_lockin_time = total_lockin / len(team_subs)
+                if len(team_subs) >= 5 and completed_at:
+                    total_time_taken = (completed_at - started_at).total_seconds()
+
             for sub in team_subs:
                 sub_id, _, ch_idx, submitted_prompt, sub_time = sub
                 ev = eval_by_sub.get(sub_id)
@@ -1641,25 +1760,41 @@ class ArenaService:
                 "team_id": team_id,
                 "team_name": team_names.get(team_id, f"Team {team_id[:8]}"),
                 "college": team_colleges.get(team_id, "N/A"),
+                "members": team_members.get(team_id, []),
                 "is_eliminated": sess_status == "eliminated",
                 "challenges_completed": len(team_subs),
                 "total_score": round(total_score, 1),
                 "average_score": round(total_score / 5.0, 2),
                 "completed_at": completed_at.isoformat() + "Z" if completed_at else None,
-                "completed_at_ts": completed_at.timestamp() if completed_at else 9999999999,
+                "total_time_taken": total_time_taken,
+                "average_lockin_time": average_lockin_time,
                 "challenges": challenges,
             })
 
-        # Sort: eliminated last, then by total_score DESC, then completion time ASC
+        # Sort: eliminated last, then by total_score DESC, then tie breakers
         eligible = [s for s in standings if not s["is_eliminated"]]
         eliminated = [s for s in standings if s["is_eliminated"]]
-        eligible.sort(key=lambda x: (-x["total_score"], x["completed_at_ts"]))
+        eligible.sort(key=lambda x: (-x["total_score"], x["total_time_taken"], x["average_lockin_time"]))
         eliminated.sort(key=lambda x: -x["total_score"])
+
+        from collections import Counter
+        score_counts = Counter(x["total_score"] for x in eligible)
 
         for i, s in enumerate(eligible, 1):
             s["rank"] = i
+            if score_counts[s["total_score"]] > 1:
+                if s["total_time_taken"] < 9999999999.0:
+                    s["tie_breaker_reason"] = f"Completed in {round(s['total_time_taken']/60, 1)}m"
+                elif s["average_lockin_time"] < 9999999999.0:
+                    s["tie_breaker_reason"] = f"Avg lockin {round(s['average_lockin_time']/60, 1)}m"
+                else:
+                    s["tie_breaker_reason"] = "Tie"
+            else:
+                s["tie_breaker_reason"] = None
+                
         for s in eliminated:
             s["rank"] = None
+            s["tie_breaker_reason"] = None
 
         all_standings = eligible + eliminated
         for s in all_standings:
