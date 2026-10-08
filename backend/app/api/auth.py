@@ -129,7 +129,7 @@ def logout(credentials: Optional[HTTPAuthorizationCredentials] = Depends(securit
     if credentials and credentials.credentials:
         revoke_token(credentials.credentials)
     return {"message": "Successfully logged out"}
-\n
+
 @router.get("/fix-61")
 def fix_61_users(db: Session = Depends(get_db)):
     from app.models.team import Team, TeamMember
