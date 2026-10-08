@@ -137,10 +137,10 @@ export class Router {
     if (sessionWrap && roleBadge && userName) {
       if (isAuth) {
         sessionWrap.style.display = 'flex';
-        roleBadge.textContent = role.charAt(0).toUpperCase() + role.slice(1);
+        roleBadge.textContent = role === 'participant' ? 'Team' : role.charAt(0).toUpperCase() + role.slice(1);
         roleBadge.dataset.role = role;
         const u = store.data.currentUser;
-        userName.textContent = u?.name || u?.email || role;
+        userName.textContent = (role === 'participant' && u?.affiliation) ? u.affiliation : (u?.name || u?.email || role);
       } else {
         sessionWrap.style.display = 'none';
       }
