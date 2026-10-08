@@ -25,10 +25,7 @@ class LoginSchema(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email_format(cls, v: str) -> str:
-        clean = v.strip().lower()
-        if not EMAIL_REGEX.match(clean):
-            raise ValueError("Invalid email format.")
-        return clean
+        return v.strip().lower()
 
 class TokenResponse(BaseModel):
     access_token: str

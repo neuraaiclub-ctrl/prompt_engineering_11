@@ -44,7 +44,7 @@ PARTICIPANTS = [
     ("atharvaraut2025.elect@mmcoe.edu.in", "atha1577"),
     ("sarthakdeshmukh2024.ainds@mmcoe.edu.in", "sart8216"),
     ("chinmaygade2024.ainds@mmcoe.edu.in", "chin9184"),
-    ("shreerajkondedeshmukh@2023.ainds@mmcoe.edu.in", "Shre9028"),
+    ("shreerajkondedeshmukh2023.ainds@mmcoe.edu.in", "Shre9028"),
     ("yashkharabe2025.comp@mmcoe.edu.in", "yash2732"),
     ("vedantsuryawanshi2025.elect@mmcoe.edu.in", "veda3868"),
     ("abhishekgodbole2025.comp@mmcoe.edu.in", "abhi6905"),
