@@ -75,10 +75,12 @@ def get_db():
                 logger.warning(f"[DB] Transient connection error (attempt {attempt+1}/{MAX_RETRIES}), retrying in {wait:.1f}s: {e}")
                 time.sleep(wait)
             else:
-                raise  # Non-transient or exhausted retries
+                from fastapi import HTTPException
+                raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry.") from e
 
     if db is None:
-        raise last_err
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry.")
 
     try:
         yield db
@@ -220,7 +222,10 @@ def init_db():
     import app.models.arena
     import app.models.arena_scoring
     import app.models.registration
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"[DB Init Error] Could not run create_all, continuing boot: {e}")
 
     # Safe SQLite and PostgreSQL column migration for existing databases
     try:
