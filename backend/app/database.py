@@ -2,9 +2,11 @@ import os
 import time
 import logging
 import threading
-from sqlalchemy import create_engine, text
+from fastapi import HTTPException
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.exc import InterfaceError, OperationalError
+from sqlalchemy.exc import TimeoutError as SAPoolTimeoutError
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.pool import NullPool
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -14,65 +16,31 @@ if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
 
 IS_SQLITE = db_url.startswith("sqlite")
-
-# Supabase provides a PgBouncer transaction-mode pooler on port 6543.
-# When using it, SQLAlchemy must NOT maintain its own pool — PgBouncer
-# already multiplexes hundreds of app connections onto a few real DB
-# connections. Using NullPool here means every SQLAlchemy checkout opens
-# a fresh PgBouncer connection (which is cheap) and returns it immediately.
+# Supabase pooler (Supavisor) transaction mode listens on :6543
 IS_PGBOUNCER = ":6543" in db_url or os.getenv("USE_PGBOUNCER", "0") == "1"
-if IS_PGBOUNCER:
-    print("[DB] PgBouncer/pooler URL detected — using NullPool.", flush=True)
 
 # ---------------------------------------------------------------------------
-# Engine
+# Engine - ALWAYS a small, hard-capped pool.
+# Max connections this instance can ever hold = POOL_SIZE + MAX_OVERFLOW.
+# (Never NullPool: it has no ceiling and caused EMAXCONN on the pooler.)
 # ---------------------------------------------------------------------------
-# NullPool was opening a brand-new TCP+SSL connection (plus SQLAlchemy's
-# hstore lookup) for EVERY request. Against the Supabase pooler that burns
-# through the client limit under load and produces
-# "SSL connection has been closed unexpectedly".
-# A small real pool + pre-ping reuses connections and transparently replaces
-# dead ones.
+POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "4"))
+MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "4"))
+POOL_TIMEOUT = float(os.getenv("DB_POOL_TIMEOUT", "5"))
+
 if IS_SQLITE:
     engine = create_engine(
         db_url,
         connect_args={"check_same_thread": False},
         echo=False,
     )
-elif IS_PGBOUNCER:
-    # PgBouncer transaction mode — use a hard-capped real pool.
-    # Unbounded NullPool creates too many connections under load.
-    connect_args = {
-        "sslmode": "require",
-        "connect_timeout": 10,
-        "keepalives": 1,
-        "keepalives_idle": 30,
-        "keepalives_interval": 10,
-        "keepalives_count": 5
-    }
-    if "sslmode" in db_url:
-        del connect_args["sslmode"]
-        
-    engine = create_engine(
-        db_url,
-        pool_size=4,
-        max_overflow=4,   # max 8 per instance
-        pool_timeout=10,
-        pool_pre_ping=True,
-        pool_recycle=240,
-        connect_args=connect_args,
-        echo=False
-    )
 else:
-    # Direct Supabase connection — small real pool.
-    # pool_timeout=3: fail fast so the circuit breaker trips in ~15s
-    # (5 failures × 3s) instead of 75s (5 × 15s).
     connect_args = {
+        "connect_timeout": 10,
         "keepalives": 1,
         "keepalives_idle": 30,
         "keepalives_interval": 10,
         "keepalives_count": 5,
-        "connect_timeout": 10,
     }
     if "sslmode" not in db_url:
         connect_args["sslmode"] = "require"
@@ -81,11 +49,16 @@ else:
         db_url,
         connect_args=connect_args,
         echo=False,
+        pool_size=POOL_SIZE,
+        max_overflow=MAX_OVERFLOW,
+        pool_timeout=POOL_TIMEOUT,
         pool_pre_ping=True,
         pool_recycle=240,
-        pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
-        max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "5")),
-        pool_timeout=float(os.getenv("DB_POOL_TIMEOUT", "3")),  # fast-fail
+    )
+    print(
+        f"[DB] Pooled engine: pool_size={POOL_SIZE} max_overflow={MAX_OVERFLOW} "
+        f"timeout={POOL_TIMEOUT}s pooler={IS_PGBOUNCER} (max {POOL_SIZE + MAX_OVERFLOW} conns)",
+        flush=True,
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -96,113 +69,130 @@ Base = declarative_base()
 DB_READY = False
 
 # ---------------------------------------------------------------------------
-# Circuit breaker ("automatic suspension")
+# Circuit breaker
 # ---------------------------------------------------------------------------
-# After DB_BREAKER_THRESHOLD consecutive failed requests, the breaker OPENS:
-# for DB_BREAKER_COOLDOWN seconds every request fails instantly with 503 and
-# NO connection attempts are made, giving Supabase room to recover. After the
-# cooldown ONE probe request is let through (half-open); if it succeeds the
-# breaker closes, otherwise it re-opens for another cooldown.
-BREAKER_THRESHOLD = int(os.getenv("DB_BREAKER_THRESHOLD", "3"))  # trip faster
-BREAKER_COOLDOWN = float(os.getenv("DB_BREAKER_COOLDOWN", "30"))
+# * It is driven by real connection-level errors (SQLAlchemy "handle_error"
+#   event), not by string-matching endpoint exceptions.
+# * It is enforced when a connection is CHECKED OUT (pool "checkout" event),
+#   not when a request starts. So endpoints that are served from a cache and
+#   never touch the DB keep working while the breaker is open.
+# * A good checkout (pre-ping already passed) closes the breaker again.
+BREAKER_THRESHOLD = int(os.getenv("DB_BREAKER_THRESHOLD", "5"))
+BREAKER_COOLDOWN = float(os.getenv("DB_BREAKER_COOLDOWN", "10"))
 
 _breaker_lock = threading.Lock()
-_breaker = {"failures": 0, "open_until": 0.0, "probing": False}
+_breaker = {"failures": 0, "open_until": 0.0}
 
 
 def _breaker_allow():
     """Returns (allowed, retry_after_seconds)."""
     now = time.monotonic()
     with _breaker_lock:
-        if _breaker["failures"] < BREAKER_THRESHOLD:
-            return True, 0
         if now < _breaker["open_until"]:
             return False, int(_breaker["open_until"] - now) + 1
-        if _breaker["probing"]:
-            return False, 1
-        _breaker["probing"] = True  # this request is the probe
         return True, 0
 
 
 def _breaker_success():
     with _breaker_lock:
-        if _breaker["failures"] >= BREAKER_THRESHOLD:
-            logger.warning("[DB] Circuit breaker CLOSED - database is reachable again.")
-            print("[DB] Circuit breaker CLOSED - database is reachable again.", flush=True)
+        was_tripped = _breaker["failures"] >= BREAKER_THRESHOLD
         _breaker["failures"] = 0
         _breaker["open_until"] = 0.0
-        _breaker["probing"] = False
+    if was_tripped:
+        print("[DB] Circuit breaker CLOSED - database is reachable again.", flush=True)
 
 
 def _breaker_failure():
     opened = False
+    now = time.monotonic()
     with _breaker_lock:
+        was_open = now < _breaker["open_until"]
         _breaker["failures"] += 1
-        _breaker["probing"] = False
         if _breaker["failures"] >= BREAKER_THRESHOLD:
-            _breaker["open_until"] = time.monotonic() + BREAKER_COOLDOWN
-            opened = _breaker["failures"] == BREAKER_THRESHOLD
+            _breaker["open_until"] = now + BREAKER_COOLDOWN
+            opened = not was_open
     if opened:
-        msg = (f"[DB] Circuit breaker OPEN - pausing all DB access for "
-               f"{BREAKER_COOLDOWN:.0f}s after {BREAKER_THRESHOLD} consecutive failures.")
-        logger.error(msg)
-        print(msg, flush=True)
-    if _breaker["failures"] >= BREAKER_THRESHOLD:
+        print(
+            f"[DB] Circuit breaker OPEN - no new DB connections for {BREAKER_COOLDOWN:.0f}s "
+            f"after {BREAKER_THRESHOLD} connection failures.",
+            flush=True,
+        )
         try:
-            engine.dispose()  # drop any dead pooled connections
+            engine.dispose()  # release our pooled client connections
         except Exception:
             pass
 
 
 def db_breaker_status() -> dict:
     """For a health endpoint."""
+    now = time.monotonic()
     with _breaker_lock:
-        now = time.monotonic()
-        is_open = _breaker["failures"] >= BREAKER_THRESHOLD and now < _breaker["open_until"]
+        is_open = now < _breaker["open_until"]
         return {
-            "state": "open" if is_open else ("half-open" if _breaker["failures"] >= BREAKER_THRESHOLD else "closed"),
+            "state": "open" if is_open else "closed",
             "consecutive_failures": _breaker["failures"],
             "retry_in_seconds": max(0, int(_breaker["open_until"] - now)) if is_open else 0,
         }
 
 
-def get_db():
-    """
-    FastAPI dependency that provides a SQLAlchemy session lazily.
-    Errors during the request will update the circuit breaker.
-    """
-    from fastapi import HTTPException
-
+def _raise_if_breaker_open():
     allowed, retry_after = _breaker_allow()
     if not allowed:
+        # Not wrapped by SQLAlchemy; FastAPI turns it into a clean 503.
         raise HTTPException(
             status_code=503,
             detail="Database temporarily unavailable. Please retry shortly.",
             headers={"Retry-After": str(retry_after)},
         )
 
+
+@event.listens_for(engine, "do_connect")
+def _on_do_connect(dialect, conn_rec, cargs, cparams):
+    # Fires BEFORE a new DBAPI connection is opened. While the breaker is
+    # open we make no connection attempts at all (this is what protects the
+    # Supabase pooler when it is answering EMAXCONN / dropping SSL).
+    _raise_if_breaker_open()
+
+
+@event.listens_for(engine, "checkout")
+def _on_checkout(dbapi_connection, connection_record, connection_proxy):
+    # Fires after pre-ping passed, for new AND reused connections.
+    _raise_if_breaker_open()
+    _breaker_success()
+
+
+@event.listens_for(engine, "handle_error")
+def _on_db_error(ctx):
+    se = ctx.sqlalchemy_exception
+    if ctx.is_disconnect or isinstance(se, (OperationalError, InterfaceError)):
+        _breaker_failure()
+
+
+def register_db_exception_handlers(app):
+    """Call once in main.py right after `app = FastAPI(...)`.
+    Turns DB connection/pool errors into a clean 503 + Retry-After
+    instead of a 500 with a traceback."""
+    from fastapi.responses import JSONResponse
+
+    async def _handler(request, exc):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Database temporarily unavailable. Please retry shortly."},
+            headers={"Retry-After": "3"},
+        )
+
+    for exc_cls in (SAPoolTimeoutError, OperationalError, InterfaceError):
+        app.add_exception_handler(exc_cls, _handler)
+
+
+def get_db():
+    """
+    FastAPI dependency: a lazy session. No connection is taken until the
+    endpoint actually runs a query, so cache hits cost nothing.
+    """
     db = SessionLocal()
     try:
         yield db
-        _breaker_success()
-    except Exception as e:
-        err_str = str(e).lower()
-        is_transient = (
-            "ssl" in err_str
-            or "connection" in err_str
-            or "timeout" in err_str
-            or "could not connect" in err_str
-            or "too many clients" in err_str
-            or "remaining connection slots" in err_str
-            or "max clients" in err_str
-            or "queuepool limit" in err_str
-            or "overflow" in err_str
-            or "emaxconn" in err_str
-            or "max_client_conn" in err_str
-        )
-        if is_transient:
-            _breaker_failure()
-        raise
     finally:
         try:
             db.close()

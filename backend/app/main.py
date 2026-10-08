@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.database import init_db_async, SessionLocal
+from app.database import init_db_async, SessionLocal, register_db_exception_handlers
 from app.api import auth, users, teams, hackathons, audit, cases, challenges, executions, submissions, judging, leaderboard, arena, registrations, prompt_bank, webhook
 from app.services.google_sheets import GoogleSheetsService
 from app.services.registration_sync import RegistrationSyncService
@@ -52,6 +52,7 @@ app = FastAPI(
     redirect_slashes=False,
     lifespan=lifespan
 )
+register_db_exception_handlers(app)
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
