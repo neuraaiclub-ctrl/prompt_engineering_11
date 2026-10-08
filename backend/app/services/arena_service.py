@@ -791,9 +791,15 @@ class ArenaService:
             db.flush()
 
             # Compute instant Evaluation Engine scores (5 dimensions: 0, 10, 20 marks each)
-            def _analyze_text(txt, challenge_title=""):
+            def _analyze_text(txt, challenge_title="", original_bad_prompt=""):
                 if not txt or len(txt.strip()) < 8:
                     return [0, 0, 0, 0, 0]
+                
+                import difflib
+                if original_bad_prompt:
+                    seq = difflib.SequenceMatcher(None, txt.strip().lower(), original_bad_prompt.strip().lower())
+                    if seq.ratio() > 0.85:
+                        return [0, 0, 0, 0, 0]
                 
                 lower = txt.lower()
                 import re
@@ -867,7 +873,7 @@ class ArenaService:
 
                 return [map_s(clarity), map_s(specificity), map_s(context), map_s(fmt), map_s(constraints)]
 
-            scores = _analyze_text(normalized_prompt, prompt_item.title if prompt_item else "")
+            scores = _analyze_text(normalized_prompt, prompt_item.title if prompt_item else "", prompt_item.original_bad_prompt if prompt_item else "")
             tot = sum(scores)
 
             from app.models.arena_scoring import ArenaFinalScore
