@@ -4,6 +4,7 @@ import logging
 import threading
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import NullPool
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,15 @@ if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
 
 IS_SQLITE = db_url.startswith("sqlite")
+
+# Supabase provides a PgBouncer transaction-mode pooler on port 6543.
+# When using it, SQLAlchemy must NOT maintain its own pool — PgBouncer
+# already multiplexes hundreds of app connections onto a few real DB
+# connections. Using NullPool here means every SQLAlchemy checkout opens
+# a fresh PgBouncer connection (which is cheap) and returns it immediately.
+IS_PGBOUNCER = ":6543" in db_url or os.getenv("USE_PGBOUNCER", "0") == "1"
+if IS_PGBOUNCER:
+    print("[DB] PgBouncer/pooler URL detected — using NullPool.", flush=True)
 
 # ---------------------------------------------------------------------------
 # Engine
@@ -29,7 +39,22 @@ if IS_SQLITE:
         connect_args={"check_same_thread": False},
         echo=False,
     )
+elif IS_PGBOUNCER:
+    # PgBouncer (transaction mode) — NullPool, no keepalives, no pre-ping
+    # (pre-ping is incompatible with transaction-mode poolers).
+    connect_args = {"connect_timeout": 10}
+    if "sslmode" not in db_url:
+        connect_args["sslmode"] = "require"
+    engine = create_engine(
+        db_url,
+        connect_args=connect_args,
+        echo=False,
+        poolclass=NullPool,
+    )
 else:
+    # Direct Supabase connection — small real pool.
+    # pool_timeout=3: fail fast so the circuit breaker trips in ~15s
+    # (5 failures × 3s) instead of 75s (5 × 15s).
     connect_args = {
         "keepalives": 1,
         "keepalives_idle": 30,
@@ -44,11 +69,11 @@ else:
         db_url,
         connect_args=connect_args,
         echo=False,
-        pool_pre_ping=True,      # test connection before use, replace if dead
-        pool_recycle=240,        # recycle before Supabase/pooler idles it out
+        pool_pre_ping=True,
+        pool_recycle=240,
         pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
         max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "5")),
-        pool_timeout=15,
+        pool_timeout=float(os.getenv("DB_POOL_TIMEOUT", "3")),  # fast-fail
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -66,7 +91,7 @@ DB_READY = False
 # NO connection attempts are made, giving Supabase room to recover. After the
 # cooldown ONE probe request is let through (half-open); if it succeeds the
 # breaker closes, otherwise it re-opens for another cooldown.
-BREAKER_THRESHOLD = int(os.getenv("DB_BREAKER_THRESHOLD", "5"))
+BREAKER_THRESHOLD = int(os.getenv("DB_BREAKER_THRESHOLD", "3"))  # trip faster
 BREAKER_COOLDOWN = float(os.getenv("DB_BREAKER_COOLDOWN", "30"))
 
 _breaker_lock = threading.Lock()
@@ -172,6 +197,8 @@ def get_db():
                 or "too many clients" in err_str
                 or "remaining connection slots" in err_str
                 or "max clients" in err_str
+                or "queuepool limit" in err_str   # pool exhausted
+                or "overflow" in err_str           # pool overflow hit
             )
             if is_transient and attempt < MAX_RETRIES - 1:
                 wait = 0.3 * (2 ** attempt)
