@@ -24,8 +24,8 @@ IS_PGBOUNCER = ":6543" in db_url or os.getenv("USE_PGBOUNCER", "0") == "1"
 # Max connections this instance can ever hold = POOL_SIZE + MAX_OVERFLOW.
 # (Never NullPool: it has no ceiling and caused EMAXCONN on the pooler.)
 # ---------------------------------------------------------------------------
-POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "4"))
-MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "4"))
+POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
+MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10"))
 POOL_TIMEOUT = float(os.getenv("DB_POOL_TIMEOUT", "5"))
 
 if IS_SQLITE:
