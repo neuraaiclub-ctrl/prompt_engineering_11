@@ -3,6 +3,7 @@ import json
 import random
 import threading
 import uuid
+import concurrent.futures
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
@@ -169,16 +170,17 @@ def _groq_eval_worker(submission_id: str, submitted_prompt: str, original_bad_pr
         pass   # Never crash submission because of background scoring failure
 
 
+# Global thread pool for bounded LLM evaluation queue
+_groq_executor = concurrent.futures.ThreadPoolExecutor(max_workers=5, thread_name_prefix="GroqEval")
+
 def _fire_groq_eval(submission_id: str, submitted_prompt: str, original_bad_prompt: str,
                      expected_good_prompt: str, challenge_title: str, category: str):
-    """Spawn a daemon thread to run Groq eval without blocking the API response."""
-    t = threading.Thread(
-        target=_groq_eval_worker,
-        args=(submission_id, submitted_prompt, original_bad_prompt,
-              expected_good_prompt, challenge_title, category),
-        daemon=True
+    """Queue a background task to run Groq eval without blocking the API response or overwhelming the server."""
+    _groq_executor.submit(
+        _groq_eval_worker,
+        submission_id, submitted_prompt, original_bad_prompt,
+        expected_good_prompt, challenge_title, category
     )
-    t.start()
 
 
 class ArenaService:
