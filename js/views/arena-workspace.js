@@ -307,6 +307,7 @@ function renderChallenge(container, res) {
       </header>
 
       <div class="ar-notice" id="arenaSecurityBanner" role="status" ${securityViolationCount > 0 ? '' : 'hidden'}></div>
+      <div class="ar-notice" id="arenaWarningBanner" role="status" hidden style="background: rgba(251, 191, 36, 0.15); border-color: rgba(251, 191, 36, 0.45); color: var(--text);"></div>
 
       <main class="ar-bench">
         <!-- LEFT: the case file -->
@@ -838,11 +839,22 @@ function triggerSecurityAlert(message) {
   const banner = document.getElementById('arenaSecurityBanner');
   if (!banner) return;
   banner.hidden = false;
+  const now = new Date();
+  const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   banner.innerHTML = `
-    <span><strong>Logged:</strong> ${escapeHtml(message)} That’s ${securityViolationCount} on record. Every event is visible to the judges.</span>
-    <button class="btn btn-sm btn-ghost" id="btnDismissNotice">Dismiss</button>`;
+    <span><strong>Logged:</strong> ${escapeHtml(message)} That’s ${securityViolationCount} on record. Every event is visible to the judges. - Last attempt at: ${timeString}</span>`;
   banner.classList.remove('flash'); void banner.offsetWidth; banner.classList.add('flash');
-  banner.querySelector('#btnDismissNotice')?.addEventListener('click', () => { banner.hidden = true; });
+}
+
+function triggerWarningAlert(message) {
+  const banner = document.getElementById('arenaWarningBanner');
+  if (!banner) return;
+  banner.hidden = false;
+  const now = new Date();
+  const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  banner.innerHTML = `
+    <span><strong>Warning:</strong> ${escapeHtml(message)} - Last attempt at: ${timeString}</span>`;
+  banner.classList.remove('flash'); void banner.offsetWidth; banner.classList.add('flash');
 }
 
 /* ==========================================================================
