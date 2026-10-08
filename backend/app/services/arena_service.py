@@ -269,6 +269,12 @@ class ArenaService:
                 rng.shuffle(sampled)
             else:
                 sampled = rng.sample(all_prompts, 5)
+
+            # Check for title repetitions (e.g., easy vs hard version of the same prompt)
+            titles = [p.title.strip().lower() for p in sampled]
+            if len(set(titles)) < len(sampled) and salt_idx < 500:
+                salt_idx += 1
+                continue
                 
             candidate = [p.id for p in sampled]
             if tuple(candidate) not in assigned_sets or salt_idx > 1000:
