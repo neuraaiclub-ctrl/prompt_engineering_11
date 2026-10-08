@@ -1019,7 +1019,7 @@ class ArenaService:
                 "original_bad_prompt": p.original_bad_prompt if p else "",
                 "bad_output_evidence": p.bad_output_evidence if p else "",
                 "submitted_prompt": sub.submitted_prompt,
-                "submitted_at": sub.server_timestamp.isoformat(), # Phase 0 / Defect #6: ISO-8601
+                "submitted_at": sub.server_timestamp.isoformat() + "Z", # Phase 0 / Defect #6: ISO-8601
                 "is_evaluated": eval_record is not None, # Phase 0 / Defect #6: UI expects is_evaluated
                 "evaluation": {
                     "clarity_score": eval_record.clarity_score,
@@ -1042,7 +1042,7 @@ class ArenaService:
                 "event_type": ev.event_type,
                 "violation_count": ev.violation_count,
                 "metadata": ev.client_metadata, # Phase 0 / Defect #6: UI expects metadata
-                "timestamp": ev.created_at.isoformat() # Phase 0 / Defect #6: ISO-8601
+                "timestamp": ev.created_at.isoformat() + "Z" # Phase 0 / Defect #6: ISO-8601
             })
         flagged_list = [{
             "team_id": tid,

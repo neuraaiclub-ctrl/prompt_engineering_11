@@ -565,10 +565,18 @@ function confirmLock({ idx, isLast, chars, hasNote }, onConfirm) {
    ========================================================================== */
 function syncClock(status) {
   let next = null;
-  if (typeof status.remaining_seconds === 'number') next = Date.now() + status.remaining_seconds * 1000;
-  else if (status.ends_at || status.end_time) {
-    const t = Date.parse(status.ends_at || status.end_time);
-    if (!Number.isNaN(t)) next = t;
+  if (typeof status.remaining_seconds === 'number') {
+    next = Date.now() + status.remaining_seconds * 1000;
+  } else if (status.ends_at || status.end_time) {
+    let t = Date.parse(status.ends_at || status.end_time);
+    if (!Number.isNaN(t)) {
+      if (status.server_time) {
+         const serverNow = Date.parse(status.server_time);
+         const drift = serverNow - Date.now();
+         t = t - drift;
+      }
+      next = t;
+    }
   }
   endsAt = next;
 }
