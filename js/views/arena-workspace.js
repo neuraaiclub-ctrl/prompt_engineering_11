@@ -201,7 +201,7 @@ function renderStandby(container) {
   container.innerHTML = `
     <div class="ar-standby">
       <div class="ar-standby-main">
-        <p class="ar-standby-team">${escapeHtml(user.affiliation || user.name || 'Your team')}</p>
+        <p class="ar-standby-team">${escapeHtml(user.team_name || user.name || 'Your team')}</p>
         <h1 class="heading-xl">Standing by</h1>
         <p class="ar-standby-sub">
           The arena opens for every team at the same moment. Keep this tab open and it will start on its own.
@@ -282,7 +282,7 @@ function renderChallenge(container, res) {
       <header class="ar-hud">
         <div class="ar-hud-team">
           <span class="ar-hud-mark" aria-hidden="true">N</span>
-          <span class="ar-hud-name">${escapeHtml(user.affiliation || user.name || 'Team')}</span>
+          <span class="ar-hud-name">${escapeHtml(user.team_name || user.name || 'Team')}</span>
         </div>
 
         <ol class="ar-rail" aria-label="Progress: prompt ${idx} of 5">
@@ -606,7 +606,7 @@ function renderCompleted(container, res) {
         </ol>
         <h1 class="heading-xl">All five locked</h1>
         <p class="ar-done-sub">
-          ${escapeHtml(user.affiliation || user.name || 'Your team')}’s prompts are stored and timestamped. The judges are scoring them now.
+          ${escapeHtml(user.team_name || user.name || 'Your team')}’s prompts are stored and timestamped. The judges are scoring them now.
           Your report appears here as soon as results are released.
         </p>
         <p class="ar-waiting" role="status">

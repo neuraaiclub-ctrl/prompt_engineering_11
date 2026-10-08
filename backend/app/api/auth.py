@@ -90,6 +90,11 @@ def login(request: Request, payload: LoginSchema, db: Session = Depends(get_db))
     # Resolve Team Membership
     team_member = db.query(TeamMember).filter(TeamMember.user_id == user.id).first()
     team_id = team_member.team_id if team_member else None
+    team_name = None
+    if team_id:
+        team = db.query(Team).filter(Team.id == team_id).first()
+        if team:
+            team_name = team.name
 
     # Transparently upgrade legacy password hash to salted PBKDF2
     if is_legacy_hash(user.password_hash):
@@ -114,7 +119,8 @@ def login(request: Request, payload: LoginSchema, db: Session = Depends(get_db))
             "name": user.name,
             "email": user.email,
             "roles": roles,
-            "team_id": team_id
+            "team_id": team_id,
+            "team_name": team_name
         }
     }
 

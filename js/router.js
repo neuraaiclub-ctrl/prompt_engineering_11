@@ -140,7 +140,7 @@ export class Router {
         roleBadge.textContent = role === 'participant' ? 'Team' : role.charAt(0).toUpperCase() + role.slice(1);
         roleBadge.dataset.role = role;
         const u = store.data.currentUser;
-        userName.textContent = (role === 'participant' && u?.affiliation) ? u.affiliation : (u?.name || u?.email || role);
+        userName.textContent = (role === 'participant' && u?.team_name) ? u.team_name : (u?.name || u?.email || role);
       } else {
         sessionWrap.style.display = 'none';
       }
