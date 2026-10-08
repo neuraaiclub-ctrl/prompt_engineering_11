@@ -83,9 +83,16 @@ async function refresh(container, isBackground = false) {
       return;
     }
 
-    if (st === 'waiting') return show(container, 'standby', () => renderStandby(container));
-
+    // Always fetch my-challenge even if waiting, so we can pull the live team_name
     const res = await store.getMyArenaChallenge();
+    
+    // Sync navbar with fresh team name immediately (avoids needing a relogin)
+    if (res && res.team_name) {
+      const navName = document.getElementById('navUserName');
+      if (navName && store.data.activeRole === 'participant') {
+        navName.textContent = res.team_name;
+      }
+    }
     if (!res.success) {
       if (res.status === 'eliminated' || (res.error && res.error.toLowerCase().includes('eliminated'))) {
         return show(container, 'eliminated', () => renderEliminated(container, res));
@@ -101,7 +108,7 @@ async function refresh(container, isBackground = false) {
     }
     if (competitionStatus === 'waiting' || !res.challenge) {
       // Arena started globally but team session hasn't received a challenge yet — stay on standby
-      return show(container, 'standby', () => renderStandby(container));
+      return show(container, 'standby', () => renderStandby(container, res));
     }
     if (res.is_completed || res.is_arena_completed || competitionStatus === 'completed') {
       return show(container, 'done', () => renderCompleted(container, res));
@@ -196,12 +203,13 @@ function renderEliminated(container, data) {
 /* ==========================================================================
    STAND-BY
    ========================================================================== */
-function renderStandby(container) {
+function renderStandby(container, res = {}) {
   const user = store.data.currentUser || {};
+  const teamName = res.team_name || user.team_name || user.name || 'Your team';
   container.innerHTML = `
     <div class="ar-standby">
       <div class="ar-standby-main">
-        <p class="ar-standby-team">${escapeHtml(user.team_name || user.name || 'Your team')}</p>
+        <p class="ar-standby-team">${escapeHtml(teamName)}</p>
         <h1 class="heading-xl">Standing by</h1>
         <p class="ar-standby-sub">
           The arena opens for every team at the same moment. Keep this tab open and it will start on its own.
@@ -282,7 +290,7 @@ function renderChallenge(container, res) {
       <header class="ar-hud">
         <div class="ar-hud-team">
           <span class="ar-hud-mark" aria-hidden="true">N</span>
-          <span class="ar-hud-name">${escapeHtml(user.team_name || user.name || 'Team')}</span>
+          <span class="ar-hud-name">${escapeHtml(res.team_name || user.team_name || user.name || 'Team')}</span>
         </div>
 
         <ol class="ar-rail" aria-label="Progress: prompt ${idx} of 5">
@@ -606,7 +614,7 @@ function renderCompleted(container, res) {
         </ol>
         <h1 class="heading-xl">All five locked</h1>
         <p class="ar-done-sub">
-          ${escapeHtml(user.team_name || user.name || 'Your team')}’s prompts are stored and timestamped. The judges are scoring them now.
+          ${escapeHtml(res.team_name || user.team_name || user.name || 'Your team')}’s prompts are stored and timestamped. The judges are scoring them now.
           Your report appears here as soon as results are released.
         </p>
         <p class="ar-waiting" role="status">
