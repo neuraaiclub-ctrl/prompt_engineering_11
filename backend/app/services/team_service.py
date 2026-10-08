@@ -110,10 +110,10 @@ class TeamService:
                 detail="Teams are locked for this round. Roster changes disabled."
             )
 
-        if len(team.members) >= 4:
+        if len(team.members) >= 2:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Team has reached maximum capacity (4 members)"
+                detail="Team has reached maximum capacity (2 members)"
             )
 
         team_member = TeamMember(team_id=team.id, user_id=current_user.id, role="member")
@@ -145,10 +145,10 @@ class TeamService:
                 detail="College / Institution name is required and cannot be blank."
             )
 
-        if len(raw_members) < 1 or len(raw_members) > 4:
+        if len(raw_members) < 1 or len(raw_members) > 2:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"Team must have between 1 and 4 members (received {len(raw_members)})."
+                detail=f"Team must have between 1 and 2 members (received {len(raw_members)})."
             )
 
         lower_members = [m.lower() for m in raw_members]

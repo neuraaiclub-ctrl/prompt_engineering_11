@@ -6,7 +6,7 @@ Welcome to the NEURA Prompt Engineering Hackathon! To ensure a fair, competitive
 ---
 
 ### 1. General Conduct
-- **Collaboration**: You may collaborate strictly within your registered team of 1-4 members. 
+- **Collaboration**: You may collaborate strictly within your registered team of 1-2 members. 
 - **Professionalism**: Maintain professional and respectful behavior. Harassment, discrimination, or abusive language will result in immediate disqualification.
 - **Integrity**: The objective is to demonstrate human prompt engineering skills. Attempting to bypass the scoring system, attacking the judging LLM (e.g., prompt injection attacks), or disrupting the platform for other participants is strictly prohibited.
 
