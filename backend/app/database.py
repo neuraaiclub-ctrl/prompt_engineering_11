@@ -40,17 +40,28 @@ if IS_SQLITE:
         echo=False,
     )
 elif IS_PGBOUNCER:
-    # PgBouncer (transaction mode) — NullPool, no keepalives, no pre-ping
-    # With caching in place, NullPool avoids EMAXCONN limits while preventing
-    # idle pooled connections from silently dropping and causing SSL errors.
-    connect_args = {"connect_timeout": 10}
-    if "sslmode" not in db_url:
-        connect_args["sslmode"] = "require"
+    # PgBouncer transaction mode — use a hard-capped real pool.
+    # Unbounded NullPool creates too many connections under load.
+    connect_args = {
+        "sslmode": "require",
+        "connect_timeout": 10,
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5
+    }
+    if "sslmode" in db_url:
+        del connect_args["sslmode"]
+        
     engine = create_engine(
         db_url,
+        pool_size=4,
+        max_overflow=4,   # max 8 per instance
+        pool_timeout=10,
+        pool_pre_ping=True,
+        pool_recycle=240,
         connect_args=connect_args,
-        echo=False,
-        poolclass=NullPool,
+        echo=False
     )
 else:
     # Direct Supabase connection — small real pool.
@@ -157,9 +168,8 @@ def db_breaker_status() -> dict:
 
 def get_db():
     """
-    FastAPI dependency that provides a SQLAlchemy session.
-    Checks out a (pre-pinged) connection up front and retries briefly on
-    transient errors, then yields the session.
+    FastAPI dependency that provides a SQLAlchemy session lazily.
+    Errors during the request will update the circuit breaker.
     """
     from fastapi import HTTPException
 
@@ -171,63 +181,28 @@ def get_db():
             headers={"Retry-After": str(retry_after)},
         )
 
-    MAX_RETRIES = 2
-    db = None
-    last_err = None
-
-    for attempt in range(MAX_RETRIES):
-        try:
-            db = SessionLocal()
-            db.connection()  # checks out a pooled connection (pre-ping applies)
-            _breaker_success()
-            break
-        except Exception as e:
-            if db is not None:
-                try:
-                    db.close()
-                except Exception:
-                    pass
-                db = None
-            last_err = e
-            err_str = str(e).lower()
-            is_transient = (
-                "ssl" in err_str
-                or "connection" in err_str
-                or "timeout" in err_str
-                or "could not connect" in err_str
-                or "too many clients" in err_str
-                or "remaining connection slots" in err_str
-                or "max clients" in err_str
-                or "queuepool limit" in err_str
-                or "overflow" in err_str
-                or "emaxconn" in err_str      # PgBouncer max client connections
-                or "max_client_conn" in err_str
-            )
-            if is_transient and attempt < MAX_RETRIES - 1:
-                wait = 0.3 * (2 ** attempt)
-                logger.warning(
-                    f"[DB] Transient connection error (attempt {attempt+1}/{MAX_RETRIES}), "
-                    f"retrying in {wait:.1f}s: {e}"
-                )
-                time.sleep(wait)
-            else:
-                _breaker_failure()
-                raise HTTPException(
-                    status_code=503,
-                    detail="Database temporarily unavailable. Please retry.",
-                    headers={"Retry-After": "5"},
-                ) from e
-
-    if db is None:
-        _breaker_failure()
-        raise HTTPException(
-            status_code=503,
-            detail="Database temporarily unavailable. Please retry.",
-            headers={"Retry-After": "5"},
-        ) from last_err
-
+    db = SessionLocal()
     try:
         yield db
+        _breaker_success()
+    except Exception as e:
+        err_str = str(e).lower()
+        is_transient = (
+            "ssl" in err_str
+            or "connection" in err_str
+            or "timeout" in err_str
+            or "could not connect" in err_str
+            or "too many clients" in err_str
+            or "remaining connection slots" in err_str
+            or "max clients" in err_str
+            or "queuepool limit" in err_str
+            or "overflow" in err_str
+            or "emaxconn" in err_str
+            or "max_client_conn" in err_str
+        )
+        if is_transient:
+            _breaker_failure()
+        raise
     finally:
         try:
             db.close()
