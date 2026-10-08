@@ -40,12 +40,9 @@ if IS_SQLITE:
         echo=False,
     )
 elif IS_PGBOUNCER:
-    # PgBouncer transaction mode — use a SMALL real pool, NOT NullPool.
-    # NullPool opens one PgBouncer client connection per request; with
-    # 50 concurrent users polling rapidly this saturates PgBouncer's
-    # 200-client limit (EMAXCONN). A small pool caps total PgBouncer
-    # client connections at pool_size+max_overflow regardless of concurrency.
-    # pool_pre_ping is safe in transaction mode (SELECT 1 has no side effects).
+    # PgBouncer (transaction mode) — NullPool, no keepalives, no pre-ping
+    # With caching in place, NullPool avoids EMAXCONN limits while preventing
+    # idle pooled connections from silently dropping and causing SSL errors.
     connect_args = {"connect_timeout": 10}
     if "sslmode" not in db_url:
         connect_args["sslmode"] = "require"
@@ -53,11 +50,7 @@ elif IS_PGBOUNCER:
         db_url,
         connect_args=connect_args,
         echo=False,
-        pool_pre_ping=True,
-        pool_recycle=120,          # recycle frequently; PgBouncer is ephemeral
-        pool_size=int(os.getenv("DB_POOL_SIZE", "3")),
-        max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "7")),  # 10 total max
-        pool_timeout=float(os.getenv("DB_POOL_TIMEOUT", "3")),
+        poolclass=NullPool,
     )
 else:
     # Direct Supabase connection — small real pool.
