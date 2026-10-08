@@ -29,7 +29,11 @@ else:
 engine_kwargs = {"connect_args": connect_args, "echo": False}
 if not db_url.startswith("sqlite"):
     engine_kwargs.update({
-        "poolclass": NullPool
+        "pool_pre_ping": True,
+        "pool_size": 20,
+        "max_overflow": 40,
+        "pool_recycle": 300,
+        "pool_timeout": 30
     })
 
 engine = create_engine(db_url, **engine_kwargs)
