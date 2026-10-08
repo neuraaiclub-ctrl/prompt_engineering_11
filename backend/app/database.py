@@ -40,8 +40,12 @@ if IS_SQLITE:
         echo=False,
     )
 elif IS_PGBOUNCER:
-    # PgBouncer (transaction mode) — NullPool, no keepalives, no pre-ping
-    # (pre-ping is incompatible with transaction-mode poolers).
+    # PgBouncer transaction mode — use a SMALL real pool, NOT NullPool.
+    # NullPool opens one PgBouncer client connection per request; with
+    # 50 concurrent users polling rapidly this saturates PgBouncer's
+    # 200-client limit (EMAXCONN). A small pool caps total PgBouncer
+    # client connections at pool_size+max_overflow regardless of concurrency.
+    # pool_pre_ping is safe in transaction mode (SELECT 1 has no side effects).
     connect_args = {"connect_timeout": 10}
     if "sslmode" not in db_url:
         connect_args["sslmode"] = "require"
@@ -49,7 +53,11 @@ elif IS_PGBOUNCER:
         db_url,
         connect_args=connect_args,
         echo=False,
-        poolclass=NullPool,
+        pool_pre_ping=True,
+        pool_recycle=120,          # recycle frequently; PgBouncer is ephemeral
+        pool_size=int(os.getenv("DB_POOL_SIZE", "3")),
+        max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "7")),  # 10 total max
+        pool_timeout=float(os.getenv("DB_POOL_TIMEOUT", "3")),
     )
 else:
     # Direct Supabase connection — small real pool.
@@ -197,8 +205,10 @@ def get_db():
                 or "too many clients" in err_str
                 or "remaining connection slots" in err_str
                 or "max clients" in err_str
-                or "queuepool limit" in err_str   # pool exhausted
-                or "overflow" in err_str           # pool overflow hit
+                or "queuepool limit" in err_str
+                or "overflow" in err_str
+                or "emaxconn" in err_str      # PgBouncer max client connections
+                or "max_client_conn" in err_str
             )
             if is_transient and attempt < MAX_RETRIES - 1:
                 wait = 0.3 * (2 ** attempt)
@@ -487,6 +497,6 @@ def init_db_async():
     return t
 
 
-# Initialise in the background on module import. The port now opens right
-# away instead of the whole process dying if the DB is down at boot.
-init_db_async()
+# NOTE: init_db_async() is called by main.py lifespan only.
+# Do NOT call it here — a second call would spawn a duplicate init thread
+# competing for connections during startup.
