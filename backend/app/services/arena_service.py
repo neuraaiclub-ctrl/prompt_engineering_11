@@ -2,6 +2,7 @@ import hashlib
 import json
 import random
 import threading
+import time
 import uuid
 import concurrent.futures
 from datetime import datetime, timedelta
@@ -296,8 +297,36 @@ class ArenaService:
             "active_dataset_tag": conf.active_dataset_tag
         }}
 
+    _status_cache = {}
+    _status_cache_lock = threading.Lock()
+    STATUS_CACHE_TTL = 1.0
+
+    _challenge_cache = {}
+    _challenge_cache_lock = threading.Lock()
+    CHALLENGE_CACHE_TTL = 1.0
+
     @classmethod
     def get_status(cls, db: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
+        user_key = current_user.id if current_user else "guest"
+        now_ts = time.time()
+        
+        with cls._status_cache_lock:
+            cached = cls._status_cache.get(user_key)
+            if cached and now_ts - cached[0] < cls.STATUS_CACHE_TTL:
+                return cached[1]
+                
+        response = cls._get_status_impl(db, current_user)
+        
+        with cls._status_cache_lock:
+            # Prevent unbounded memory growth if many users
+            if len(cls._status_cache) > 2000:
+                cls._status_cache.clear()
+            cls._status_cache[user_key] = (now_ts, response)
+            
+        return response
+
+    @classmethod
+    def _get_status_impl(cls, db: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
         conf = cls.get_or_create_config(db)
         server_now = datetime.utcnow()
 
@@ -616,6 +645,23 @@ class ArenaService:
 
     @classmethod
     def get_my_challenge(cls, db: Session, current_user: User) -> Dict[str, Any]:
+        now_ts = time.time()
+        with cls._challenge_cache_lock:
+            cached = cls._challenge_cache.get(current_user.id)
+            if cached and now_ts - cached[0] < cls.CHALLENGE_CACHE_TTL:
+                return cached[1]
+                
+        response = cls._get_my_challenge_impl(db, current_user)
+        
+        with cls._challenge_cache_lock:
+            if len(cls._challenge_cache) > 2000:
+                cls._challenge_cache.clear()
+            cls._challenge_cache[current_user.id] = (now_ts, response)
+            
+        return response
+
+    @classmethod
+    def _get_my_challenge_impl(cls, db: Session, current_user: User) -> Dict[str, Any]:
         team = cls.get_user_team(db, current_user)
         if not team:
             raise HTTPException(status_code=403, detail="User is not associated with an active participating team.")
