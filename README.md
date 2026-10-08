@@ -432,3 +432,5 @@ Team Workspace & Tournament Arena
 6. **Admin Registration Control Panel**:
    - Admin UI displays Google Sheets connection status, stats overview counters, upload modal, inline actions (`Verify`, `Reject`, `Provision Account`, `Reset Passcode`, `Disable`), and CSV export.
 
+#   N E U R A _ L e a d e r b o a r d  
+ 
